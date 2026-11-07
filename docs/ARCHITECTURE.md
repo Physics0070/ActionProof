@@ -183,8 +183,9 @@ check above applies unchanged. The operator binds the `Principal` when building 
 arguments never carry identity. Documents come from the Gate's `docs_provider` (the operator's document store); the
 agent only cites doc ids and hashes. The model sees only text: `PrepareResult.card()` plus a status line
 (`commit: EXECUTED` / `commit: DENY` + reasons, `request_hash` + `PENDING_REVIEW`, or DENY reasons). A REVIEW receipt
-goes to an operator-side pending dict keyed by `request_hash` (`# ponytail`: in-process; upgrade path is a gate-side
-pending store), never into the tool output. Any exception is a DENY AP-ERR-11 / G1 card (type name only).
+goes to `pending_reviews` through `review.park` when the operator passes `review_db=<conn factory>` (the same store
+the MCP server uses), else to an operator-side pending dict keyed by `request_hash` (`# ponytail`: in-process), never
+into the tool output. Any exception is a DENY AP-ERR-11 / G1 card (type name only).
 
 One design, two entry points sharing one call path (`_run`):
 - `gate_tool(gate, principal, name, description, args_schema=None, *, pending=None)`: the call is the ActionRequest
@@ -197,6 +198,32 @@ One design, two entry points sharing one call path (`_run`):
   that step reuses the guarantee instead of re-implementing it. Limitation: the original tool must be
   idempotent-keyed (take the request's idempotency key and dedupe), because after an unknown outcome (burn,
   ADR-014) only the tool can know whether its effect happened; and the agent must be given only the wrapped tool.
+
+## Phase 5 status: MCP server (`src/actionproof/server.py`, deck S3.2 / S7.1, ADR-004, ADR-012)
+The default-deny front door. Built on the `mcp` 2.x lowlevel `Server` (not `MCPServer`): every `tools/call`, including
+an unknown name, reaches one handler, so a refusal is ours to shape and audit. Tool logic lives in `App.call`
+(transport-independent, never raises, never returns a secret); `build_server(app, principal_of)` adapts it to MCP.
+- Tools: `payments_approve_invoice` / `payments_refund_payment` (MCP-safe names for the registry tools
+  `payments.approve_invoice` / `payments.refund_payment`), read-only `extract_fields` and `review_status`. No
+  resources, no prompts, no approval tool. Anything else, or arguments that fail the strict ActionRequest contract,
+  is `refused` (AP-VER-01 / G1), never prepared, and written to the audit chain as kind `refuse`.
+- Principal (ADR-012): stdio = `ACTIONPROOF_ACTOR` / `ACTIONPROOF_ON_BEHALF_OF` from the operator's client config,
+  fixed at startup; HTTP = the `api_clients` row of the bearer token (sha256 stored; an `Origin` header is 403, no
+  token is 401, before MCP). The gate then DENYs a body naming anyone else (AP-SCOPE-02).
+- Flow: ActionRequest JSON -> `Gate.prepare` with the SERVER's documents (`DOCS_DIR` + manifest; doc ids are dict
+  keys, never paths). DENY -> reasons + card. ALLOW -> `Gate.commit` in the same call. REVIEW -> `review.park`
+  stores `{request_hash, request, receipt, principal, status: pending}` in `pending_reviews`; the agent gets only
+  `request_hash`, reasons and the card. `review.complete_review` (console only, Task 5.7) mints with the reviewer's
+  session subject (AP-SEP-12) and commits, or rejects with the typed reason; the row is locked FOR UPDATE for the
+  whole call; every outcome is audited (gate entries + kind `review`).
+- Card: `PrepareResult.card()` is `content[0]` of every action/refusal result; its rule line shows the
+  highest-priority reason (`gate.CARD_PRIORITY`: AP-VER-01, AP-SCOPE-02, AP-SEP-12, AP-REF-13, AP-INV-04, AP-CUM-03).
+- `extract_fields` returns spans (PDF words/lines with page + 2dp bbox, JSON scalar pointers) labelled
+  `untrusted_document_text: true` so agents cite instead of guess; the span text is what the verifier's pdfplumber
+  path reads in that box, so a cited span re-checks (G1). Output is data and carries no authority.
+- Rate limit: per-Principal in-memory token bucket (`RATE_LIMIT_PER_MINUTE`).
+- The server and review.py reach the Gate's audit writer through its private methods (`_audit_deny`, `_audit`) from
+  inside the package; the Gate's public surface stays the four methods (`tests/usp/test_key_isolation.py`).
 
 ## Stack (slide 7) and reasons
 | Layer | Choice | Reason |

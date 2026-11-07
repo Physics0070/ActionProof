@@ -100,14 +100,39 @@ DENYs the record and `commit` re-checks it inside the tx: **AP-REP-05 (G2)** "un
 attempt; reconcile". Removed only by `Gate.release_quarantine(record_id, reviewer)` (admin reconcile path).
 Included in `db.reset` (tests).
 
+## pending_reviews — REVIEW decisions waiting for a human (MCP server / LangChain adapter, `review.py`)
+| Column | Type | Constraint |
+|---|---|---|
+| request_hash | text | PRIMARY KEY (`sha256` of the canonical request; one parked review per request) |
+| request | jsonb | NOT NULL, the strict ActionRequest JSON |
+| receipt | jsonb | NOT NULL, the gate-signed REVIEW receipt. Server-side only: never returned to an agent |
+| actor, on_behalf_of | text | NOT NULL, the transport Principal (ADR-012); `review_status` filters on both. Index `pending_reviews_principal` |
+| created_at | bigint | NOT NULL, CHECK `>= 0` |
+| status | text | NOT NULL DEFAULT `pending`, CHECK in `pending, approved, rejected, executed, denied` (`approved` reserved for a console that splits mint and commit) |
+| reasons | jsonb | NOT NULL DEFAULT `[]`, `[{rule, guarantee, msg}]` of the latest outcome |
+| reviewer | text | NULL, console session subject that completed it |
+| decided_at | bigint | NULL |
+
+Written by `review.park` (INSERT ... ON CONFLICT DO NOTHING); completed by `review.complete_review` under `FOR UPDATE`.
+Single use is still the gate's (receipt nonce and token UNIQUE, G2); this table is the queue, not the guard.
+
+## api_clients — HTTP transport identities (ADR-012)
+| Column | Type | Constraint |
+|---|---|---|
+| token_hash | text | PRIMARY KEY, CHECK `^[0-9a-f]{64}$` (`sha256(token)`; the token itself is never stored) |
+| actor, on_behalf_of | text | NOT NULL, the Principal this token authenticates |
+| created_at | bigint | NOT NULL, CHECK `>= 0` |
+
+Seeded by `scripts/seed_api_client.py` (prints the token once). Both tables are in `db.reset` (tests).
+
 ## audit_log — hash-chained decision log (deck S3.6 / S9.3, `audit.py`)
 | Column | Type | Constraint |
 |---|---|---|
 | seq | bigint | PRIMARY KEY, CHECK `>= 1`; assigned `head + 1` under the audit lock (gap-free; no sequence, which is not transactional) |
 | ts | bigint | NOT NULL, CHECK `>= 0` (UTC epoch seconds) |
-| kind | text | NOT NULL: `prepare`, `commit`, `mint`, `release_quarantine` |
+| kind | text | NOT NULL: `prepare`, `commit`, `mint`, `release_quarantine`, `refuse` (MCP front door), `review` (complete_review) |
 | request_hash, actor, on_behalf_of, record_id | text | nullable (absent when the request never parsed) |
-| decision | text | ALLOW / REVIEW / DENY / EXECUTED / MINTED / REFUSED / RELEASED / NOT_QUARANTINED |
+| decision | text | ALLOW / REVIEW / DENY / EXECUTED / MINTED / REFUSED / RELEASED / NOT_QUARANTINED / REJECTED / DENIED |
 | rules | jsonb | NOT NULL, `[{rule, guarantee, msg}]` |
 | detail | jsonb | NOT NULL, kind-specific (nonce, idempotency key, amount, version, reviewer login/person) |
 | prev_hash | text | NOT NULL, previous entry's `entry_hash` (genesis `"0"*64`) |

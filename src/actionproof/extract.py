@@ -177,3 +177,78 @@ def extract_src(doc: bytes, src: Src) -> Extracted:
     if src.pointer is not None:
         return Extracted(json_pointer(doc, src.pointer), "json_pointer")
     return extract_pdf(doc, src.page, src.bbox)
+
+
+# --- Read-only listing for the MCP extract_fields tool (agents cite instead of guess). Output is DATA, never authority.
+
+MAX_SPANS = 2000
+
+
+def _span_box(x0: float, top: float, x1: float, bottom: float) -> list[str]:
+    """The citation box for a span, built exactly like the fixture manifest (fixtures/make.py _pdf_field): the glyph
+    rect padded 0.01 pt, as 2dp decimal strings. pdfplumber's within_bbox is strict at float edges, so the pad is
+    what makes a cited box re-extract the whole span."""
+    return [f"{v:.2f}" for v in (x0 - 0.01, top - 0.01, x1 + 0.01, bottom + 0.01)]
+
+
+def pdf_spans(pdf: bytes, max_spans: int = MAX_SPANS) -> tuple[list[dict], list[dict], bool]:
+    """(words, lines, truncated). Geometry comes from PyMuPDF's word/line rects (the boxes the manifest uses); the
+    TEXT of every span is what pdfplumber reads inside that box, i.e. the same text path verification re-runs, so a
+    span cited as-is reproduces its text. Spans whose box pdfplumber reads as empty are dropped. Raises
+    ExtractionError on any parse failure."""
+    import pdfplumber
+    import pymupdf
+
+    words, lines, n = [], [], 0
+    try:
+        with pymupdf.open(stream=pdf, filetype="pdf") as mdoc, pdfplumber.open(io.BytesIO(pdf)) as pdoc:
+            for i, (mp, pp) in enumerate(zip(mdoc, pdoc.pages), start=1):
+                rects = [("words", r[:4]) for r in mp.get_text("words")]
+                for block in mp.get_text("dict").get("blocks", []):
+                    rects += [("lines", ln["bbox"]) for ln in block.get("lines", [])]
+                px0, ptop, px1, pbottom = (float(v) for v in pp.bbox)
+                for kind, (x0, top, x1, bottom) in rects:
+                    if n >= max_spans:
+                        return words, lines, True
+                    box = _span_box(x0, top, x1, bottom)
+                    fb = tuple(float(c) for c in box)
+                    if not (px0 <= fb[0] < fb[2] <= px1 and ptop <= fb[1] < fb[3] <= pbottom):
+                        continue
+                    text = _collapse(pp.within_bbox(fb).extract_text() or "")
+                    if text:
+                        (words if kind == "words" else lines).append({"page": i, "bbox": box, "text": text})
+                        n += 1
+    except ExtractionError:
+        raise
+    except Exception as e:
+        raise ExtractionError(f"pdf span listing failed: {type(e).__name__}") from None
+    return words, lines, False
+
+
+def _escape(token: str) -> str:
+    return token.replace("~", "~0").replace("/", "~1")
+
+
+def json_leaves(doc: bytes, max_leaves: int = MAX_SPANS) -> tuple[list[dict], bool]:
+    """([{pointer, value}], truncated) for every string or number leaf, numbers as their literal text (the same
+    parse json_pointer uses, so each pointer re-extracts its value). Raises ExtractionError on invalid JSON."""
+    try:
+        root = json.loads(doc, parse_float=_Num, parse_int=_Num, parse_constant=_bad_constant,
+                          object_pairs_hook=_no_dupes)
+    except ExtractionError:
+        raise
+    except Exception as e:
+        raise ExtractionError(f"invalid JSON: {type(e).__name__}") from None
+    out: list[dict] = []
+    stack = [("", root)]
+    while stack:
+        ptr, node = stack.pop()
+        if isinstance(node, dict):
+            stack += [(f"{ptr}/{_escape(k)}", v) for k, v in reversed(list(node.items()))]
+        elif isinstance(node, list):
+            stack += [(f"{ptr}/{i}", v) for i, v in reversed(list(enumerate(node)))]
+        elif isinstance(node, str):
+            if len(out) >= max_leaves:
+                return out, True
+            out.append({"pointer": ptr, "value": str(node)})
+    return out, False

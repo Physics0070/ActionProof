@@ -42,6 +42,11 @@ Sources: `CLAUDE.md` (invariants), `DECK_TRACE.md`, `spec/attack-classes.md`.
 | connector | Mock refund tool: dry_run, execute once, idempotency key, hostile switches | `tests/test_refund_mocks.py` | G2 | done |
 | connector | Refund fixtures: visible injected line, clean variant, 3 benign | `tests/test_refund_fixtures.py` | — | done |
 | demo | `scripts/demo_seed.py --reset`: whole demo state; injected → AP-VER-01, clean retry → AP-CUM-03, small → executes once; idempotent | `tests/test_refund_demo_seed.py` | G1+G2 | done |
+| deck | S3.2 / S7.1 MCP front door, in-process (SDK Client against the real Server): registry-only listing, slide-1 card, 4900 DENY with 0 tool calls, ALLOW executes in the same call, unknown tool / malformed refused + audited, principal mismatch, review lifecycle (SEP-12, executed once, replay AP-REP-05, reject with reason), status scoping, injected PDF, refund beats (card shows AP-VER-01), extract_fields (bbox = manifest, cited span verifies, JSON leaves, traversal refused), rate limit | `tests/test_mcp_default_deny.py` | G1+G2 | done |
+| deck | S1.1 slide 1 exact over MCP stdio (subprocess server, temp DB), 4900 DENY, unknown tool, complete_review -> executed; startup fails closed on bad env; `--print-config` JSON without secrets | `tests/e2e/test_slide1_mcp_stdio.py` | G1+G2 | done |
+| deck | MCP HTTP transport: bearer token Principal, 401/403 (CORS closed), body cannot pick the Principal | `tests/e2e/test_mcp_http.py` | G1 | done |
+| invariant | 6 at the MCP surface: no seed, receipt signature, nonce or review token in any listing or hostile call | `tests/usp/test_mcp_no_secret_surface.py` | G1+G2 | done |
+| adapter | LangChain `review_db` parks REVIEW in `pending_reviews`; complete_review executes once | `tests/test_review_park.py` | G2 | done |
 | policy | refund input shape, AP-REF-13 bounds, customer scope, cap 4800+250 | `policy/actionproof_test.rego` (`test_refund_*`) | G1 | done |
 
 Notes:

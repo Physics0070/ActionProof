@@ -190,6 +190,14 @@ _QUARANTINED = Reason("AP-REP-05", "G2", "unknown outcome from a previous attemp
 _NOT_VERIFIED = VerifyResult(False, {}, [])
 
 
+# The card shows ONE rule line: the highest-priority reason (evidence failures before limits), then the first.
+CARD_PRIORITY = ("AP-VER-01", "AP-SCOPE-02", "AP-SEP-12", "AP-REF-13", "AP-INV-04", "AP-CUM-03")
+
+
+def _card_rank(r: Reason) -> int:
+    return CARD_PRIORITY.index(r.rule) if r.rule in CARD_PRIORITY else len(CARD_PRIORITY)
+
+
 @dataclass
 class PrepareResult:
     decision: str
@@ -215,14 +223,15 @@ class PrepareResult:
                 res = self.verify.claims.get(name)
                 status = f"{c.claim.value} {'ok' if res is not None and res.ok else 'FAILED'}"
             lines.append(f"{name}: {c.value} [{status}]")
-        if not self.reasons:
+        top = min(self.reasons, key=_card_rank) if self.reasons else None
+        if top is None:
             lines.append("rule: none")
-        elif self.reasons[0].rule == "AP-INV-04":
+        elif top.rule == "AP-INV-04":
             lines.append("rule: AP-INV-04 (> 100)")
-        elif self.reasons[0].rule == "AP-REF-13":
+        elif top.rule == "AP-REF-13":
             lines.append("rule: AP-REF-13 (> 1000)")
         else:
-            lines.append(f"rule: {self.reasons[0].rule} [{self.reasons[0].guarantee}]")
+            lines.append(f"rule: {top.rule} [{top.guarantee}]")
         lines.append(f"decision: {self.decision}")
         return "\n".join(lines)
 

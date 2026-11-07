@@ -19,6 +19,7 @@ from typing import Any, Callable
 from langchain_core.tools import BaseTool, StructuredTool
 from pydantic import BaseModel, Field
 
+from actionproof import review
 from actionproof.contracts import ActionRequest, request_hash
 from actionproof.gate import TARGETS, PrepareResult
 from actionproof.verify import Reason, VerifyResult
@@ -40,7 +41,8 @@ def _deny_text(exc: BaseException) -> str:
     return "\n".join([card, "reasons:", *_reasons([reason])])
 
 
-def _run(gate, principal, raw, pending: dict, on_receipt: Callable[[str], None] | None) -> str:
+def _run(gate, principal, raw, pending: dict, on_receipt: Callable[[str], None] | None,
+         review_db=None, parked: list | None = None) -> str:
     try:
         if isinstance(raw, str):
             raw = json.loads(raw)
@@ -53,10 +55,17 @@ def _run(gate, principal, raw, pending: dict, on_receipt: Callable[[str], None] 
         if on_receipt is not None:
             on_receipt(h)
         if res.decision == "REVIEW":
-            # ponytail: in-process dict (lost on restart, unbounded); upgrade path is the gate-side pending_reviews
-            # table through review.py once that lands (Task 5.4). The receipt stays operator-side: the agent must
-            # never hold it (G2).
-            pending[h] = (res.receipt, req)
+            # The receipt stays operator-side: the agent must never hold it (G2). With `review_db` (a connection
+            # factory) it is parked in pending_reviews, where review.complete_review (the console) finds it, like the
+            # MCP server's REVIEWs. Without it: the operator's in-process dict (ponytail: lost on restart, unbounded).
+            if review_db is not None:
+                status, _ = review.park(review_db, req, res.receipt, res.reasons)
+                if status != "pending":
+                    return "\n".join([*lines, f"request_hash: {h}", f"status: {status.upper()} (already reviewed)"])
+            else:
+                pending[h] = (res.receipt, req)
+            if parked is not None:
+                parked.append(h)
             return "\n".join([*lines, f"request_hash: {h}",
                               "status: PENDING_REVIEW (a different person must approve it in the review console)"])
         com = gate.commit(res.receipt, req, principal=principal)
@@ -68,14 +77,15 @@ def _run(gate, principal, raw, pending: dict, on_receipt: Callable[[str], None] 
 
 
 def gate_tool(gate, principal, name: str, description: str, args_schema=None, *,
-              pending: dict | None = None) -> BaseTool:
+              pending: dict | None = None, review_db=None) -> BaseTool:
     """A LangChain tool whose call is `{"request": <ActionRequest JSON>}` (or, with a custom `args_schema`, the
     ActionRequest fields themselves). prepare -> ALLOW: commit; REVIEW: receipt into `pending` (keyed by
-    request_hash; pass your own dict to reach it from the review side); DENY: reasons."""
+    request_hash; pass your own dict to reach it from the review side), or with `review_db` (connection factory)
+    into the pending_reviews table for review.complete_review; DENY: reasons."""
     store = {} if pending is None else pending
 
     def call(**kw) -> str:
-        return _run(gate, principal, kw if args_schema is not None else kw.get("request"), store, None)
+        return _run(gate, principal, kw if args_schema is not None else kw.get("request"), store, None, review_db)
 
     return StructuredTool.from_function(func=call, name=name, description=description,
                                         args_schema=args_schema or _RequestArg,
@@ -118,7 +128,8 @@ def _record_id(req) -> str:
     return f"{t.kind}:{req.args[t.arg].value}"
 
 
-def wrap_existing(step: ExistingToolStep, gate, principal, *, pending: dict | None = None) -> BaseTool:
+def wrap_existing(step: ExistingToolStep, gate, principal, *, pending: dict | None = None,
+                  review_db=None) -> BaseTool:
     """The existing tool, same name/description/arguments, routed through the gate: its arguments become an
     ActionRequest via step.to_request, and its function runs only as step.execute inside Gate.commit."""
     store = {} if pending is None else pending
@@ -135,8 +146,9 @@ def wrap_existing(step: ExistingToolStep, gate, principal, *, pending: dict | No
             raw = step.to_request(dict(kw))
         except Exception as e:
             return _deny_text(e)
-        out = _run(gate, principal, raw, store, remember)
-        if seen and seen[0] not in store:  # not pending review: an ALLOW commit consumed it or was denied
+        parked: list[str] = []
+        out = _run(gate, principal, raw, store, remember, review_db, parked)
+        if seen and seen[0] not in parked:  # not pending review: an ALLOW commit consumed it or was denied
             step._calls.pop(seen[0], None)
         return out
 

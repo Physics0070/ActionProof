@@ -29,7 +29,7 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [x] verdict written: docs/council/verdict.md
 
 ## Phase 5 — Surface (W3)
-- [ ] server.py MCP proxy + extract_fields
+- [x] server.py MCP proxy (stdio + HTTP bearer, default deny, refuse audit, rate limit) + extract_fields + review_status; `pending_reviews` / `api_clients`; `review.py` (`park`, `complete_review`); `--print-config`; card rule priority; LangChain adapter `review_db`; tests `tests/test_mcp_default_deny.py`, `tests/e2e/test_slide1_mcp_stdio.py`, `tests/e2e/test_mcp_http.py`, `tests/usp/test_mcp_no_secret_surface.py`; docs/API.md "MCP server"
 - [x] adapters/langchain.py (`gate_tool`, `wrap_existing` + `ExistingToolStep`) + offline example agent `examples/langchain_agent.py`; `tests/e2e/test_slide1_langchain.py`; docs/API.md "LangChain adapter"
 - [x] audit.py + verifier CLI (hash chain, signed checkpoints, append-only triggers, gate entries for prepare/commit/mint/release_quarantine; `tests/test_audit.py`)
 - [ ] console backend endpoints; docs/API.md

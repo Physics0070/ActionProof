@@ -71,6 +71,33 @@ CREATE TABLE IF NOT EXISTS quarantine (
     created_at bigint NOT NULL CHECK (created_at >= 0)
 );
 
+-- MCP server (Task 5.4, deck slide 3 step 1). A REVIEW decision parks here until a human completes it in the
+-- console (review.complete_review). The signed receipt is stored server-side only and never returned to the agent.
+-- status: pending -> executed | denied | rejected ('approved' is reserved for a console that splits mint and commit).
+CREATE TABLE IF NOT EXISTS pending_reviews (
+    request_hash text PRIMARY KEY,
+    request      jsonb  NOT NULL,                              -- the strict ActionRequest JSON
+    receipt      jsonb  NOT NULL,                              -- gate-signed REVIEW receipt (server-side only)
+    actor        text   NOT NULL,                              -- the transport Principal (ADR-012)
+    on_behalf_of text   NOT NULL,
+    created_at   bigint NOT NULL CHECK (created_at >= 0),
+    status       text   NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending', 'approved', 'rejected', 'executed', 'denied')),
+    reasons      jsonb  NOT NULL DEFAULT '[]',                 -- [{rule, guarantee, msg}] of the latest outcome
+    reviewer     text   NULL,                                  -- console session subject that completed it
+    decided_at   bigint NULL
+);
+CREATE INDEX IF NOT EXISTS pending_reviews_principal ON pending_reviews (actor, on_behalf_of);
+
+-- HTTP transport clients (ADR-012): the bearer token's sha256 maps to the Principal. The token itself is never
+-- stored. Seed with scripts/seed_api_client.py.
+CREATE TABLE IF NOT EXISTS api_clients (
+    token_hash   text PRIMARY KEY CHECK (token_hash ~ '^[0-9a-f]{64}$'),
+    actor        text   NOT NULL,
+    on_behalf_of text   NOT NULL,
+    created_at   bigint NOT NULL CHECK (created_at >= 0)
+);
+
 -- Audit chain (deck slide 3 step 5, S9.3; src/actionproof/audit.py). entry_hash = sha256(RFC 8785 of every other
 -- column, prev_hash included). seq is assigned by audit.append under the audit lock (max + 1), not by a sequence:
 -- a sequence is not transactional, so a rolled-back commit entry would leave a gap.

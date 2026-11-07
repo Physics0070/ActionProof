@@ -104,6 +104,25 @@ actors; `# ponytail` upgrade: `people.person_id` key). Vendor and customer ids s
 Still open: the global commit lock can DENY legitimate commits under load (availability, not safety).
 `mint_review_token` stays human/admin-side only and must not be exposed through MCP/adapters.
 
+## 4d. MCP front door (`server.py`, Task 5.4)
+| Threat | Defence | Test |
+|---|---|---|
+| Agent calls a tool that is not in the registry (incl. `complete_review`, `mint_review_token`, dotted registry names) | default deny: refused, never prepared, audited `refuse` | `tests/test_mcp_default_deny.py::test_unknown_tool_refused_and_audited` |
+| Malformed / float / extra-field arguments | strict contract before the gate; refused + audited | `::test_malformed_args_refused_never_prepared` |
+| Body names another actor / principal | Principal from the transport only; AP-SCOPE-02 | `::test_principal_mismatch_denied`, `tests/e2e/test_mcp_http.py::test_body_cannot_pick_another_principal` |
+| Agent reads the receipt or a review token to self-approve | REVIEW receipt parked server-side; no approval tool, no resources/prompts; hostile calls of every tool leak no seed/sig/nonce/token | `tests/usp/test_mcp_no_secret_surface.py` |
+| Agent polls someone else's review | `review_status` filters by the caller's Principal; foreign = `not_found` | `::test_review_status_is_scoped_to_the_callers_principal` |
+| Path traversal / arbitrary file read via `extract_fields` | doc id is a manifest key, never a path; manifest paths confined to `DOCS_DIR` at startup | `::test_extract_fields_refuses_unknown_or_traversal` |
+| Instructions inside documents (`extract_fields` output) | output labelled `untrusted_document_text`; spans authorize nothing, a value still has to re-check (G1) | `::test_extract_fields_pdf_spans_match_manifest`, `::test_injected_pdf_cited_for_amount_denied` |
+| Stolen / guessed HTTP token, browser CSRF | sha256-only storage, constant-time compare, 401 before MCP; any `Origin` header 403 | `tests/e2e/test_mcp_http.py::test_missing_or_wrong_token_refused` |
+| Call flooding | per-Principal token bucket | `::test_rate_limit_per_principal` |
+
+Residuals: the rate limiter is in-memory per process (several replicas multiply the limit); rate-limited calls are
+not audited (by design: a flood must not become a flood of signed entries). A REVIEW receipt still expires after
+`RECEIPT_TTL_SECONDS` (default 300 s): a review completed later is DENY AP-EXP-06 and the agent must resubmit
+(availability, not safety). stdio trusts the operator's client config for the Principal (whoever can edit that
+config is the operator).
+
 ## 5. Out of scope
 
 Quoted from deck slide 10:

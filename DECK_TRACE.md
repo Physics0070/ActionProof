@@ -5,7 +5,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 
 | id | slide | exact deck claim | where built | proving test / artifact | status |
 |---|---|---|---|---|---|
-| S1.1 | 1 | "ACTION INTERCEPTED: action: approve_invoice / amount: 4800.00 [DIRECT ok] / variance: 500.00 [DERIVED ok] / rule: AP-INV-04 (> 100) / decision: REVIEW" | gate.py, server.py, adapters/langchain.py | tests/test_prepare.py::test_hero_review_signed_and_card (card text exact); LangChain half: tests/e2e/test_slide1_langchain.py::test_slide1_card_exact_through_langchain_tool + ::test_example_agent_prints_slide1 (done); MCP stdio e2e in Phase 5 | partial |
+| S1.1 | 1 | "ACTION INTERCEPTED: action: approve_invoice / amount: 4800.00 [DIRECT ok] / variance: 500.00 [DERIVED ok] / rule: AP-INV-04 (> 100) / decision: REVIEW" | gate.py, server.py, adapters/langchain.py | tests/test_prepare.py::test_hero_review_signed_and_card (card text exact); LangChain half: tests/e2e/test_slide1_langchain.py::test_slide1_card_exact_through_langchain_tool + ::test_example_agent_prints_slide1 (done); MCP half: tests/e2e/test_slide1_mcp_stdio.py::test_slide1_exact_then_review_then_status (done) | done |
 | S1.2 | 1 | "Before an AI agent acts, prove it should." | web hero, README | web e2e hero text; README first lines | todo |
 | S1.3 | 1 | "An evidence-verified safety gate for AI agents and the tools they control." | README, web hero | README check | todo |
 | S2.1 | 2 | "Approve INV-2048: Invoice $4,800 / Purchase order $4,300 / Unexplained $500. A filter that reads the agent's reply sees nothing wrong, so the write could execute." | fixtures/make.py, eval/run.py (LLM-judge arm) | eval results: output-filter arm passes INV-2048 attack; fixtures/manifest.json | todo |
@@ -13,7 +13,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S2.3 | 2 | "02 Policy gap — A valid tool name can still carry an amount, target or actor outside the caller's scope." | policy/actionproof.rego AP-SCOPE-02 | tests/usp/test_gap_policy.py; opa test (24/24) | done |
 | S2.4 | 2 | "03 Execution gap — Retries, stale records and check-then-commit races can repeat or invalidate an approved write." | gate.py commit | tests/usp/test_gap_execution.py (retry, stale, race) | done |
 | S3.1 | 3 | "USP: Proof before permission. No value can authorize a write unless its derivation re-checks, and no approval can be replayed." | CLAUDE.md, tests/usp/, README, web, eval | CI job "USP: proof before permission" | todo |
-| S3.2 | 3 | "1 Intercept: An MCP proxy sits in front of every tool. Default deny." | server.py | tests/test_mcp_default_deny.py | todo |
+| S3.2 | 3 | "1 Intercept: An MCP proxy sits in front of every tool. Default deny." | server.py | tests/test_mcp_default_deny.py (unknown tool / malformed refused + audited, registry-only listing), tests/usp/test_mcp_no_secret_surface.py | done |
 | S3.3 | 3 | "2 Verify: Re-extract each cited value, recompute derived ones, check taint." | extract.py, verify.py | tests/test_verify.py, tests/test_extract.py | done |
 | S3.4 | 3 | "3 Authorize: OPA/Rego policy, plus a dry-run diff and a state version." | policy.py, rego, gate.prepare | opa test policy; tests/test_prepare.py; tests/test_policy.py | done |
 | S3.5 | 3 | "4 Receipt and commit: A signed one-use receipt. Commit re-checks state, then calls the tool." | gate.py | tests/usp/test_replay.py, tests/test_commit.py | done |
@@ -43,7 +43,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S6.7 | 6 | Race (TOCTOU) — version precondition at commit — record mutated mid-flight | gate.commit | tests/attacks/test_race.py; eval in Phase 6 | partial |
 | S6.8 | 6 | "Measured against no gate, schema-only and an LLM judge, on 100+ benign cases." | eval/run.py | eval/results.json (benign n ≥ 100) | todo |
 | S6.9 | 6 | "About half the attacks come from a separate generator, so we don't grade our own exam." | .claude/agents/attack-generator.md, eval/ | results.json split handwritten/generated | todo |
-| S7.1 | 7 | Gateway — Python, FastAPI, MCP SDK — proxy every tool call | server.py | tests/test_mcp_*.py | todo |
+| S7.1 | 7 | Gateway — Python, FastAPI, MCP SDK — proxy every tool call | server.py (mcp 2.x lowlevel Server; HTTP via the SDK streamable-HTTP app on uvicorn, not FastAPI) | tests/test_mcp_default_deny.py, tests/e2e/test_slide1_mcp_stdio.py, tests/e2e/test_mcp_http.py | done |
 | S7.2 | 7 | Contracts — Pydantic v2 strict, RFC 8785 | contracts.py | tests/test_contracts.py, tests/usp/test_no_floats.py (61 pass) | done |
 | S7.3 | 7 | Policy — OPA sidecar, Rego — default-deny decisions | policy/, docker-compose.yml | opa test 24/24; compose untested (Docker engine unavailable) | partial |
 | S7.4 | 7 | Evidence — pdfplumber plus a vision pass — dual extraction of claims | extract.py | tests/test_extract.py (dual, ocr_image, disagreement) | done |
