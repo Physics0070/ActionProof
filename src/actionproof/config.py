@@ -24,6 +24,9 @@ class Settings(BaseModel):
     receipt_ttl_seconds: int = 300
     review_token_ttl_seconds: int = 3600
     opa_timeout_seconds: float = 0.2
+    # ponytail: entries after the last checkpoint can be truncated undetected, so the default checkpoints every
+    # entry (one signature per append); raise it only with an external anchor for the head.
+    audit_checkpoint_every: int = 1
 
     @field_validator("database_url", "opa_url", "tesseract_cmd", "signing_key_path", "signing_kid")
     @classmethod
@@ -39,7 +42,7 @@ class Settings(BaseModel):
             raise ValueError("must be an http(s) URL")
         return v
 
-    @field_validator("receipt_ttl_seconds", "review_token_ttl_seconds", "opa_timeout_seconds")
+    @field_validator("receipt_ttl_seconds", "review_token_ttl_seconds", "opa_timeout_seconds", "audit_checkpoint_every")
     @classmethod
     def _positive(cls, v):
         if not (math.isfinite(v) and v > 0):

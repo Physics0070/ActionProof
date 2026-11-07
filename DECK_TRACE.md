@@ -17,7 +17,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S3.3 | 3 | "2 Verify: Re-extract each cited value, recompute derived ones, check taint." | extract.py, verify.py | tests/test_verify.py, tests/test_extract.py | done |
 | S3.4 | 3 | "3 Authorize: OPA/Rego policy, plus a dry-run diff and a state version." | policy.py, rego, gate.prepare | opa test policy; tests/test_prepare.py; tests/test_policy.py | done |
 | S3.5 | 3 | "4 Receipt and commit: A signed one-use receipt. Commit re-checks state, then calls the tool." | gate.py | tests/usp/test_replay.py, tests/test_commit.py | done |
-| S3.6 | 3 | "5 Audit: Hash-chained log with signed checkpoints and a verifier CLI." | audit.py | tests/test_audit.py (edit/delete detected) | todo |
+| S3.6 | 3 | "5 Audit: Hash-chained log with signed checkpoints and a verifier CLI." | audit.py (append, checkpoint, `python -m actionproof.audit verify`), schema.sql append-only triggers, gate.py entries | tests/test_audit.py (edit, rehashed chain, middle/tail delete, reorder, forged checkpoint, wrong key, 20-thread gap-free, CLI exit codes) | done |
 | S3.7 | 3 | "Outcomes: ALLOW, REVIEW (a human mints a one-use token) or DENY. Any error fails closed." | gate.py, console | tests/test_commit.py (REVIEW token), tests/usp/test_fail_closed.py; console minting in Phase 7 | partial |
 | S4.1 | 4 | "DIRECT: a deterministic parser re-extracts the value at the cited page and box. Value and document hash must both match." | extract.py, verify.py | tests/test_verify.py (DIRECT), tests/test_extract.py | done |
 | S4.2 | 4 | "DERIVED: recomputed by an allowlisted pure function over verified claims. The model never does the arithmetic." | verify.py | tests/usp/test_derived_only_pure.py (500.00 passes, 501.00 fails) | done |
@@ -59,7 +59,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S8.6 | 8 | "If time runs short: cut the second connector and console polish." — NOT cut (brief overrides) | Phase 5 connector; Phase 7 console | second-connector e2e; Phase 7 gate | todo |
 | S9.1 | 9 | Who benefits: "Developers shipping agents. A drop-in gate instead of bespoke checks." | README, web section | web e2e section present | todo |
 | S9.2 | 9 | "Finance and operations teams. Risky approvals pause with the reason and source span." | console | console e2e | todo |
-| S9.3 | 9 | "Security and compliance. A signed, tamper-evident record of each decision." | audit.py | audit verify | todo |
+| S9.3 | 9 | "Security and compliance. A signed, tamper-evident record of each decision." | audit.py; gate.py audits every prepare, commit, mint (incl. refusals) and release_quarantine | tests/test_audit.py::test_denies_and_refusals_are_audited, ::test_chain_grows_with_prepare_and_commit; `python -m actionproof.audit verify` | done |
 | S9.4 | 9 | "People whose money or data agents touch. Fewer wrong writes." | web section | web e2e | todo |
 | S9.5 | 9 | Impact: "Out-of-policy or unsupported writes are blocked before they execute." | gate | attack suite (0 executed) | todo |
 | S9.6 | 9 | Impact: "Reviewers decide from evidence, not from the agent's own summary." | console | console e2e | todo |

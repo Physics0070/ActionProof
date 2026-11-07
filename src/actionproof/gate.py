@@ -11,6 +11,10 @@ Protocol, rule ids and order: .superpowers/sdd/phase3/design.md and docs/ARCHITE
 - mint_review_token and release_quarantine are Gate methods for the human/admin side only: no tool-facing path
   (MCP, adapter) may expose them. The reviewer must be a different directory PERSON from the submitter
   (AP-SEP-12 / G2, ADR-008), checked at mint and again inside the commit tx.
+- Every prepare, commit, mint and release_quarantine outcome is an audit.py chain entry. The commit EXECUTED entry
+  is written inside the commit tx BEFORE the tool runs (it rolls back with the tx; if it fails the tool is never
+  reached: DENY AP-ERR-11). DENY/refusal entries get their own short tx; an audit failure never changes a DENY.
+  A prepare ALLOW/REVIEW whose entry cannot be written is DENY AP-ERR-11 (no unaudited receipt leaves the gate).
 """
 
 import hashlib
@@ -24,7 +28,7 @@ import psycopg
 import rfc8785
 from psycopg import errors
 
-from actionproof import policy, signing
+from actionproof import audit, policy, signing
 from actionproof.contracts import MONEY, ActionRequest, ContractError, parse_request, request_hash
 from actionproof.verify import Reason, VerifyResult, verify_request
 
@@ -37,8 +41,8 @@ MAX_RETRIES = 3
 LOCK_TIMEOUT = "5s"
 PAYLOAD_KEYS = {"request_hash", "decision", "reasons", "diff_hash", "record_id", "version", "nonce", "exp",
                 "tool", "actor", "on_behalf_of", "idempotency_key"}
-# ponytail: mint refusals go to this logger; they move to the audit chain table with audit.py (Phase 5).
-_audit = logging.getLogger("actionproof.audit")
+# Only for "the audit write itself failed" (exception type name only); decisions go to the audit chain.
+_log = logging.getLogger("actionproof.audit")
 
 
 def _now() -> int:
@@ -184,6 +188,26 @@ def _deny(*reasons: Reason) -> CommitResult:
     return CommitResult("DENY", list(reasons), None)
 
 
+def _rules(reasons) -> list[dict]:
+    return [asdict(r) for r in reasons]
+
+
+def _who(req, p: dict | None = None) -> dict:
+    """Audit identity fields: from the gate-signed receipt payload when verified, else the request's own claim.
+    Never raises (an unparseable request just contributes nothing)."""
+    f = {}
+    if isinstance(req, ActionRequest):
+        try:
+            inv = req.args.get("invoice_id")
+            f = {"request_hash": request_hash(req), "actor": req.actor, "on_behalf_of": req.on_behalf_of,
+                 "record_id": f"invoice:{inv.value}" if inv is not None else None}
+        except Exception:
+            f = {}
+    if p:
+        f.update({k: p[k] for k in ("request_hash", "actor", "on_behalf_of", "record_id")})
+    return f
+
+
 class _Attempt:
     """Per-attempt state: whether the tool was reached, and the commits row to burn if it was."""
 
@@ -206,15 +230,46 @@ class Gate:
 
     __str__ = __repr__
 
+    # ------------------------------------------------------------------ audit
+
+    def _audit(self, conn, kind: str, **fields) -> None:
+        """Append in the caller's tx, plus a signed checkpoint every AUDIT_CHECKPOINT_EVERY entries."""
+        if audit.append(conn, kind, **fields) % self._settings.audit_checkpoint_every == 0:
+            audit.checkpoint(conn, self._signer)
+
+    def _audit_tx(self, kind: str, **fields) -> None:
+        with self._conn_factory() as conn:
+            self._audit(conn, kind, **fields)
+
+    def _audit_deny(self, kind: str, **fields) -> None:
+        """DENY / refusal entries: own short tx. The outcome is already a DENY, so a failed write changes nothing."""
+        try:
+            self._audit_tx(kind, **fields)
+        except Exception as e:
+            _log.error("audit write failed for a %s %s: %s", kind, fields.get("decision"), type(e).__name__)
+
     # ------------------------------------------------------------------ prepare
 
     def prepare(self, req, docs=None, *, principal) -> PrepareResult:
         """`principal` is the caller identity from the transport; required (no default = no fail-open)."""
         try:
-            return self._prepare(req, docs, principal)
+            res = self._prepare(req, docs, principal)
         except Exception as e:  # fail closed (invariant 1)
-            return PrepareResult("DENY", [_err(f"prepare failed: {type(e).__name__}")], _NOT_VERIFIED, None, None,
-                                 req if isinstance(req, ActionRequest) else None)
+            res = PrepareResult("DENY", [_err(f"prepare failed: {type(e).__name__}")], _NOT_VERIFIED, None, None,
+                                req if isinstance(req, ActionRequest) else None)
+        p = res.receipt["payload"] if res.receipt else None
+        entry = {"decision": res.decision, "rules": _rules(res.reasons), "detail": {"nonce": p and p["nonce"]},
+                 **_who(res.request, p)}
+        if res.decision == "DENY":
+            self._audit_deny("prepare", **entry)
+            return res
+        try:
+            self._audit_tx("prepare", **entry)
+        except Exception as e:  # no unaudited receipt leaves the gate
+            res = PrepareResult("DENY", [_err(f"audit write failed: {type(e).__name__}")], res.verify, None, None,
+                                res.request)
+            self._audit_deny("prepare", decision="DENY", rules=_rules(res.reasons), **_who(res.request))
+        return res
 
     def _prepare(self, req, docs, principal) -> PrepareResult:
         if not isinstance(req, ActionRequest):
@@ -302,14 +357,18 @@ class Gate:
     def release_quarantine(self, record_id: str, reviewer: str) -> bool:
         """Reconcile path (admin, not tool-facing): a human checked the tool's real outcome for a record whose
         commit was burned and lifts the block. Returns whether a row was released. Raises on bad input.
-        # ponytail: audit hook (who released what, when) arrives with the audit tables in Phase 5."""
+        The release and its audit entry (who, what) commit together; if the entry cannot be written, nothing is
+        released and the error propagates."""
         if not isinstance(record_id, str) or not record_id:
             raise ValueError("record_id is required")
         if not isinstance(reviewer, str) or not reviewer.strip():
             raise ValueError("reviewer is required")
         with self._conn_factory() as conn:
-            return conn.execute("DELETE FROM quarantine WHERE record_id = %s RETURNING record_id",
-                                (record_id,)).fetchone() is not None
+            released = conn.execute("DELETE FROM quarantine WHERE record_id = %s RETURNING record_id",
+                                    (record_id,)).fetchone() is not None
+            self._audit(conn, "release_quarantine", record_id=record_id,
+                        decision="RELEASED" if released else "NOT_QUARANTINED", detail={"reviewer": reviewer})
+            return released
 
     # ------------------------------------------------------------------ review tokens
 
@@ -319,12 +378,15 @@ class Gate:
 
         `reviewer_login` MUST be the authenticated server-side console session subject, never a request body, form
         or query field. The submitter is read from the gate-signed receipt's request, never passed in."""
-        def refuse(reason: Reason):
-            _audit.warning("review token refused: %s [%s] %s; reviewer_login=%r", reason.rule, reason.guarantee,
-                           reason.msg, reviewer_login)
+        login = reviewer_login if isinstance(reviewer_login, str) else None
+        p = None
+
+        def refuse(reason: Reason):  # every refusal is an audit entry (own tx); the token never is
+            self._audit_deny("mint", decision="REFUSED", rules=_rules([reason]), detail={"reviewer_login": login},
+                             **_who(req, p))
             raise ReviewRefused(reason)
 
-        if not isinstance(reviewer_login, str) or not reviewer_login:
+        if not login:
             refuse(_sep("reviewer login is required"))
         reason, p, req = self._open(receipt, req)
         if reason:
@@ -334,15 +396,23 @@ class Gate:
         # ponytail: token stored as-is; store sha256(token) and compare digests once tokens leave the demo.
         token = secrets.token_urlsafe(32)
         now = _now()
-        with self._conn_factory() as conn:
-            sep, person = _separation(conn, reviewer_login, req.actor, req.on_behalf_of)
-            if sep:
-                refuse(sep)
-            conn.execute(
-                "INSERT INTO review_tokens (token, request_hash, submitter, minted_by, minted_by_person, minted_at, "
-                "exp) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                (token, p["request_hash"], req.actor, reviewer_login, person, now,
-                 now + self._settings.review_token_ttl_seconds))
+        sep = None
+        try:
+            with self._conn_factory() as conn:
+                sep, person = _separation(conn, login, req.actor, req.on_behalf_of)
+                if not sep:
+                    conn.execute(
+                        "INSERT INTO review_tokens (token, request_hash, submitter, minted_by, minted_by_person, "
+                        "minted_at, exp) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                        (token, p["request_hash"], req.actor, login, person, now,
+                         now + self._settings.review_token_ttl_seconds))
+                    # Same tx as the token row: no token exists without its audit entry.
+                    self._audit(conn, "mint", decision="MINTED", detail={"reviewer_login": login,
+                                                                         "reviewer_person": person}, **_who(None, p))
+        except Exception as e:
+            refuse(_err(f"mint failed: {type(e).__name__}"))
+        if sep:
+            refuse(sep)
         return token
 
     def _open(self, receipt, req):
@@ -368,15 +438,22 @@ class Gate:
 
     def commit(self, receipt, req, review_token=None, *, principal) -> CommitResult:
         """`principal` is the caller identity from the transport; required (no default = no fail-open)."""
+        opened: dict = {}
         try:
-            return self._commit(receipt, req, review_token, principal)
+            res = self._commit(receipt, req, review_token, principal, opened)
         except Exception as e:  # fail closed (invariant 1)
-            return _deny(_err(f"commit failed: {type(e).__name__}"))
+            res = _deny(_err(f"commit failed: {type(e).__name__}"))
+        if res.outcome != "EXECUTED":  # EXECUTED was audited inside the commit tx
+            p = opened.get("p")
+            self._audit_deny("commit", decision="DENY", rules=_rules(res.reasons),
+                             detail={"nonce": p and p["nonce"]}, **_who(req, p))
+        return res
 
-    def _commit(self, receipt, req, review_token, principal) -> CommitResult:
+    def _commit(self, receipt, req, review_token, principal, opened: dict) -> CommitResult:
         reason, p, req = self._open(receipt, req)
         if reason:
             return _deny(reason)
+        opened["p"] = p  # signature verified: the audit entry may trust these fields
         if not _bound(req, principal):
             return _deny(_UNBOUND)
         if p["decision"] not in ("ALLOW", "REVIEW"):
@@ -415,12 +492,15 @@ class Gate:
         # cumulative re-check sees every earlier commit and SSI never aborts a commit after the tool ran.
         # ponytail: one global commit lane; upgrade path is a per (actor, vendor) lock row taken first.
         conn.execute("LOCK TABLE commits IN SHARE ROW EXCLUSIVE MODE")
+        # The audit lock too, before the snapshot, so the head this tx appends after is current (audit.py).
+        audit.lock(conn)
         now = _now()
         if now >= p["exp"]:  # the receipt may have expired while waiting for the lane
             return deny(_r("AP-EXP-06", "G2", "receipt expired"))
         if conn.execute("SELECT 1 FROM quarantine WHERE record_id = %s", (p["record_id"],)).fetchone():
             return deny(_QUARANTINED)
 
+        reviewer = None
         if p["decision"] == "REVIEW":
             row = conn.execute(
                 "UPDATE review_tokens SET used_at = %s, used_nonce = %s "
@@ -433,6 +513,7 @@ class Gate:
             sep, _ = _separation(conn, row[0], req.actor, req.on_behalf_of)
             if sep:
                 return deny(sep)
+            reviewer = row[0]
 
         rec = conn.execute("SELECT data, version FROM records WHERE record_id = %s FOR UPDATE",
                            (p["record_id"],)).fetchone()
@@ -462,6 +543,11 @@ class Gate:
         if stale:
             return deny(*stale)
 
+        # Audited BEFORE the tool, in this tx: if the entry cannot be written the tool is never reached (the raise
+        # rolls back, DENY AP-ERR-11); if anything after it fails, the entry rolls back with the commit.
+        self._audit(conn, "commit", decision="EXECUTED", **_who(None, p), detail={
+            "nonce": p["nonce"], "idempotency_key": p["idempotency_key"], "amount": req.args["amount"].value,
+            "version": version, "reviewer": reviewer})
         st.invoked = True
         try:
             result = self._tool.execute(req, version, p["idempotency_key"], conn)

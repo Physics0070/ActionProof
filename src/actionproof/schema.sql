@@ -63,3 +63,45 @@ CREATE TABLE IF NOT EXISTS quarantine (
     nonce      text   NOT NULL,
     created_at bigint NOT NULL CHECK (created_at >= 0)
 );
+
+-- Audit chain (deck slide 3 step 5, S9.3; src/actionproof/audit.py). entry_hash = sha256(RFC 8785 of every other
+-- column, prev_hash included). seq is assigned by audit.append under the audit lock (max + 1), not by a sequence:
+-- a sequence is not transactional, so a rolled-back commit entry would leave a gap.
+CREATE TABLE IF NOT EXISTS audit_log (
+    seq          bigint PRIMARY KEY CHECK (seq >= 1),
+    ts           bigint NOT NULL CHECK (ts >= 0),
+    kind         text   NOT NULL,                              -- prepare | commit | mint | release_quarantine
+    request_hash text,
+    actor        text,
+    on_behalf_of text,
+    record_id    text,
+    decision     text,
+    rules        jsonb  NOT NULL,                              -- [{rule, guarantee, msg}]
+    detail       jsonb  NOT NULL,
+    prev_hash    text   NOT NULL,
+    entry_hash   text   UNIQUE NOT NULL
+);
+
+-- Gate-signed (Ed25519, the receipt key) {seq, head_hash, ts}: pins the chain head so a truncated tail is detected.
+CREATE TABLE IF NOT EXISTS audit_checkpoints (
+    seq       bigint PRIMARY KEY,
+    head_hash text   NOT NULL,
+    ts        bigint NOT NULL CHECK (ts >= 0),
+    sig       text   NOT NULL,
+    kid       text   NOT NULL
+);
+
+-- Append-only. A superuser or the table owner can still disable this trigger (or set session_replication_role);
+-- the hash chain and the signed checkpoints are what DETECT that tampering (audit.py verify).
+CREATE OR REPLACE FUNCTION audit_append_only() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'audit tables are append-only (% on %)', TG_OP, TG_TABLE_NAME;
+END $$;
+CREATE OR REPLACE TRIGGER audit_log_append_only BEFORE UPDATE OR DELETE ON audit_log
+    FOR EACH ROW EXECUTE FUNCTION audit_append_only();
+CREATE OR REPLACE TRIGGER audit_log_no_truncate BEFORE TRUNCATE ON audit_log
+    FOR EACH STATEMENT EXECUTE FUNCTION audit_append_only();
+CREATE OR REPLACE TRIGGER audit_checkpoints_append_only BEFORE UPDATE OR DELETE ON audit_checkpoints
+    FOR EACH ROW EXECUTE FUNCTION audit_append_only();
+CREATE OR REPLACE TRIGGER audit_checkpoints_no_truncate BEFORE TRUNCATE ON audit_checkpoints
+    FOR EACH STATEMENT EXECUTE FUNCTION audit_append_only();

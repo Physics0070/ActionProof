@@ -10,6 +10,7 @@ from actionproof.config import load_settings
 
 SCHEMA = Path(__file__).with_name("schema.sql")
 TABLES = ("records", "delegations", "commits", "review_tokens", "quarantine", "people")
+AUDIT_TABLES = ("audit_log", "audit_checkpoints")
 
 
 class _NoFloatDumper(Dumper):
@@ -83,6 +84,11 @@ def seed_hero(conn: psycopg.Connection) -> None:
 
 
 def reset(conn: psycopg.Connection) -> None:
-    """Truncate every table. Tests only."""
-    conn.execute(f"TRUNCATE {', '.join(TABLES)} RESTART IDENTITY")
+    """Truncate every table. Tests only: the audit tables are append-only, so their triggers are switched off for
+    this one transaction (owner privilege; exactly the tampering the audit verifier exists to detect)."""
+    for t in AUDIT_TABLES:
+        conn.execute(f"ALTER TABLE {t} DISABLE TRIGGER USER")
+    conn.execute(f"TRUNCATE {', '.join(TABLES + AUDIT_TABLES)} RESTART IDENTITY")
+    for t in AUDIT_TABLES:
+        conn.execute(f"ALTER TABLE {t} ENABLE TRIGGER USER")
     conn.commit()

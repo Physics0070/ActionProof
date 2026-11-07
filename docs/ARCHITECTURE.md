@@ -40,8 +40,9 @@ sequenceDiagram
   G->>D: SERIALIZABLE tx: sig, exp, hash, principal, quarantine, nonce+idem UNIQUE (G2), cumulative re-check, FOR UPDATE version
   G->>O: fresh policy decision from current state (ADR-014)
   D-->>G: ok or rollback (DENY)
+  G->>D: audit append EXECUTED + signed checkpoint (same tx, before the tool)
   G->>T: execute once
-  G->>D: audit append
+  G->>D: COMMIT (entry and effect land together, or neither)
 ```
 
 ## Phase 3 status: gate as built (`src/actionproof/gate.py`)
@@ -104,13 +105,53 @@ The commit lock makes concurrent split payments deterministic: exactly one execu
 receipt like commit steps 1-3 (AP-SIG-09 / AP-EXP-06 / AP-HASH-08), requires `decision == REVIEW` (AP-REV-10), reads
 the submitter from `req` (actor, on_behalf_of), then applies AP-SEP-12 against `people`: the login needs the
 `reviewer` role (`admin` cannot mint), and its `person_id` must differ from both submitter persons; any missing row
-or a `team` on_behalf_of refuses. A refusal raises `ReviewRefused(reason)` and is logged to `actionproof.audit`
-(the audit table arrives with audit.py). The token row stores `minted_by` and `minted_by_person`.
+or a `team` on_behalf_of refuses. A refusal raises `ReviewRefused(reason)` and is an audit chain entry
+(`mint`/`REFUSED`, own tx). The token row stores `minted_by` and `minted_by_person`; it is inserted in the same tx
+as its `mint`/`MINTED` entry, so an audit failure refuses the mint (AP-ERR-11) and no token exists.
 
 **Rule for the Phase 5 console backend:** `reviewer_login` is the authenticated server-side session subject and
 nothing else. It is never read from a request body, form field, query string or header the browser controls, and
 no MCP/adapter path may call `mint_review_token`. The approval label reads "requested by <actor> for
 <on_behalf_of> · approved by <reviewer> (different person)".
+
+## Phase 5 status: audit as built (`src/actionproof/audit.py`, deck S3.6 / S9.3)
+Tables `audit_log` and `audit_checkpoints` (docs/DATA_MODEL.md), append-only by trigger (UPDATE/DELETE/TRUNCATE
+raise). A superuser or the table owner can bypass the trigger; the chain and the signed checkpoints DETECT it.
+
+- `audit.append(conn, kind, **fields)` in the caller's tx: takes the audit lock, reads the head, writes
+  `seq = head + 1`, `prev_hash = head.entry_hash` (genesis `"0"*64`),
+  `entry_hash = sha256(RFC 8785 {seq, ts, kind, request_hash, actor, on_behalf_of, record_id, decision, rules,
+  detail, prev_hash})`. seq is assigned under the lock, not by a sequence (a sequence is not transactional, so a
+  rolled-back commit entry would leave a gap).
+- **Audit lock = `LOCK TABLE audit_log IN EXCLUSIVE MODE`, not `pg_advisory_xact_lock`.** The commit tx is
+  SERIALIZABLE and appends late; it must own the lock before its snapshot or the head it reads can be stale.
+  `SELECT pg_advisory_xact_lock()` takes the snapshot before it waits; `LOCK` takes none, so the gate calls
+  `audit.lock` right after `LOCK TABLE commits`. Readers (the verifier) are not blocked.
+- `audit.checkpoint(conn, signer)` signs `{seq, head_hash, ts}` with the gate Signer (receipt key; the key never
+  leaves signing.py, ADR-007; the exact payload key sets keep receipts and checkpoints apart). The gate checkpoints
+  every `AUDIT_CHECKPOINT_EVERY` entries (default 1, validated env) in the same tx as the entry.
+- `python -m actionproof.audit verify [--public-key B64]` needs only `DATABASE_URL` and the PUBLIC key
+  (`--public-key` or the file at `AUDIT_PUBLIC_KEY_PATH`, base64 of `Signer.public_key_b64()`); never the seed. One
+  REPEATABLE READ read-only snapshot. Checks contiguous seq from 1, every `prev_hash` link, every `entry_hash`, and
+  for every checkpoint: an entry exists at its seq, `head_hash` equals that entry's hash, the signature verifies.
+  Prints `audit: OK (<n> entries, <m> checkpoints)` (exit 0) or `audit: FAILED at seq <k>: <reason>` (exit 1;
+  an unreadable log is `FAILED at seq 0`); bad config is exit 2.
+
+What the gate writes:
+
+| Event | kind / decision | Transaction | If the audit write fails |
+|---|---|---|---|
+| prepare ALLOW / REVIEW | `prepare` / ALLOW, REVIEW (+ rules, nonce) | own short tx, before the receipt is returned | DENY AP-ERR-11, no receipt |
+| prepare DENY | `prepare` / DENY | own short tx | still DENY (unchanged) |
+| commit executes | `commit` / EXECUTED (nonce, idempotency key, amount, version, reviewer) | **inside** the commit tx, after every check, **before** `tool.execute` | tx rolls back, tool never called: DENY AP-ERR-11 |
+| commit DENY (incl. burned) | `commit` / DENY + rules | own short tx after the rollback | still DENY |
+| mint success | `mint` / MINTED (reviewer login + person) | same tx as the token row | mint refused AP-ERR-11, no token |
+| mint refusal (AP-SEP-12, AP-SIG-09, ...) | `mint` / REFUSED + rule | own short tx | still refused |
+| release_quarantine | `release_quarantine` / RELEASED or NOT_QUARANTINED (reviewer) | same tx as the DELETE | nothing released, error raised |
+
+Entries never hold key material, review tokens, receipt signatures, exception messages or tracebacks
+(`tests/test_audit.py::test_entries_hold_no_secrets`). Identity fields come from the signed receipt payload when
+the receipt verified, else from the request's own (unverified) claim.
 
 ## Stack (slide 7) and reasons
 | Layer | Choice | Reason |

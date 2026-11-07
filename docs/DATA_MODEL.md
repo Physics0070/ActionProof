@@ -72,7 +72,7 @@ again inside the commit tx `FOR SHARE` (a concurrent edit waits, or aborts the t
 `db.seed_hero` (`db.PEOPLE`): `rev-alice`/`p-alice`, `rev-bob`/`p-bob` (reviewer), `sub-user123`/`p-user123`,
 `admin-ops`/`p-ops` (admin), `user-123` and `agent-7` → `p-user123`. Test-only `rev-user123` (`p-user123`, reviewer)
 is inserted by `tests/redteam/test_rt_sep.py`, never seeded. Included in `db.reset` (tests).
-`# ponytail: admin edits to people are audited with audit.py (Phase 5); team expansion is a non-goal.`
+`# ponytail: admin edits to people are not yet audit entries (no admin edit path exists; the console backend adds one); team expansion is a non-goal.`
 
 ## quarantine — records with an unknown outcome (ADR-014)
 | Column | Type | Constraint |
@@ -86,5 +86,33 @@ DENYs the record and `commit` re-checks it inside the tx: **AP-REP-05 (G2)** "un
 attempt; reconcile". Removed only by `Gate.release_quarantine(record_id, reviewer)` (admin reconcile path).
 Included in `db.reset` (tests).
 
+## audit_log — hash-chained decision log (deck S3.6 / S9.3, `audit.py`)
+| Column | Type | Constraint |
+|---|---|---|
+| seq | bigint | PRIMARY KEY, CHECK `>= 1`; assigned `head + 1` under the audit lock (gap-free; no sequence, which is not transactional) |
+| ts | bigint | NOT NULL, CHECK `>= 0` (UTC epoch seconds) |
+| kind | text | NOT NULL: `prepare`, `commit`, `mint`, `release_quarantine` |
+| request_hash, actor, on_behalf_of, record_id | text | nullable (absent when the request never parsed) |
+| decision | text | ALLOW / REVIEW / DENY / EXECUTED / MINTED / REFUSED / RELEASED / NOT_QUARANTINED |
+| rules | jsonb | NOT NULL, `[{rule, guarantee, msg}]` |
+| detail | jsonb | NOT NULL, kind-specific (nonce, idempotency key, amount, version, reviewer login/person) |
+| prev_hash | text | NOT NULL, previous entry's `entry_hash` (genesis `"0"*64`) |
+| entry_hash | text | UNIQUE NOT NULL, `sha256(RFC 8785 of every other column)` |
+
+## audit_checkpoints — signed chain heads
+| Column | Type | Constraint |
+|---|---|---|
+| seq | bigint | PRIMARY KEY (the entry it pins) |
+| head_hash | text | NOT NULL (that entry's `entry_hash`) |
+| ts | bigint | NOT NULL, CHECK `>= 0` |
+| sig, kid | text | NOT NULL; Ed25519 by the gate key over RFC 8785 `{seq, head_hash, ts}` |
+
+Both tables are append-only: `BEFORE UPDATE OR DELETE` (row) and `BEFORE TRUNCATE` (statement) triggers call
+`audit_append_only()`, which raises. That stops the application and ordinary roles, not a superuser or the owner
+(they can disable the trigger); `python -m actionproof.audit verify` detects an edited, deleted, reordered or
+truncated entry and a forged checkpoint. `db.reset` (tests only) disables the triggers for its one truncate tx.
+Written every `AUDIT_CHECKPOINT_EVERY` entries (default 1).
+
 ## Not here
-Audit tables arrive in Phase 5. No signing key material is ever stored in the database (invariant 6, ADR-007).
+No signing key material, review token or receipt signature is ever stored in the audit tables, and no signing key
+material anywhere in the database (invariant 6, ADR-007).

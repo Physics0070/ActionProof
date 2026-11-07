@@ -4,7 +4,6 @@ A REVIEW is a human approval; if the approver is the same person who asked, the 
 Every assertion encodes the SAFE behavior. A failing test here is a finding.
 """
 import copy
-import logging
 
 import pytest
 from gatekit import AGENT, rules
@@ -47,13 +46,14 @@ def _denied_at_commit(kit, receipt, req, token, principal=AGENT):
     assert kit.sql("SELECT used_at FROM review_tokens") == [(None,)], "a denied commit consumed the token"
 
 
-def test_second_login_of_submitter_cannot_mint(kit, caplog):
+def test_second_login_of_submitter_cannot_mint(kit):
     """rev-user123 is a reviewer login of the same human (p-user123) who runs agent-7 for user-123."""
     _person(kit, "rev-user123", "p-user123", ["reviewer"])
     req, receipt = _review(kit, "INV-SEP1")
-    with caplog.at_level(logging.WARNING, logger="actionproof.audit"):
-        assert _refused(kit, receipt, req, "rev-user123") == SEP
-    assert any("AP-SEP-12" in r.getMessage() and "rev-user123" in r.getMessage() for r in caplog.records)
+    assert _refused(kit, receipt, req, "rev-user123") == SEP
+    # The refusal is a hash-chained audit entry (audit.py), not just a log line.
+    assert kit.sql("SELECT decision, rules->0->>'rule', detail->>'reviewer_login', request_hash FROM audit_log "
+                   "WHERE kind = 'mint'") == [("REFUSED", "AP-SEP-12", "rev-user123", receipt["payload"]["request_hash"])]
 
 
 def test_second_login_token_denied_at_commit(kit):

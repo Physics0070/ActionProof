@@ -34,6 +34,7 @@ Sources: `CLAUDE.md` (invariants), `DECK_TRACE.md`, `spec/attack-classes.md`.
 | deck | S7.2 Contracts: Pydantic v2 strict, RFC 8785 | `tests/test_contracts.py`, `tests/usp/test_no_floats.py` | G1 | done |
 | deck | S2.1 Fixtures: manifest matches generated files; PDF field crops, JSON pointers, 20+ benign pairs, injected PDF | `tests/test_fixtures.py` | — | done |
 | deck | Smoke: pinned dependencies import and pydantic is v2 | `tests/test_smoke.py` | — | done |
+| deck | S3.6 / S9.3 Audit: append-only triggers; chain grows with prepare+commit; edited row, rehashed chain (checkpoint), deleted middle row, deleted tail row (checkpoint), reordered rows, forged checkpoint signature, wrong public key all detected (superuser connection bypasses the trigger); 20 concurrent appends gap-free; audit failure inside commit = DENY AP-ERR-11 with `tool.calls == []`; audit failure at prepare withholds the receipt; DENY/refusal/mint/release entries; checkpoint cadence; no seed/token/signature/traceback in entries; verifier CLI exit codes + output with only DATABASE_URL + public key | `tests/test_audit.py` | G1+G2 | done |
 
 Notes:
 - Attack rows follow `spec/attack-classes.md`. Expected result for each attack case: the tool executes 0 times.
@@ -48,6 +49,7 @@ python -m uv sync                              # install
 docker compose up -d postgres opa              # infra up
 python -m uv run pytest tests/usp -v           # USP suite
 python -m uv run pytest                        # all tests
+python -m actionproof.audit verify             # audit chain (needs DATABASE_URL + AUDIT_PUBLIC_KEY_PATH or --public-key)
 docker run --rm -v ./policy:/p openpolicyagent/opa test /p -v   # OPA tests
 ```
 
