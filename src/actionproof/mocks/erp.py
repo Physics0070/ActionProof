@@ -33,5 +33,10 @@ class MockERP:
         po, _ = self._fetch(f"po:{po_id}")
         return {"po.total": po["total"], "vendor_id": invoice["vendor_id"]}
 
+    def payment_sor(self, payment_id: str) -> dict:
+        """The original payment a refund is checked against (ADR-009). KeyError if it does not exist."""
+        p, _ = self._fetch(f"payment:{payment_id}")
+        return {"customer_id": p["customer_id"], "refund_to": p["method_id"], "payment.amount": p["amount"]}
+
 
 _DEFAULT_PO = {"INV-2048": "PO-2048"}

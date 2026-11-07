@@ -140,9 +140,12 @@ def opa_url(tmp_path_factory):
                 "verify": {"ok": True, "reasons": []},
                 "args": {"amount": "4800.00", "variance": "500.00", "vendor_id": "V-ACME"},
                 "scope": {"max_amount": "5000.00", "vendors": ["V-ACME"]}, "cumulative": {"committed": "0.00"}}
-        httpx.post(f"{url}/v1/data/actionproof/decision", json={"input": warm}, timeout=5)
-        for _ in range(3):
-            policy.decide(warm, url, 5)
+        refund_warm = {**warm, "tool": "payments.refund_payment", "args": {"amount": "250.00", "customer_id": "CUST-311"},
+                       "scope": {"max_amount": "5000.00", "customers": ["CUST-311"]}}
+        for inp in (warm, refund_warm):
+            httpx.post(f"{url}/v1/data/actionproof/decision", json={"input": inp}, timeout=5)
+            for _ in range(3):
+                policy.decide(inp, url, 5)
         yield url
     finally:
         proc.kill()

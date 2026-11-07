@@ -58,7 +58,7 @@ request's `actor`/`on_behalf_of` must equal it exactly, else AP-SCOPE-02 / G1. I
 
 **`prepare(req, docs=None, *, principal) -> PrepareResult(decision, reasons, verify, diff, receipt)`** never raises (AP-ERR-11):
 1. strict parse (`contracts.parse_request`); request not bound to `principal` = AP-SCOPE-02; unknown tool or
-   missing `invoice_id` = AP-VER-01.
+   missing `invoice_id` (refunds: `payment_id`, see "second connector" below) = AP-VER-01.
 2. `sor = tool.sor_for(invoice_id)` (PO total, vendor) from the ERP records, never from the agent.
 3. `verify.verify_request(req, docs, sor)` (variance pinned to `DERIVED sub(invoice.total, po.total)`, ASSERTED
    never a derivation input, ADR-013); then the gate requires `amount`, `invoice.total`, `po.total` and `variance`
@@ -113,6 +113,30 @@ as its `mint`/`MINTED` entry, so an audit failure refuses the mint (AP-ERR-11) a
 nothing else. It is never read from a request body, form field, query string or header the browser controls, and
 no MCP/adapter path may call `mint_review_token`. The approval label reads "requested by <actor> for
 <on_behalf_of> · approved by <reviewer> (different person)".
+
+## Phase 5 status: second connector, `payments.refund_payment` (ADR-009), through the same gate
+No parallel path: `Gate(settings, signer, conn_factory, tools)` takes `{tool name: adapter}` (a single adapter still
+means the invoice tool) and picks the adapter by `req.tool`. `gate.TARGETS` (owned by the gate, not the adapter)
+fixes, per tool, the argument naming the record, the record kind, the status it must have and the record field that
+is the AP-CUM-03 counterparty:
+
+| tool | target arg → record | must be | counterparty (cap key with `Principal.actor`) | adapter |
+|---|---|---|---|---|
+| `payments.approve_invoice` | `invoice_id` → `invoice:<id>` | `open` | invoice `vendor_id` | `mocks.MockPayments` |
+| `payments.refund_payment` | `payment_id` → `payment:<id>` | `captured` | payment `customer_id` | `mocks.MockRefunds` |
+
+A tool with no TARGETS entry or no adapter is DENY AP-VER-01 at prepare and AP-ERR-11 at commit. Everything else
+(strict contract, Principal binding, verify, OPA, receipt, commit lane, tokens + AP-SEP-12, burn + quarantine,
+audit) is the code described above. Refund specifics:
+- verify (`REGISTRY`): `payment_id`, `amount` DIRECT only; `refund_to` system-of-record only (document text, DIRECT
+  or tainted, never fills it); `customer_id` DIRECT or SoR-confirmed ASSERTED; `reason` free text.
+- prepare and, again, inside the commit tx (`_refund_mismatches`, against the locked payment record): `customer_id`
+  and `refund_to` equal the payment's; `amount <= payment.amount − SUM(commits on that payment, other rows)`.
+- policy input: `args {amount, customer_id}` (customer from the record), `scope {max_amount, customers}`; REVIEW
+  above 1000.00 (AP-REF-13); cap message "actor+customer cumulative total exceeds 5000.00".
+- the counterparty is stored in `commits.vendor_id` (ADR-015).
+- Demo state: `scripts/demo_seed.py --reset` (db.reset + db.seed_hero + db.seed_refunds + 4800.00 prior refunds
+  for agent-7/CUST-311), so REF-311 → DENY AP-VER-01 (refund_to), clean retry → DENY AP-CUM-03, REF-312 → executes once.
 
 ## Phase 5 status: audit as built (`src/actionproof/audit.py`, deck S3.6 / S9.3)
 Tables `audit_log` and `audit_checkpoints` (docs/DATA_MODEL.md), append-only by trigger (UPDATE/DELETE/TRUNCATE

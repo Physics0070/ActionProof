@@ -12,8 +12,11 @@ CREATE TABLE IF NOT EXISTS records (
 CREATE TABLE IF NOT EXISTS delegations (
     on_behalf_of text PRIMARY KEY,
     max_amount   numeric(18,2) NOT NULL CHECK (max_amount >= 0), -- AP-SCOPE-02
-    vendors      text[] NOT NULL
+    vendors      text[] NOT NULL,                                -- invoice counterparties in scope
+    customers    text[] NOT NULL DEFAULT '{}'                    -- refund counterparties in scope (ADR-009)
 );
+-- Databases created before ADR-009.
+ALTER TABLE delegations ADD COLUMN IF NOT EXISTS customers text[] NOT NULL DEFAULT '{}';
 
 CREATE TABLE IF NOT EXISTS commits (
     id              bigserial PRIMARY KEY,
@@ -22,13 +25,17 @@ CREATE TABLE IF NOT EXISTS commits (
     request_hash    text NOT NULL,
     actor           text NOT NULL,
     on_behalf_of    text NOT NULL,
-    vendor_id       text NOT NULL,
+    vendor_id       text NOT NULL,                               -- the COUNTERPARTY id (ADR-015): vendor or customer
     amount          numeric(18,2) NOT NULL CHECK (amount >= 0),
-    record_id       text NOT NULL,
+    record_id       text NOT NULL,                               -- invoice:<id> | payment:<id> (says which tool)
     created_at      bigint NOT NULL CHECK (created_at >= 0)
 );
--- AP-CUM-03 sums by actor+vendor inside the commit tx.
+COMMENT ON COLUMN commits.vendor_id IS
+    'counterparty id from the system of record: vendor (payments.approve_invoice) or customer (payments.refund_payment); ADR-015';
+-- AP-CUM-03 sums by actor+counterparty inside the commit tx.
 CREATE INDEX IF NOT EXISTS commits_actor_vendor ON commits (actor, vendor_id);
+-- ADR-009: refunds already committed against one payment (refundable balance), re-read inside the commit tx.
+CREATE INDEX IF NOT EXISTS commits_record ON commits (record_id);
 
 CREATE TABLE IF NOT EXISTS review_tokens (
     token        text PRIMARY KEY,

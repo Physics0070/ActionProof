@@ -31,10 +31,11 @@ class KitGate(Gate):
 
     def commit(self, receipt, req, review_token=None, *, principal=AGENT):
         return super().commit(receipt, req, review_token, principal=principal)
-from actionproof.mocks import MockERP, MockPayments  # noqa: E402
+from actionproof.mocks import MockERP, MockPayments, MockRefunds  # noqa: E402
 from actionproof.signing import Signer  # noqa: E402
 
 HERO_DOCS = hero.load_docs()
+INVOICE_TOOL, REFUND_TOOL = "payments.approve_invoice", "payments.refund_payment"
 
 
 def rules(result) -> list[str]:
@@ -111,20 +112,28 @@ class Kit:
         self.factory = pooled_factory(pg)
         self.erp = MockERP(self.factory)
         self.tool = MockPayments(self.erp, self.factory)
+        self.refunds = MockRefunds(self.erp, self.factory)  # second connector (ADR-009), same gate
         self.settings = Settings(database_url=pg, opa_url=opa_url,
                                  tesseract_cmd=os.environ.get("TESSERACT_CMD", "tesseract"),
                                  signing_key_path=str(key_path))
         self.signer = Signer.from_path(self.settings.signing_key_path, self.settings.signing_kid)
-        self.gate = KitGate(self.settings, self.signer, self.factory, self.tool)
-        # Count how often the GATE invoked execute (the mock's .calls counts tool-side effects).
+        self.gate = KitGate(self.settings, self.signer, self.factory,
+                            {INVOICE_TOOL: self.tool, REFUND_TOOL: self.refunds})
+        # Count how often the GATE invoked execute, per tool (the mocks' .calls count tool-side effects).
         self.executes = 0
-        real = self.tool.execute
+        self.refund_executes = 0
 
-        def counted(*a, **kw):
-            self.executes += 1
-            return real(*a, **kw)
+        def counter(tool, attr):
+            real = tool.execute
 
-        self.tool.execute = counted
+            def counted(*a, **kw):
+                setattr(self, attr, getattr(self, attr) + 1)
+                return real(*a, **kw)
+
+            tool.execute = counted
+
+        counter(self.tool, "executes")
+        counter(self.refunds, "refund_executes")
 
     # --- database helpers (autocommit-style on the kit's own connection)
     def sql(self, q: str, params=()):
@@ -191,6 +200,46 @@ class Kit:
             return ActionRequest.model_validate(d), {doc_id: blob}
         except ValueError:  # e.g. a non-canonical actor: hand the raw dict to the gate, which must DENY it
             return d, {doc_id: blob}
+
+    # --- refunds (ADR-009): the second connector through the same gate
+    def seed_refunds(self) -> None:
+        """PAY-7731 and the benign refund payments (db.PAYMENTS), plus user-123's refund customer scope."""
+        dbmod.seed_refunds(self.db)
+
+    def seed_payment(self, payment_id: str, customer: str, amount: str, method: str) -> None:
+        self.sql("INSERT INTO records (record_id, kind, data, version) VALUES (%s, 'payment', %s, 1) "
+                 "ON CONFLICT (record_id) DO UPDATE SET data = EXCLUDED.data, version = 1",
+                 (f"payment:{payment_id}", Jsonb({"customer_id": customer, "amount": amount, "method_id": method,
+                                                  "status": "captured"})))
+        self.sql("UPDATE delegations SET customers = array_append(customers, %s) "
+                 "WHERE on_behalf_of = 'user-123' AND NOT (%s = ANY(customers))", (customer, customer))
+
+    def prior_refunds(self, customer: str, amounts, actor: str = "agent-7") -> None:
+        """Refunds committed earlier for (actor, customer): rows in `commits`, counterparty in vendor_id (ADR-015)."""
+        for i, amount in enumerate(amounts):
+            self.sql("INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, "
+                     "amount, record_id, created_at) VALUES (%s, %s, 'prior', %s, 'user-123', %s, %s, %s, 1)",
+                     (f"prior-{actor}-{customer}-{i}", f"prior-{actor}-{customer}-{i}", actor, customer, amount,
+                      f"payment:PRIOR-{customer}-{i}"))
+
+    def refund(self, doc_id: str = "refund/REF-512.pdf", idem: str = "idem-ref", **kw) -> tuple[ActionRequest, dict]:
+        return hero.refund_request(doc_id, idem, **kw), HERO_DOCS
+
+    def refund_json(self, payment_id: str, amount: str, customer: str, method: str, *, idem: str,
+                    **arg_over) -> tuple[ActionRequest, dict]:
+        """A refund-request export (JSON) for a payment seeded with seed_payment; cheap, so loops use it."""
+        doc_id = f"refund-{payment_id}-{idem}.json"
+        blob = json_doc(payment_id=payment_id, amount=amount)
+        args = {
+            "payment_id": json_claim(doc_id, blob, "payment_id", payment_id),
+            "customer_id": {"value": customer, "claim": "ASSERTED"},
+            "refund_to": {"value": method, "claim": "ASSERTED"},
+            "amount": json_claim(doc_id, blob, "amount", amount),
+        }
+        args.update(arg_over)
+        d = {"tool": REFUND_TOOL, "on_behalf_of": "user-123", "actor": "agent-7", "idempotency_key": idem,
+             "args": args}
+        return ActionRequest.model_validate(d), {doc_id: blob}
 
     def mint(self, receipt: dict, req: ActionRequest, reviewer_login: str = "rev-alice") -> str:
         """The console's call: the reviewer is the session subject; rev-alice is a different person (ADR-008)."""

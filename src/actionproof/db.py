@@ -83,6 +83,30 @@ def seed_hero(conn: psycopg.Connection) -> None:
     conn.commit()
 
 
+# Refund connector (ADR-009): original payments (payment_id, customer_id, amount, method_id). PAY-7731 is the demo
+# payment; the others back the benign refund-request fixtures (fixtures/make.py REFUNDS).
+PAYMENTS = (
+    ("PAY-7731", "CUST-311", "450.00", "pm_card_4242"),
+    ("PAY-8101", "CUST-420", "1500.00", "pm_card_5555"),
+    ("PAY-8102", "CUST-512", "300.00", "pm_card_1881"),
+)
+
+
+def seed_refunds(conn: psycopg.Connection) -> None:
+    """Idempotent upsert of the payment records (version 1, nothing refunded) and user-123's refund customer
+    scope. Separate from seed_hero so the invoice hero state stays exactly as it was."""
+    for payment_id, customer, amount, method in PAYMENTS:
+        conn.execute(
+            "INSERT INTO records (record_id, kind, data, version) VALUES (%s, 'payment', %s, 1) "
+            "ON CONFLICT (record_id) DO UPDATE SET kind = EXCLUDED.kind, data = EXCLUDED.data, version = 1",
+            (f"payment:{payment_id}", Jsonb({"customer_id": customer, "amount": amount, "method_id": method,
+                                             "status": "captured"})),
+        )
+    conn.execute("UPDATE delegations SET customers = %s WHERE on_behalf_of = %s",
+                 (sorted({p[1] for p in PAYMENTS}), "user-123"))
+    conn.commit()
+
+
 def reset(conn: psycopg.Connection) -> None:
     """Truncate every table. Tests only: the audit tables are append-only, so their triggers are switched off for
     this one transaction (owner privilege; exactly the tampering the audit verifier exists to detect)."""

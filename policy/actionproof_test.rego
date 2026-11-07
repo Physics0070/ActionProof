@@ -140,6 +140,102 @@ test_precedence_deny_beats_review if {
 	rules(inp) == {"AP-SCOPE-02"}
 }
 
+# ---- refund connector (ADR-009): same rules, counterparty = SoR customer, REVIEW above 1000.00 (AP-REF-13)
+
+refund := {
+	"tool": "payments.refund_payment",
+	"actor": "agent-7",
+	"on_behalf_of": "user-123",
+	"verify": {"ok": true, "reasons": []},
+	"args": {"amount": "250.00", "customer_id": "CUST-311"},
+	"scope": {"max_amount": "5000.00", "customers": ["CUST-311"]},
+	"cumulative": {"committed": "0.00"},
+}
+
+refund_args(patch) := object.union(refund, {"args": object.union(refund.args, patch)})
+
+refund_committed(c) := object.union(refund, {"cumulative": {"committed": c}})
+
+test_refund_clean_allow if {
+	d(refund) == {"outcome": "ALLOW", "reasons": []}
+}
+
+test_refund_cum03_demo_4800_plus_250_deny if {
+	inp := refund_committed("4800.00")
+	d(inp) == {"outcome": "DENY", "reasons": [{"rule": "AP-CUM-03", "guarantee": "G1", "msg": "actor+customer cumulative total exceeds 5000.00"}]}
+}
+
+test_refund_cum03_equal_cap_allow if {
+	d(refund_committed("4750.00")).outcome == "ALLOW"
+}
+
+test_refund_cum03_cap_plus_cent_deny if {
+	rules(refund_committed("4750.01")) == {"AP-CUM-03"}
+}
+
+test_refund_ref13_1000_00_allow if {
+	d(refund_args({"amount": "1000.00"})) == {"outcome": "ALLOW", "reasons": []}
+}
+
+test_refund_ref13_1000_01_review if {
+	d(refund_args({"amount": "1000.01"})) == {"outcome": "REVIEW", "reasons": [{"rule": "AP-REF-13", "guarantee": "G1", "msg": "refund amount exceeds 1000.00"}]}
+}
+
+test_refund_deny_beats_ref13_review if {
+	inp := object.union(refund_args({"amount": "1200.00"}), {"cumulative": {"committed": "4000.00"}})
+	d(inp).outcome == "DENY"
+	rules(inp) == {"AP-CUM-03"}
+}
+
+test_refund_customer_out_of_scope_deny if {
+	inp := refund_args({"customer_id": "CUST-999"})
+	d(inp) == {"outcome": "DENY", "reasons": [{"rule": "AP-SCOPE-02", "guarantee": "G1", "msg": "customer not in on_behalf_of scope"}]}
+}
+
+test_refund_amount_over_scope_max_deny if {
+	inp := object.union(refund_args({"amount": "300.00"}), {"scope": {"max_amount": "200.00", "customers": ["CUST-311"]}})
+	rules(inp) == {"AP-SCOPE-02"}
+}
+
+test_refund_verify_false_deny if {
+	inp := object.union(refund, {"verify": {"ok": false, "reasons": []}})
+	rules(inp) == {"AP-VER-01"}
+}
+
+test_refund_malformed_shapes_deny if {
+	every inp in [
+		refund_args({"amount": "250"}),
+		refund_args({"amount": "0.00"}),
+		refund_args({"amount": 250}),
+		refund_args({"customer_id": 311}),
+		object.remove(refund, ["scope"]),
+		object.union(object.remove(refund, ["scope"]), {"scope": {"max_amount": "5000.00"}}),
+		object.union(refund, {"scope": {"max_amount": "5000.00", "customers": [311]}}),
+		object.union(refund, {"cumulative": {"committed": 0}}),
+	] {
+		rules(inp) == {"AP-VER-01"}
+	}
+}
+
+test_refund_does_not_read_vendor_scope if {
+	# a refund input shaped like an invoice (vendors scope, no customers) is malformed, never a grant
+	inp := object.union(object.remove(refund, ["scope"]), {"scope": {"max_amount": "5000.00", "vendors": ["CUST-311"]}})
+	rules(inp) == {"AP-VER-01"}
+}
+
+test_invoice_does_not_read_customer_scope if {
+	inp := object.union(object.remove(hero, ["scope"]), {"scope": {"max_amount": "5000.00", "customers": ["V-ACME"]}})
+	rules(inp) == {"AP-VER-01"}
+}
+
+test_refund_ignores_variance_rule if {
+	d(refund_args({"variance": "500.00"})).outcome == "ALLOW"
+}
+
+test_invoice_large_amount_no_ref13 if {
+	d(clean({"amount": "4800.00"})) == {"outcome": "ALLOW", "reasons": []}
+}
+
 test_multiple_denies_all_returned if {
 	inp := object.union(with_args({"amount": "6000.00", "vendor_id": "V-EVIL"}), {"verify": {"ok": false, "reasons": []}})
 	rules(inp) == {"AP-VER-01", "AP-SCOPE-02", "AP-CUM-03"}

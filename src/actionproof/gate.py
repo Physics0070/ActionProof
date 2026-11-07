@@ -1,6 +1,9 @@
 """The gate: prepare (verify + authorize + sign) and commit (re-check + execute once). Deck slides 3-4.
 
 Protocol, rule ids and order: .superpowers/sdd/phase3/design.md and docs/ARCHITECTURE.md.
+- One gate, several connectors (ADR-009): the adapter is chosen by req.tool; TARGETS (here, not in the adapter)
+  fixes the record each tool acts on and the record field that is the AP-CUM-03 counterparty (ADR-015). Every other
+  step (verify, policy, receipt, commit lane, tokens, burn/quarantine, audit) is the same code for every tool.
 - prepare never raises; any failure is DENY AP-ERR-11 / G1 (invariant 1). DENY never carries a receipt.
 - commit runs ONE SERIALIZABLE transaction and calls tool.execute at most once, only after every check passed,
   and never on a DENY. A receipt or idempotency key is single-use (UNIQUE constraints, G2).
@@ -33,6 +36,25 @@ from actionproof.contracts import MONEY, ActionRequest, ContractError, parse_req
 from actionproof.verify import Reason, VerifyResult, verify_request
 
 TOOL = "payments.approve_invoice"
+REFUND_TOOL = "payments.refund_payment"  # second connector (ADR-009): same prepare/commit, no parallel path
+
+
+@dataclass(frozen=True)
+class Target:
+    """What a tool acts on, fixed by the gate (not the adapter): the argument naming the record, the record kind
+    (record_id = '<kind>:<value>'), the status the record must have, the record field holding the counterparty
+    (the AP-CUM-03 key, ADR-015) and its word in reasons."""
+    arg: str
+    kind: str
+    status: str
+    counterparty: str
+    word: str
+
+
+TARGETS = {
+    TOOL: Target("invoice_id", "invoice", "open", "vendor_id", "vendor"),
+    REFUND_TOOL: Target("payment_id", "payment", "captured", "customer_id", "customer"),
+}
 # Mirrors cap_cents in policy/actionproof.rego (tests/test_commit.py asserts they agree).
 # ponytail: one global cap; per-tenant caps belong in data.json + the delegations table.
 CAP = Decimal("5000.00")
@@ -87,6 +109,32 @@ def _sor_mismatches(req: ActionRequest, data: dict, sor: dict) -> list[Reason]:
         if c is not None and not _same_money(c.value, want):
             out.append(_ver(f"{name}: disagrees with the system of record"))
     return out
+
+
+def _refund_mismatches(req: ActionRequest, data: dict, refunded: Decimal) -> list[Reason]:
+    """ADR-009, against the payment record itself: the customer and the destination must be the original
+    payment's, and the amount must fit the refundable balance (payment amount - refunds already committed)."""
+    out = []
+    for name, key in (("customer_id", "customer_id"), ("refund_to", "method_id")):
+        c = req.args.get(name)
+        if c is None or not isinstance(data.get(key), str) or c.value != data[key]:
+            out.append(_ver(f"{name}: disagrees with the system of record"))
+    amount, paid = req.args.get("amount"), data.get("amount")
+    if amount is None or not _money(amount.value) or not _money(paid):
+        out.append(_ver("amount: not comparable with the payment record"))
+    elif Decimal(amount.value) > Decimal(paid) - refunded:
+        out.append(_ver("amount: exceeds the refundable balance of the payment"))
+    return out
+
+
+def _money(v) -> bool:
+    return isinstance(v, str) and bool(MONEY.match(v))
+
+
+def _refunded(conn, record_id: str, exclude_nonce: str | None = None) -> Decimal:
+    """Refunds committed against one payment (burned ones included: unknown outcome = spent, ADR-010)."""
+    return conn.execute("SELECT COALESCE(SUM(amount), 0) FROM commits WHERE record_id = %s "
+                        "AND nonce IS DISTINCT FROM %s", (record_id, exclude_nonce)).fetchone()[0]
 
 
 def _merge(d: policy.Decision, v_ok: bool, v_reasons: list[Reason]) -> list[Reason]:
@@ -156,7 +204,7 @@ class PrepareResult:
         lines = ["ACTION INTERCEPTED"]
         tool = self.request.tool if self.request is not None else "unknown"
         lines.append(f"action: {tool.rsplit('.', 1)[-1]}")
-        for name in ("amount", "variance"):
+        for name in ("amount", "refund_to") if tool == REFUND_TOOL else ("amount", "variance"):
             c = self.request.args.get(name) if self.request is not None else None
             if c is None:
                 lines.append(f"{name}: missing [FAILED]")
@@ -171,6 +219,8 @@ class PrepareResult:
             lines.append("rule: none")
         elif self.reasons[0].rule == "AP-INV-04":
             lines.append("rule: AP-INV-04 (> 100)")
+        elif self.reasons[0].rule == "AP-REF-13":
+            lines.append("rule: AP-REF-13 (> 1000)")
         else:
             lines.append(f"rule: {self.reasons[0].rule} [{self.reasons[0].guarantee}]")
         lines.append(f"decision: {self.decision}")
@@ -198,9 +248,10 @@ def _who(req, p: dict | None = None) -> dict:
     f = {}
     if isinstance(req, ActionRequest):
         try:
-            inv = req.args.get("invoice_id")
+            t = TARGETS.get(req.tool)
+            tgt = req.args.get(t.arg) if t is not None else None
             f = {"request_hash": request_hash(req), "actor": req.actor, "on_behalf_of": req.on_behalf_of,
-                 "record_id": f"invoice:{inv.value}" if inv is not None else None}
+                 "record_id": f"{t.kind}:{tgt.value}" if tgt is not None else None}
         except Exception:
             f = {}
     if p:
@@ -218,15 +269,17 @@ class _Attempt:
 
 class Gate:
     def __init__(self, settings, signer, conn_factory, tool, docs_provider=None):
+        """`tool`: {tool name: adapter} for every connector this gate serves, or a single invoice adapter.
+        The adapter is chosen by req.tool; a tool with no adapter or no TARGETS entry is DENY (fail closed)."""
         self._settings = settings
         self._signer = signer
         self._verify_key = signer.public_key_b64()
         self._conn_factory = conn_factory
-        self._tool = tool
+        self._tools = dict(tool) if isinstance(tool, dict) else {TOOL: tool}
         self._docs_provider = docs_provider
 
     def __repr__(self) -> str:
-        return f"Gate(kid={self._signer.kid!r}, tool={TOOL!r})"
+        return f"Gate(kid={self._signer.kid!r}, tools={sorted(self._tools)!r})"
 
     __str__ = __repr__
 
@@ -283,41 +336,48 @@ class Gate:
 
         if not _bound(req, principal):  # ADR-012: the agent cannot name its own actor or principal
             return deny(_UNBOUND)
-        if req.tool != TOOL:
+        t, tool = TARGETS.get(req.tool), self._tools.get(req.tool)
+        if t is None or tool is None:
             return deny(_ver(f"unknown tool {req.tool!r} (fail closed)"))
-        inv = req.args.get("invoice_id")
-        if inv is None:
-            return deny(_ver("invoice_id: required to target a record (evidence gap)"))
-        record_id = f"invoice:{inv.value}"
+        tgt = req.args.get(t.arg)
+        if tgt is None:
+            return deny(_ver(f"{t.arg}: required to target a record (evidence gap)"))
+        record_id = f"{t.kind}:{tgt.value}"
         try:
-            sor = dict(self._tool.sor_for(inv.value))
+            sor = dict(tool.sor_for(tgt.value))
         except KeyError:
-            return deny(_ver("invoice_id: target record not in the system of record"))
+            return deny(_ver(f"{t.arg}: target record not in the system of record"))
         if docs is None:
             docs = self._docs_provider(req) if self._docs_provider is not None else {}
         v = verify_request(req, docs, sor)
 
-        data, version = self._tool.read_record(record_id)
+        data, version = tool.read_record(record_id)
         # The system of record, not the documents, decides what is owed (G1); variance is pinned to it (ADR-013).
-        extra = _sor_mismatches(req, data, sor)
-        if extra:
-            v = VerifyResult(False, v.claims, v.reasons + extra)
-        if data.get("status") != "open":
-            return deny(_r("AP-STALE-07", "G2", "target record is not open (already actioned)"), v=v)
+        if req.tool == TOOL:
+            extra = _sor_mismatches(req, data, sor)
+            if extra:
+                v = VerifyResult(False, v.claims, v.reasons + extra)
+        if data.get("status") != t.status:
+            return deny(_r("AP-STALE-07", "G2", f"target record is not {t.status} (already actioned)"), v=v)
 
         with self._conn_factory() as conn:
             if conn.execute("SELECT 1 FROM quarantine WHERE record_id = %s", (record_id,)).fetchone():
                 return deny(_QUARANTINED, v=v)
+            if req.tool == REFUND_TOOL:  # advisory here; authoritative again inside the commit tx (ADR-009)
+                extra = _refund_mismatches(req, data, _refunded(conn, record_id))
+                if extra:
+                    v = VerifyResult(False, v.claims, v.reasons + extra)
+            counterparty = data.get(t.counterparty)  # the record's, never the request's (ADR-009/015)
             committed = conn.execute(
                 "SELECT COALESCE(SUM(amount), 0)::numeric(18,2)::text FROM commits WHERE actor = %s AND vendor_id = %s",
-                (req.actor, data.get("vendor_id"))).fetchone()[0]
-            payload = self._policy_input(conn, req, v.ok, v.reasons, data.get("vendor_id"), committed)
+                (req.actor, counterparty)).fetchone()[0]
+            payload = self._policy_input(conn, req, v.ok, v.reasons, counterparty, committed)
         d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
         reasons = _merge(d, v.ok, v.reasons)
         if d.outcome not in ("ALLOW", "REVIEW"):
             return deny(*reasons, v=v)
 
-        diff = self._tool.dry_run(req)
+        diff = tool.dry_run(req)
         receipt = self._signer.sign({
             "request_hash": request_hash(req),
             "decision": d.outcome,
@@ -335,12 +395,17 @@ class Gate:
         return PrepareResult(d.outcome, reasons, v, diff, receipt, req)
 
     @staticmethod
-    def _policy_input(conn, req: ActionRequest, v_ok: bool, v_reasons: list[Reason], vendor_id, committed: str) -> dict:
-        """Policy input from the system of record (scope from delegations, vendor from the record), never the agent."""
-        scope = conn.execute("SELECT max_amount::text, vendors FROM delegations WHERE on_behalf_of = %s",
+    def _policy_input(conn, req: ActionRequest, v_ok: bool, v_reasons: list[Reason], counterparty,
+                      committed: str) -> dict:
+        """Policy input from the system of record (scope from delegations, counterparty from the record), never the
+        agent. Invoices: args.vendor_id + scope.vendors; refunds: args.customer_id + scope.customers (ADR-009)."""
+        scope = conn.execute("SELECT max_amount::text, vendors, customers FROM delegations WHERE on_behalf_of = %s",
                              (req.on_behalf_of,)).fetchone()
-        args = {name: req.args[name].value for name in ("amount", "variance") if name in req.args}
-        args["vendor_id"] = vendor_id
+        refund = req.tool == REFUND_TOOL
+        args = {name: req.args[name].value for name in (("amount",) if refund else ("amount", "variance"))
+                if name in req.args}
+        args["customer_id" if refund else "vendor_id"] = counterparty
+        ids = "customers" if refund else "vendors"
         return {
             "tool": req.tool,
             "actor": req.actor,
@@ -348,7 +413,8 @@ class Gate:
             "verify": {"ok": v_ok, "reasons": [asdict(r) for r in v_reasons]},
             "args": args,
             # No delegation = empty scope, so the policy denies AP-SCOPE-02 (never a default grant).
-            "scope": {"max_amount": scope[0], "vendors": list(scope[1])} if scope else {"max_amount": "0.00", "vendors": []},
+            "scope": {"max_amount": scope[0], ids: list(scope[2 if refund else 1])} if scope
+            else {"max_amount": "0.00", ids: []},
             "cumulative": {"committed": committed},
         }
 
@@ -462,6 +528,8 @@ class Gate:
             return _deny(_r("AP-REV-10", "G2", "REVIEW decision needs a human review token"))
         if "amount" not in req.args or not MONEY.match(req.args["amount"].value):
             return _deny(_err("request has no 2dp amount"))
+        if req.tool not in TARGETS or req.tool not in self._tools:
+            return _deny(_err(f"no adapter for tool {req.tool!r} (fail closed)"))
 
         conn = self._conn_factory()
         try:
@@ -520,9 +588,11 @@ class Gate:
         if rec is None:
             return deny(_r("AP-STALE-07", "G2", "record no longer exists"))
         data, version = rec
+        t, tool = TARGETS[req.tool], self._tools[req.tool]
         amount = Decimal(req.args["amount"].value)
+        # The counterparty (AP-CUM-03 key) comes from the locked record, never the request (ADR-009/015).
         st.row = (p["nonce"], p["idempotency_key"], p["request_hash"], req.actor, req.on_behalf_of,
-                  str(data.get("vendor_id")), amount, p["record_id"], now)
+                  str(data.get(t.counterparty)), amount, p["record_id"], now)
         try:
             conn.execute(
                 "INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount, "
@@ -533,10 +603,10 @@ class Gate:
         total = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM commits WHERE actor = %s AND vendor_id = %s",
                              (req.actor, st.row[5])).fetchone()[0]
         if total > CAP:
-            return deny(_r("AP-CUM-03", "G1", "actor+vendor cumulative total exceeds 5000.00"))
+            return deny(_r("AP-CUM-03", "G1", f"actor+{t.word} cumulative total exceeds 5000.00"))
         if version != p["version"]:
             return deny(_r("AP-STALE-07", "G2", "record version changed since prepare"))
-        diff = self._tool.dry_run(req)
+        diff = tool.dry_run(req)
         if _diff_hash(diff, data) != p["diff_hash"]:
             return deny(_r("AP-STALE-07", "G2", "dry-run diff changed since prepare"))
         stale = self._recheck_policy(conn, p, req, data, str((total - amount).quantize(CENT)))
@@ -550,7 +620,7 @@ class Gate:
             "version": version, "reviewer": reviewer})
         st.invoked = True
         try:
-            result = self._tool.execute(req, version, p["idempotency_key"], conn)
+            result = tool.execute(req, version, p["idempotency_key"], conn)
         except Exception as e:
             after = conn.execute("SELECT data, version FROM records WHERE record_id = %s", (p["record_id"],)).fetchone()
             conn.rollback()
@@ -585,12 +655,18 @@ class Gate:
     def _recheck_policy(self, conn, p: dict, req: ActionRequest, data: dict, committed: str) -> list[Reason]:
         """ADR-014: the receipt froze a decision; the world may have moved. Re-derive the policy input from CURRENT
         state (delegation scope, PO total, committed sum) under the commit lock and decide again. Returns the deny
-        reasons, or [] when the fresh decision is no stricter than the receipt's."""
-        sor = dict(self._tool.sor_for(req.args["invoice_id"].value))
-        vr = _sor_mismatches(req, data, sor)
-        if "variance" not in req.args:
-            vr.append(_ver("variance: required argument missing (evidence gap)"))
-        payload = self._policy_input(conn, req, not vr, vr, data.get("vendor_id"), committed)
+        reasons, or [] when the fresh decision is no stricter than the receipt's.
+        Refunds (ADR-009): customer, destination and refundable balance are re-checked against the LOCKED payment
+        record and every refund committed on it before this one (the commit lane serializes them)."""
+        t = TARGETS[req.tool]
+        if req.tool == REFUND_TOOL:
+            vr = _refund_mismatches(req, data, _refunded(conn, p["record_id"], p["nonce"]))
+        else:
+            sor = dict(self._tools[req.tool].sor_for(req.args[t.arg].value))
+            vr = _sor_mismatches(req, data, sor)
+            if "variance" not in req.args:
+                vr.append(_ver("variance: required argument missing (evidence gap)"))
+        payload = self._policy_input(conn, req, not vr, vr, data.get(t.counterparty), committed)
         d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
         if d.outcome == "ALLOW" or (d.outcome == "REVIEW" and p["decision"] == "REVIEW"):
             return []

@@ -35,6 +35,14 @@ Sources: `CLAUDE.md` (invariants), `DECK_TRACE.md`, `spec/attack-classes.md`.
 | deck | S2.1 Fixtures: manifest matches generated files; PDF field crops, JSON pointers, 20+ benign pairs, injected PDF | `tests/test_fixtures.py` | — | done |
 | deck | Smoke: pinned dependencies import and pydantic is v2 | `tests/test_smoke.py` | — | done |
 | deck | S3.6 / S9.3 Audit: append-only triggers; chain grows with prepare+commit; edited row, rehashed chain (checkpoint), deleted middle row, deleted tail row (checkpoint), reordered rows, forged checkpoint signature, wrong public key all detected (superuser connection bypasses the trigger); 20 concurrent appends gap-free; audit failure inside commit = DENY AP-ERR-11 with `tool.calls == []`; audit failure at prepare withholds the receipt; DENY/refusal/mint/release entries; checkpoint cadence; no seed/token/signature/traceback in entries; verifier CLI exit codes + output with only DATABASE_URL + public key | `tests/test_audit.py` | G1+G2 | done |
+| connector | ADR-009 refund registry: payment_id/amount DIRECT only; refund_to SoR only (DIRECT, injected, tainted copy of the real method all fail); customer_id SoR-confirmed; required/unknown args | `tests/test_refund_verify.py` | G1 | done |
+| connector | ADR-009 refund through the same gate: executes once, replay, over-refund at prepare and inside the commit tx, customer mismatch, unknown payment, customer scope, REVIEW AP-REF-13 + AP-REV-10 + AP-SEP-12, audit entries + chain verify, burn/quarantine, double call, invoice hero unchanged | `tests/test_refund_gate.py` | G1+G2 | done |
+| attack | 1b. Refund destination injection (visible line in REF-311.pdf), DIRECT/tainted/untainted variants, swap after prepare | `tests/attacks/test_refund_injection.py` | G1+G2 | done |
+| attack | 5b. Split refunds: cap (actor, SoR customer) at prepare, sequential and concurrent (10 rounds) | `tests/attacks/test_refund_cap.py` | G1 | done |
+| connector | Mock refund tool: dry_run, execute once, idempotency key, hostile switches | `tests/test_refund_mocks.py` | G2 | done |
+| connector | Refund fixtures: visible injected line, clean variant, 3 benign | `tests/test_refund_fixtures.py` | — | done |
+| demo | `scripts/demo_seed.py --reset`: whole demo state; injected → AP-VER-01, clean retry → AP-CUM-03, small → executes once; idempotent | `tests/test_refund_demo_seed.py` | G1+G2 | done |
+| policy | refund input shape, AP-REF-13 bounds, customer scope, cap 4800+250 | `policy/actionproof_test.rego` (`test_refund_*`) | G1 | done |
 
 Notes:
 - Attack rows follow `spec/attack-classes.md`. Expected result for each attack case: the tool executes 0 times.

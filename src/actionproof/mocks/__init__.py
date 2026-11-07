@@ -2,6 +2,7 @@
 
 from actionproof.mocks.erp import MockERP
 from actionproof.mocks.payments import MockPayments, ToolError
+from actionproof.mocks.refunds import MockRefunds
 from actionproof.mocks.vendors import MockVendorMaster
 
-__all__ = ["MockERP", "MockPayments", "MockVendorMaster", "ToolError"]
+__all__ = ["MockERP", "MockPayments", "MockRefunds", "MockVendorMaster", "ToolError"]

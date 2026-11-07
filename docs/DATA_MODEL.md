@@ -11,22 +11,31 @@ a dumper that raises `TypeError` for any Python `float` parameter, and a jsonb s
 ## records — system of record (mock ERP)
 | Column | Type | Constraint |
 |---|---|---|
-| record_id | text | PRIMARY KEY (e.g. `invoice:INV-2048`, `po:PO-2048`) |
-| kind | text | NOT NULL |
+| record_id | text | PRIMARY KEY (e.g. `invoice:INV-2048`, `po:PO-2048`, `payment:PAY-7731`) |
+| kind | text | NOT NULL (`invoice`, `po`, `payment`, `vendor`) |
 | data | jsonb | NOT NULL; amounts inside are 2 dp strings |
 | version | bigint | NOT NULL, CHECK `>= 0` |
 
 Enforces: `version` is bound into the receipt and re-read `FOR UPDATE` at commit; mismatch = **AP-STALE-07 (G2)**.
 `data` supplies `vendor_id` and SoR totals for G1 verification (never the agent's claims).
 
+Payment records (ADR-009, refund connector): `data = {customer_id, amount, method_id, status: "captured",
+refunded?}`. `customer_id` is the refund's AP-CUM-03 counterparty, `method_id` the only value `refund_to` may take,
+`amount` minus the refunds committed against the payment (`commits.record_id`) is the refundable balance. A refund
+adds to `refunded` and bumps the version (mock tool). Seeded by `db.seed_refunds` (`db.PAYMENTS`: PAY-7731
+CUST-311 450.00 pm_card_4242, PAY-8101 CUST-420 1500.00, PAY-8102 CUST-512 300.00); the demo's fully refunded
+PAY-7001..7004 by `scripts/demo_seed.py`.
+
 ## delegations — on-behalf-of scope
 | Column | Type | Constraint |
 |---|---|---|
 | on_behalf_of | text | PRIMARY KEY |
 | max_amount | numeric(18,2) | NOT NULL, CHECK `>= 0` |
-| vendors | text[] | NOT NULL |
+| vendors | text[] | NOT NULL (invoice counterparties) |
+| customers | text[] | NOT NULL DEFAULT `'{}'` (refund counterparties, ADR-009; `ALTER ... IF NOT EXISTS` on older DBs) |
 
-Enforces: policy `scope` input; amount above `max_amount` or vendor not listed = **AP-SCOPE-02 (G1)**.
+Enforces: policy `scope` input; amount above `max_amount`, or vendor (invoice) / customer (refund) not listed =
+**AP-SCOPE-02 (G1)**. `db.seed_refunds` sets user-123's `customers` to the customers of `db.PAYMENTS`.
 
 ## commits — one row per executed write
 | Column | Type | Constraint |
@@ -39,9 +48,14 @@ Enforces: policy `scope` input; amount above `max_amount` or vendor not listed =
 | amount | numeric(18,2) | NOT NULL, CHECK `>= 0` |
 | created_at | bigint | NOT NULL, CHECK `>= 0` (UTC epoch seconds) |
 
-Index `commits_actor_vendor (actor, vendor_id)`.
+Index `commits_actor_vendor (actor, vendor_id)`; index `commits_record (record_id)`.
+`vendor_id` holds the **counterparty id** from the system-of-record record (ADR-015): the invoice vendor for
+`payments.approve_invoice`, the payment customer for `payments.refund_payment`; `record_id` (`invoice:` /
+`payment:`) tells which tool wrote the row.
 Enforces: UNIQUE `nonce` / `idempotency_key` = a receipt or key can commit once; a duplicate insert raises
-`UniqueViolation` → **AP-REP-05 (G2)**. `SUM(amount)` by actor+vendor inside the commit tx = **AP-CUM-03 (G1, ADR-006)**.
+`UniqueViolation` → **AP-REP-05 (G2)**. `SUM(amount)` by actor+counterparty inside the commit tx = **AP-CUM-03 (G1,
+ADR-006)**. `SUM(amount)` by `record_id` (other rows) inside the commit tx = the refunds already committed against a
+payment, so `amount <= payment.amount − that sum` (**AP-VER-01, G1**, ADR-009).
 
 ## review_tokens — human-minted, one-use approvals for REVIEW decisions
 | Column | Type | Constraint |

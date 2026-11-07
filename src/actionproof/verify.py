@@ -4,6 +4,8 @@ DIRECT: hash + deterministic re-extraction must reproduce the value.
 DERIVED: recomputed by an allowlisted pure fn over verified DIRECT/DERIVED args or system-of-record values
          (never over an ASSERTED arg); a "pinned" field must use exactly its registered fn and inputs (ADR-013).
 ASSERTED: never fills a money field; fills another authority field only if the system of record agrees.
+"direct_only" fields accept DIRECT only; "sor_only" fields accept only an untainted ASSERTED value equal to the
+system of record, so document text (DIRECT or tainted) never fills them (ADR-009, refund_to).
 verify_request never raises: any failure is a not-ok result with Reason AP-VER-01 / G1 (invariant 1).
 """
 
@@ -49,7 +51,19 @@ REGISTRY: dict[str, dict] = {
         "allowed": {"amount", "variance", "vendor_id", "invoice_id", "invoice.total", "po.total", "note"},
         # ADR-011/ADR-013: these fields are always DERIVED by exactly this fn over exactly these inputs.
         "pinned": {"variance": ("sub", ["invoice.total", "po.total"])},
-    }
+    },
+    # ADR-009. The gate additionally checks customer_id/refund_to against the payment record and
+    # amount <= payment.amount - committed refunds (prepare and inside the commit tx).
+    "payments.refund_payment": {
+        "required": {"payment_id", "customer_id", "refund_to", "amount"},
+        "authority": {"payment_id", "customer_id", "refund_to", "amount"},
+        "money": {"amount"},
+        "allowed": {"payment_id", "customer_id", "refund_to", "amount", "reason"},
+        # Cited at a box of the refund-request document: DIRECT and nothing else.
+        "direct_only": {"payment_id", "amount"},
+        # Only the system of record may fill these: never DIRECT, never doc-tainted, always equal to the SoR.
+        "sor_only": {"refund_to"},
+    },
 }
 
 CENT = Decimal("0.01")
@@ -161,6 +175,11 @@ def _verify(req: ActionRequest, docs, sor) -> VerifyResult:
             pin = spec.get("pinned", {}).get(name)
             if pin is not None and (c.claim is not ClaimType.DERIVED or (c.fn, c.inputs) != pin):
                 raise _Fail(f"must be DERIVED as {pin[0]}({', '.join(pin[1])})")
+            if name in spec.get("direct_only", ()) and c.claim is not ClaimType.DIRECT:
+                raise _Fail("must be DIRECT at a cited box of the request document")
+            # ADR-009: document text never fills it, not even a tainted copy that happens to equal the record.
+            if name in spec.get("sor_only", ()) and (c.claim is not ClaimType.ASSERTED or c.taint is not None):
+                raise _Fail("document-sourced value in an authority field; must equal the system of record")
             if c.claim is ClaimType.DIRECT:
                 value, method = _direct(name, c, docs, spec["money"])
             elif c.claim is ClaimType.DERIVED:

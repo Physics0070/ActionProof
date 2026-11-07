@@ -32,9 +32,24 @@ args:
 | Tool | Authority fields |
 |---|---|
 | payments.approve_invoice | amount, variance, vendor_id, invoice_id |
-| (second connector, ADR-009) | defined in Phase 4 |
+| payments.refund_payment (ADR-009) | payment_id (DIRECT only, must exist), customer_id (= payment's customer), refund_to (system of record only: = payment's method_id, never DIRECT, never doc-tainted), amount (DIRECT only, <= payment amount − committed refunds) |
 
-Taint rule: document text may be shown to a reviewer but cannot fill an authority field unless DIRECT-verified or equal to a system-of-record value.
+Taint rule: document text may be shown to a reviewer but cannot fill an authority field unless DIRECT-verified or equal to a system-of-record value. Stricter for `refund_to`: document text never fills it, even when equal to the record (ADR-009).
+
+Refund example (`fixtures/hero.py refund_request`):
+
+```yaml
+tool: payments.refund_payment
+on_behalf_of: user-123
+actor: agent-7
+idempotency_key: "..."
+args:
+  payment_id: "PAY-7731"      # DIRECT at its box in refund/REF-311-clean.pdf
+  customer_id: "CUST-311"     # ASSERTED, taint doc: allowed only because the payment record agrees
+  refund_to: "pm_card_4242"   # ASSERTED, no taint: the payment's method_id from the system of record
+  amount: "250.00"            # DIRECT at its box
+  reason: "customer requested a refund"   # free text, not an authority field
+```
 
 ## Hashing
 `request_hash = sha256(RFC8785(request))`. Any change after `prepare` changes the hash and invalidates the receipt.
