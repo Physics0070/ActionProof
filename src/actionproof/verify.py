@@ -1,7 +1,8 @@
 """G1 claim verification (deck S3.3, S4.1-S4.5). No LLM, no floats; arithmetic is Decimal only.
 
 DIRECT: hash + deterministic re-extraction must reproduce the value.
-DERIVED: recomputed by an allowlisted pure fn over verified args or system-of-record values.
+DERIVED: recomputed by an allowlisted pure fn over verified DIRECT/DERIVED args or system-of-record values
+         (never over an ASSERTED arg); a "pinned" field must use exactly its registered fn and inputs (ADR-013).
 ASSERTED: never fills a money field; fills another authority field only if the system of record agrees.
 verify_request never raises: any failure is a not-ok result with Reason AP-VER-01 / G1 (invariant 1).
 """
@@ -46,6 +47,8 @@ REGISTRY: dict[str, dict] = {
         "authority": {"amount", "variance", "vendor_id", "invoice_id"},
         "money": {"amount", "variance"},
         "allowed": {"amount", "variance", "vendor_id", "invoice_id", "invoice.total", "po.total", "note"},
+        # ADR-011/ADR-013: these fields are always DERIVED by exactly this fn over exactly these inputs.
+        "pinned": {"variance": ("sub", ["invoice.total", "po.total"])},
     }
 }
 
@@ -108,6 +111,9 @@ def _verify(req: ActionRequest, docs, sor) -> VerifyResult:
 
     def money_input(i: str) -> Decimal:
         if i in req.args:
+            # An ASSERTED value is the agent's word, even when "ok": it can never feed a derivation (ADR-013).
+            if req.args[i].claim is ClaimType.ASSERTED:
+                raise _Fail(f"input {i} is ASSERTED; only DIRECT or DERIVED claims can be inputs")
             r = check(i)
             if not r.ok:
                 raise _Fail(f"input {i} did not verify")
@@ -152,6 +158,9 @@ def _verify(req: ActionRequest, docs, sor) -> VerifyResult:
         c = req.args[name]
         visiting.add(name)
         try:
+            pin = spec.get("pinned", {}).get(name)
+            if pin is not None and (c.claim is not ClaimType.DERIVED or (c.fn, c.inputs) != pin):
+                raise _Fail(f"must be DERIVED as {pin[0]}({', '.join(pin[1])})")
             if c.claim is ClaimType.DIRECT:
                 value, method = _direct(name, c, docs, spec["money"])
             elif c.claim is ClaimType.DERIVED:

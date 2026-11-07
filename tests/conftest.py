@@ -29,19 +29,58 @@ def _dev_database_url() -> str:
 
 @pytest.fixture(scope="session")
 def pg() -> str:
-    """DSN of a reachable Postgres with the schema applied; starts the dev cluster if needed."""
+    """DSN of a PRIVATE database for this pytest process, with the schema applied.
+
+    Every process gets `actionproof_test_<pid>_<random>` on the dev Postgres server (created through the
+    `postgres` maintenance DB and dropped at session end, even on failure), and DATABASE_URL points at it for the
+    session. So two pytest runs never truncate each other's tables. Starts the dev cluster if needed.
+    """
+    import secrets
+    from urllib.parse import urlsplit, urlunsplit
+
     import psycopg
+    from psycopg import sql
 
     from actionproof import db
 
-    url = _dev_database_url()
+    base = urlsplit(_dev_database_url())
+
+    def with_db(name: str) -> str:
+        return urlunsplit(base._replace(path=f"/{name}"))
+
+    admin = with_db("postgres")
     try:
-        psycopg.connect(url, connect_timeout=3).close()
+        psycopg.connect(admin, connect_timeout=3).close()
     except psycopg.OperationalError:
         subprocess.run([sys.executable, str(_ROOT / "scripts" / "dev_pg.py"), "start"], check=True)
-    with db.connect(url=url) as conn:
-        db.apply_schema(conn)
-    return url
+    name = f"actionproof_test_{os.getpid()}_{secrets.token_hex(4)}"
+    with psycopg.connect(admin, autocommit=True, connect_timeout=5) as c:
+        c.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
+    url = with_db(name)
+    old = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = url
+    try:
+        with db.connect(url=url) as conn:
+            db.apply_schema(conn)
+        yield url
+    finally:
+        if old is None:
+            os.environ.pop("DATABASE_URL", None)
+        else:
+            os.environ["DATABASE_URL"] = old
+        _close_pools(url)
+        with psycopg.connect(admin, autocommit=True, connect_timeout=5) as c:
+            c.execute(sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name)))
+
+
+def _close_pools(url: str) -> None:
+    """Close the gate tests' pooled connections so DROP DATABASE does not have to kill them."""
+    gk = sys.modules.get("gatekit")
+    for conn in (gk._POOLS.pop(url, []) if gk is not None else []):
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 @pytest.fixture
@@ -66,7 +105,8 @@ _OPA_BIN = os.environ.get("OPA_BIN", "C:/Users/Soham/tools/opa/opa.exe")
 
 @pytest.fixture(scope="session")
 def opa_url(tmp_path_factory):
-    """A running OPA server loaded with policy/. Logs go to a file, never an unread pipe (it blocks OPA)."""
+    """THE one OPA server for the session (gate and policy tests share it), loaded with policy/.
+    Logs go to a file, never an unread pipe (it blocks OPA)."""
     import httpx
 
     with socket.socket() as s:
@@ -92,7 +132,17 @@ def opa_url(tmp_path_factory):
             time.sleep(0.1)
         else:
             raise RuntimeError("OPA did not become healthy")
-        httpx.post(f"{url}/v1/data/actionproof/decision", json={"input": {}}, timeout=5)  # warm up
+        # Warm up on a full input (compiles every rule) and through policy.decide's shared client, so the first
+        # real decision of the session is not paying cold-start cost against the 0.2 s policy timeout.
+        from actionproof import policy
+
+        warm = {"tool": "payments.approve_invoice", "actor": "agent-7", "on_behalf_of": "user-123",
+                "verify": {"ok": True, "reasons": []},
+                "args": {"amount": "4800.00", "variance": "500.00", "vendor_id": "V-ACME"},
+                "scope": {"max_amount": "5000.00", "vendors": ["V-ACME"]}, "cumulative": {"committed": "0.00"}}
+        httpx.post(f"{url}/v1/data/actionproof/decision", json={"input": warm}, timeout=5)
+        for _ in range(3):
+            policy.decide(warm, url, 5)
         yield url
     finally:
         proc.kill()

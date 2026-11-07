@@ -51,10 +51,34 @@ Expected result for every attack case: the tool executes **0 times** (`spec/atta
 | 1 | Prompt injection | Taint labels; document text never fills authority fields | `tests/attacks/test_prompt_injection.py` | G1 | planned (Phase 2) |
 | 2 | Argument tampering | Claims re-verified at the cited span; any change after `prepare` changes `request_hash` and invalidates the receipt | `tests/attacks/test_tampering.py` | G1 | planned (Phase 3) |
 | 3 | Evidence forgery | Span re-extraction and document hash match | `tests/attacks/test_forgery.py` | G1 | planned (Phase 2) |
-| 4 | Confused deputy | `on_behalf_of` scope checked in policy (AP-SCOPE-02) | `tests/attacks/test_confused_deputy.py` | G1 | planned (Phase 3) |
+| 4 | Confused deputy | `on_behalf_of` scope checked in policy (AP-SCOPE-02); actor/on_behalf_of bound to the transport Principal (ADR-012) | `tests/attacks/test_confused_deputy.py` | G1 | planned (Phase 3) |
 | 5 | Split payments | Cumulative limits per actor and vendor (AP-CUM-03, `gate.commit`, ADR-006) | `tests/attacks/test_split_payments.py` | G1 | planned (Phase 3) |
 | 6 | Replay | One-use token and idempotency key enforced by DB UNIQUE constraints | `tests/attacks/test_replay.py`, `tests/usp/test_replay.py` | G2 | planned (Phase 3) |
 | 7 | Race (TOCTOU) | Version precondition checked under `FOR UPDATE` at commit | `tests/attacks/test_race.py` | G1 | planned (Phase 3) |
+
+## 4b. Red-team findings and fixes (Phase 3)
+
+Source: `.superpowers/sdd/phase3/redteam-report.md`. The tests in `tests/redteam/` are a permanent regression suite;
+every assertion encodes the safe behavior (the tool is not reached).
+
+| Attack | Guarantee | Fixed by | Test |
+|---|---|---|---|
+| variance = sub(invoice.total, note) with an ASSERTED note | G1 | ASSERTED never a derivation input; variance pinned (ADR-013) | `tests/redteam/test_rt_g1_claims.py::test_variance_derived_from_asserted_note` |
+| variance = sub(invoice.total, invoice.total) | G1 | variance pinned to sub(invoice.total, po.total) (ADR-013) | `test_rt_g1_claims.py::test_variance_self_subtraction` |
+| variance = sub(amount, invoice.total) | G1 | variance pinned (ADR-013) | `test_rt_g1_claims.py::test_variance_sub_amount_minus_invoice_total` |
+| variance = sub(po.total, po.total) | G1 | variance pinned (ADR-013) | `test_rt_g1_claims.py::test_variance_po_minus_po` |
+| DIRECT variance from a self-made calc.json | G1 | variance must be DERIVED; value must equal SoR invoice − PO (ADR-011/013) | `test_rt_g1_claims.py::test_variance_direct_from_selfmade_doc` |
+| cap bypass via actor alias (`Agent-7`, `agent-7 `, zero-width, `agent-8`) | G1 | canonical ids in contracts; request identity bound to the transport Principal (ADR-012) | `tests/redteam/test_rt_g1_authority.py::test_cumulative_cap_bypass_by_actor_alias` |
+| borrow a richer principal (`on_behalf_of="cfo"`) | G1 | Principal binding, AP-SCOPE-02 (ADR-012) | `test_rt_g1_authority.py::test_borrow_delegated_principal` |
+| delegation revoked between prepare and commit | G1 | fresh policy decision inside the commit tx (ADR-014) | `test_rt_g1_authority.py::test_scope_revoked_between_prepare_and_commit` |
+| vendor removed from scope between prepare and commit | G1 | fresh policy decision (ADR-014) | `test_rt_g1_authority.py::test_vendor_removed_from_scope_between_prepare_and_commit` |
+| PO total changed between prepare and commit | G1 | variance re-checked against the fresh SoR; fresh policy (ADR-013/014) | `test_rt_g1_authority.py::test_po_total_changed_between_prepare_and_commit` |
+| burned (unknown-outcome) commit, re-prepared with a new idempotency key | G2 | burn quarantines the record; prepare and commit refuse it, AP-REP-05 (ADR-014) | `tests/redteam/test_rt_g2_replay.py::test_burned_receipt_then_reprepare_with_new_key`, `test_receipt_prepared_before_burn_blocked_at_commit`, `test_release_quarantine_reconciles` |
+| `model_construct`-built request at commit (suspicion) | G2 | commit always re-parses the request | `tests/test_commit.py::test_model_construct_request_revalidated_at_commit` |
+
+Still open from the report: `mint_review_token` reviewer == submitter (ADR-008, Phase 4; the method is admin-side
+only and must not be exposed through MCP/adapters); the global commit lock can DENY legitimate commits under load
+(availability, not safety).
 
 ## 5. Out of scope
 

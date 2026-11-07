@@ -44,10 +44,11 @@ def test_no_key_material_anywhere(kit, signing_key_path, caplog):
     assert seed.hex() not in boom.reasons[0].msg  # exception messages are never echoed
 
 
-def test_public_surface_is_three_methods(kit):
-    """USP G1+G2: the Gate exposes prepare/commit/mint_review_token only; nothing returns the signer."""
+def test_public_surface_is_four_methods(kit):
+    """USP G1+G2: the Gate exposes prepare/commit plus the human/admin-side mint_review_token and
+    release_quarantine (ADR-014) only; nothing returns the signer."""
     public = {n for n in dir(kit.gate) if not n.startswith("_")}
-    assert public == {"prepare", "commit", "mint_review_token"}
+    assert public == {"prepare", "commit", "mint_review_token", "release_quarantine"}
 
 
 def test_gate_cannot_be_serialized_or_copied(kit):

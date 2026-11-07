@@ -257,3 +257,20 @@ def test_direct_construction_is_validated():
     with pytest.raises(Exception):
         Claim(value="4800.00", claim=ClaimType.DIRECT)  # no src/doc_sha256
     assert isinstance(parse_request(slide4()), ActionRequest)
+
+
+@pytest.mark.parametrize("field", ["actor", "on_behalf_of"])
+@pytest.mark.parametrize("value", ["Agent-7", "agent-7 ", " agent-7", "agent-7​", "agent-7\n", "", "-x",
+                                   "a" * 65, "١", "agent 7"])
+def test_identifiers_are_canonical(field, value):
+    """ADR-012: one spelling per identity; case/space/zero-width aliases are contract errors (dict and JSON)."""
+    d = slide4()
+    d[field] = value
+    rejects(d)
+    rejects(json.dumps(d))
+
+
+def test_canonical_identifiers_accepted():
+    d = slide4()
+    d["actor"], d["on_behalf_of"] = "agent_9.v2-x", "a" * 64
+    assert parse_request(d).actor == "agent_9.v2-x"

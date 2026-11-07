@@ -37,22 +37,33 @@ sequenceDiagram
   G->>T: read record + version, dry-run diff
   G-->>A: signed receipt {request_hash, decision, diff_hash, version, nonce, exp}
   A->>G: commit(receipt, [review token])
-  G->>D: SERIALIZABLE tx: sig, exp, hash, nonce+idem UNIQUE (G2), cumulative re-check, FOR UPDATE version
+  G->>D: SERIALIZABLE tx: sig, exp, hash, principal, quarantine, nonce+idem UNIQUE (G2), cumulative re-check, FOR UPDATE version
+  G->>O: fresh policy decision from current state (ADR-014)
   D-->>G: ok or rollback (DENY)
   G->>T: execute once
   G->>D: audit append
 ```
 
 ## Phase 3 status: gate as built (`src/actionproof/gate.py`)
-`Gate(settings, signer, conn_factory, tool, docs_provider=None)` with three public methods; nothing else is public
-and the Signer never leaves it (`tests/usp/test_key_isolation.py`).
+`Gate(settings, signer, conn_factory, tool, docs_provider=None)` with four public methods: `prepare`, `commit`
+(agent-facing, through the transport) and `mint_review_token`, `release_quarantine` (human/admin side only; no
+tool-facing path may expose them). Nothing else is public and the Signer never leaves it
+(`tests/usp/test_key_isolation.py`).
 
-**`prepare(req, docs) -> PrepareResult(decision, reasons, verify, diff, receipt)`** never raises (AP-ERR-11):
-1. strict parse (`contracts.parse_request`); unknown tool or missing `invoice_id` = AP-VER-01.
+Identity (ADR-012): the transport (MCP session / adapter, Phase 5) authenticates the caller and passes a
+`Principal(actor, on_behalf_of)`; it is a required keyword argument of `prepare` and `commit` (no default), and the
+request's `actor`/`on_behalf_of` must equal it exactly, else AP-SCOPE-02 / G1. Ids are canonical
+(`^[a-z0-9][a-z0-9_.-]{0,63}$`, contracts.py).
+
+**`prepare(req, docs=None, *, principal) -> PrepareResult(decision, reasons, verify, diff, receipt)`** never raises (AP-ERR-11):
+1. strict parse (`contracts.parse_request`); request not bound to `principal` = AP-SCOPE-02; unknown tool or
+   missing `invoice_id` = AP-VER-01.
 2. `sor = tool.sor_for(invoice_id)` (PO total, vendor) from the ERP records, never from the agent.
-3. `verify.verify_request(req, docs, sor)`; then the gate requires `amount`, `invoice.total`, `po.total` claims to
-   equal the system-of-record values (ADR-011). Any failure = AP-VER-01 (G1).
-4. `tool.read_record("invoice:<id>") -> (data, version)`; record not `open` = AP-STALE-07.
+3. `verify.verify_request(req, docs, sor)` (variance pinned to `DERIVED sub(invoice.total, po.total)`, ASSERTED
+   never a derivation input, ADR-013); then the gate requires `amount`, `invoice.total`, `po.total` and `variance`
+   to equal the system-of-record values (ADR-011/013). Any failure = AP-VER-01 (G1).
+4. `tool.read_record("invoice:<id>") -> (data, version)`; record not `open` = AP-STALE-07; record quarantined
+   (ADR-014) = AP-REP-05.
 5. policy input: verify result, `amount`/`variance` claims, `vendor_id` from the record, scope from `delegations`
    (missing row = empty scope), committed `SUM(amount)` for actor+vendor; `policy.decide` (OPA, 200 ms, fail closed).
 6. DENY -> no diff, no receipt. ALLOW/REVIEW -> `diff = tool.dry_run(req)`, receipt payload
@@ -60,25 +71,31 @@ and the Signer never leaves it (`tests/usp/test_key_isolation.py`).
    idempotency_key}` signed Ed25519 over RFC 8785 bytes. `diff_hash = sha256(JCS({diff, before: record data}))`.
 `PrepareResult.card()` renders deck slide 1.
 
-**`commit(receipt, req, review_token=None) -> CommitResult(outcome, reasons, tool_result)`**, outcome
+**`commit(receipt, req, review_token=None, *, principal) -> CommitResult(outcome, reasons, tool_result)`**, outcome
 `EXECUTED` or `DENY`, checked in this order:
 
 | # | Check | DENY rule |
 |---|---|---|
 | 1 | signature (and exact payload keys) | AP-SIG-09 G2 |
 | 2 | `now < exp` | AP-EXP-06 G2 |
-| 3 | `request_hash(req) == payload.request_hash` | AP-HASH-08 G2 |
+| 3 | re-validate the request (`parse_request(req.model_dump())`, even for an ActionRequest instance), then `request_hash(req) == payload.request_hash` | AP-HASH-08 G2 |
+| 3b | request `actor`/`on_behalf_of` == `principal` (ADR-012) | AP-SCOPE-02 G1 |
 | 4 | REVIEW needs a token | AP-REV-10 G2 |
 | — | open one connection, SERIALIZABLE; `LOCK TABLE commits IN SHARE ROW EXCLUSIVE MODE` before any snapshot | |
+| 4b | record not in `quarantine` (ADR-014) | AP-REP-05 G2 |
 | 5 | REVIEW: atomic `UPDATE review_tokens ... used_at IS NULL AND exp > now RETURNING` | AP-REV-10 (other hash / unknown), AP-REP-05 (used), AP-EXP-06 (expired) |
 | 6 | `INSERT INTO commits` (UNIQUE nonce, idempotency_key) | AP-REP-05 G2 |
 | 7 | `SUM(amount)` actor+vendor incl. this row `<= 5000.00` | AP-CUM-03 G1 |
 | 8 | `SELECT ... FOR UPDATE` version == payload.version, and diff hash recomputed == payload.diff_hash | AP-STALE-07 G2 |
+| 8b | **fresh policy** (ADR-014): rebuild the policy input from CURRENT state (delegation scope, PO total via `sor_for`, committed sum; amount and variance must still equal the records) and `policy.decide` again | fresh DENY: OPA's rules (G1); fresh REVIEW on an ALLOW receipt: AP-STALE-07 G2 |
 | 9 | `tool.execute(req, version, idempotency_key, conn)` once; after it the version moved by at most one | AP-STALE-07 / AP-ERR-11 |
 | 10 | gate sets `version = payload.version + 1`, COMMIT | |
 
 40001/40P01 before step 9 are retried up to 3 times, then AP-ERR-11. After step 9 nothing is retried: the tx is
-rolled back and the receipt is burned (its `commits` row inserted in a separate tx), so a retry is AP-REP-05 (ADR-010).
+rolled back and the receipt is burned: its `commits` row and a `quarantine` row for the record are each inserted in
+their own tx (ADR-010, ADR-014), so a retry is AP-REP-05 and no new receipt for that record can be prepared or
+committed until `release_quarantine(record_id, reviewer)`. If a burn write fails, the DENY carries an extra
+AP-ERR-11 reason.
 The commit lock makes concurrent split payments deterministic: exactly one executes, the other is AP-CUM-03
 (`tests/attacks/test_split_payments.py`, 20 rounds).
 

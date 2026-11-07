@@ -2,9 +2,7 @@
 
 import copy
 import json
-import os
 import socket
-import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,7 +15,6 @@ from actionproof.policy import Decision, decide
 
 ROOT = Path(__file__).resolve().parents[1]
 TIMEOUT = 0.2  # Settings.opa_timeout_seconds default
-OPA_BIN = os.environ.get("OPA_BIN", "C:/Users/Soham/tools/opa/opa.exe")
 
 HERO = {
     "tool": "payments.approve_invoice",
@@ -36,38 +33,7 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-@pytest.fixture(scope="session")
-def opa_url(tmp_path_factory):
-    port = _free_port()
-    # Logs go to a file, never a PIPE: an unread pipe fills up and blocks OPA mid-request.
-    log = tmp_path_factory.mktemp("opa") / "opa.log"
-    log_f = log.open("wb")
-    proc = subprocess.Popen(
-        [OPA_BIN, "run", "--server", "--log-level", "error", "--disable-telemetry",
-         "--addr", f"127.0.0.1:{port}", str(ROOT / "policy")],
-        stdout=log_f,
-        stderr=subprocess.STDOUT,
-    )
-    url = f"http://127.0.0.1:{port}"
-    try:
-        for _ in range(100):
-            if proc.poll() is not None:
-                raise RuntimeError(f"OPA exited: {log.read_text(errors='replace')}")
-            try:
-                if httpx.get(f"{url}/health", timeout=0.5).status_code == 200:
-                    break
-            except httpx.HTTPError:
-                pass
-            time.sleep(0.1)
-        else:
-            raise RuntimeError("OPA did not become healthy")
-        # warm up so the first measured decide() is not paying OPA's compile cost
-        httpx.post(f"{url}/v1/data/actionproof/decision", json={"input": HERO}, timeout=5)
-        yield url
-    finally:
-        proc.kill()
-        proc.wait()
-        log_f.close()
+# opa_url: the one session-scoped OPA process from tests/conftest.py (shared with the gate tests).
 
 
 @pytest.fixture

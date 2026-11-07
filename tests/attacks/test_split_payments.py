@@ -4,6 +4,8 @@ Prepare-time AP-CUM-03 is advisory; the commit-time re-check inside the SERIALIZ
 """
 from gatekit import rules
 
+from actionproof.gate import Principal
+
 from attacks._concurrency import race, reset_round
 
 ROUNDS = 20
@@ -53,7 +55,8 @@ def test_split_across_principals_still_capped(kit):
     kit.sql("INSERT INTO delegations (on_behalf_of, max_amount, vendors) VALUES ('user-456', 5000.00, ARRAY['V-ACME'])")
     a, da = kit.json_request("INV-49801", "4900.00", idem="p-1")
     b, db = kit.json_request("INV-49802", "4900.00", idem="p-2", on_behalf_of="user-456")
-    ra, rb = kit.gate.prepare(a, da).receipt, kit.gate.prepare(b, db).receipt
+    for_456 = Principal("agent-7", "user-456")  # same agent, a session on behalf of user-456
+    ra, rb = kit.gate.prepare(a, da).receipt, kit.gate.prepare(b, db, principal=for_456).receipt
     assert kit.gate.commit(ra, a).outcome == "EXECUTED"
-    assert rules(kit.gate.commit(rb, b)) == ["AP-CUM-03"]
+    assert rules(kit.gate.commit(rb, b, principal=for_456)) == ["AP-CUM-03"]
     assert len(kit.tool.calls) == 1

@@ -12,16 +12,37 @@ sys.path.insert(0, str(ROOT / "fixtures"))
 
 import make  # noqa: E402
 
-OUT = ROOT / "fixtures" / "out"
+COMMITTED = ROOT / "fixtures" / "out"
+# Each pytest process builds into its own directory: rebuilding the shared fixtures/out in place races with a
+# concurrent pytest process (and with every test that reads the hero documents) on Windows file locks.
+OUT = COMMITTED
 
 
 def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+@pytest.fixture(scope="module", autouse=True)
+def private_out(tmp_path_factory):
+    global OUT
+    old = make.OUT
+    OUT = make.OUT = tmp_path_factory.mktemp("fixtures-out")
+    try:
+        yield OUT
+    finally:
+        make.OUT, OUT = old, COMMITTED
+
+
 @pytest.fixture(scope="module")
-def manifest():
+def manifest(private_out):
     return make.build()
+
+
+def test_committed_fixtures_match_a_fresh_build(manifest):
+    """The checked-in fixtures/out is exactly what make.build produces (read-only check of the shared copy)."""
+    assert json.loads((COMMITTED / "manifest.json").read_text(encoding="utf-8")) == manifest
+    for doc_id, doc in manifest["docs"].items():
+        assert _sha(COMMITTED / doc["path"]) == doc["sha256"], doc_id
 
 
 def test_manifest_file_matches_build_return(manifest):

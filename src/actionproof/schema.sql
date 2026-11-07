@@ -42,3 +42,11 @@ CREATE TABLE IF NOT EXISTS review_tokens (
     -- one-use (G2 / AP-REV-10): consumed atomically, and both fields set together or not at all
     CONSTRAINT review_tokens_used_pair CHECK ((used_at IS NULL) = (used_nonce IS NULL))
 );
+
+-- A record whose last commit reached the tool but rolled back (unknown outcome). prepare and commit refuse the
+-- record (AP-REP-05 / G2) until a reviewer reconciles it (Gate.release_quarantine). ADR-014.
+CREATE TABLE IF NOT EXISTS quarantine (
+    record_id  text PRIMARY KEY,
+    nonce      text   NOT NULL,
+    created_at bigint NOT NULL CHECK (created_at >= 0)
+);

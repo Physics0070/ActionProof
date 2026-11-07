@@ -5,6 +5,11 @@ Protocol, rule ids and order: .superpowers/sdd/phase3/design.md and docs/ARCHITE
 - commit runs ONE SERIALIZABLE transaction and calls tool.execute at most once, only after every check passed,
   and never on a DENY. A receipt or idempotency key is single-use (UNIQUE constraints, G2).
 - The signing key lives only inside the Signer (ADR-007); reasons carry exception type names, never messages.
+- Identity comes from the transport as a Principal and must equal the request's actor/on_behalf_of (ADR-012).
+- commit re-derives the policy decision from fresh state under the commit lock (ADR-014); a commit that reached the
+  tool and rolled back quarantines its record until Gate.release_quarantine (ADR-014).
+- mint_review_token and release_quarantine are Gate methods for the human/admin side only: no tool-facing path
+  (MCP, adapter) may expose them.
 """
 
 import hashlib
@@ -26,6 +31,7 @@ TOOL = "payments.approve_invoice"
 # Mirrors cap_cents in policy/actionproof.rego (tests/test_commit.py asserts they agree).
 # ponytail: one global cap; per-tenant caps belong in data.json + the delegations table.
 CAP = Decimal("5000.00")
+CENT = Decimal("0.01")
 MAX_RETRIES = 3
 LOCK_TIMEOUT = "5s"
 PAYLOAD_KEYS = {"request_hash", "decision", "reasons", "diff_hash", "record_id", "version", "nonce", "exp",
@@ -58,6 +64,42 @@ def _same_money(a, b) -> bool:
     return isinstance(a, str) and isinstance(b, str) and bool(MONEY.match(a) and MONEY.match(b)) and Decimal(a) == Decimal(b)
 
 
+def _sor_variance(data: dict, sor: dict) -> str | None:
+    """ADR-011/ADR-013: the only variance that counts is invoice.total - po.total from the system of record."""
+    inv, po = data.get("total"), sor.get("po.total")
+    if not (isinstance(inv, str) and isinstance(po, str) and MONEY.match(inv) and MONEY.match(po)):
+        return None
+    return str((Decimal(inv) - Decimal(po)).quantize(CENT))
+
+
+def _sor_mismatches(req: ActionRequest, data: dict, sor: dict) -> list[Reason]:
+    """A document the agent supplied only proves it says a value; money claims must also agree with the records."""
+    out = []
+    for name, want in (("amount", data.get("total")), ("invoice.total", data.get("total")),
+                       ("po.total", sor.get("po.total")), ("variance", _sor_variance(data, sor))):
+        c = req.args.get(name)
+        if c is not None and not _same_money(c.value, want):
+            out.append(_ver(f"{name}: disagrees with the system of record"))
+    return out
+
+
+def _merge(d: policy.Decision, v_ok: bool, v_reasons: list[Reason]) -> list[Reason]:
+    return list(d.reasons) + ([r for r in v_reasons if r not in d.reasons] if not v_ok else [])
+
+
+@dataclass(frozen=True)
+class Principal:
+    """Who is calling, as established by the transport (MCP session / adapter), never by the request (ADR-012)."""
+    actor: str
+    on_behalf_of: str
+
+
+def _bound(req: ActionRequest, principal) -> bool:
+    return isinstance(principal, Principal) and req.actor == principal.actor and req.on_behalf_of == principal.on_behalf_of
+
+
+_UNBOUND = Reason("AP-SCOPE-02", "G1", "identity not bound to caller")
+_QUARANTINED = Reason("AP-REP-05", "G2", "unknown outcome from a previous attempt; reconcile")
 _NOT_VERIFIED = VerifyResult(False, {}, [])
 
 
@@ -131,14 +173,15 @@ class Gate:
 
     # ------------------------------------------------------------------ prepare
 
-    def prepare(self, req, docs=None) -> PrepareResult:
+    def prepare(self, req, docs=None, *, principal) -> PrepareResult:
+        """`principal` is the caller identity from the transport; required (no default = no fail-open)."""
         try:
-            return self._prepare(req, docs)
+            return self._prepare(req, docs, principal)
         except Exception as e:  # fail closed (invariant 1)
             return PrepareResult("DENY", [_err(f"prepare failed: {type(e).__name__}")], _NOT_VERIFIED, None, None,
                                  req if isinstance(req, ActionRequest) else None)
 
-    def _prepare(self, req, docs) -> PrepareResult:
+    def _prepare(self, req, docs, principal) -> PrepareResult:
         if not isinstance(req, ActionRequest):
             try:
                 req = parse_request(req)
@@ -148,6 +191,8 @@ class Gate:
         def deny(*reasons: Reason, v: VerifyResult = _NOT_VERIFIED) -> PrepareResult:
             return PrepareResult("DENY", list(reasons), v, None, None, req)
 
+        if not _bound(req, principal):  # ADR-012: the agent cannot name its own actor or principal
+            return deny(_UNBOUND)
         if req.tool != TOOL:
             return deny(_ver(f"unknown tool {req.tool!r} (fail closed)"))
         inv = req.args.get("invoice_id")
@@ -163,40 +208,22 @@ class Gate:
         v = verify_request(req, docs, sor)
 
         data, version = self._tool.read_record(record_id)
-        # The system of record, not the documents, decides what is owed: a document the agent supplied can
-        # only prove it says a value, so money claims must also agree with the records (G1).
-        extra = []
-        for name, want in (("amount", data.get("total")), ("invoice.total", data.get("total")),
-                           ("po.total", sor.get("po.total"))):
-            c = req.args.get(name)
-            if c is not None and not _same_money(c.value, want):
-                extra.append(_ver(f"{name}: disagrees with the system of record"))
+        # The system of record, not the documents, decides what is owed (G1); variance is pinned to it (ADR-013).
+        extra = _sor_mismatches(req, data, sor)
         if extra:
             v = VerifyResult(False, v.claims, v.reasons + extra)
         if data.get("status") != "open":
             return deny(_r("AP-STALE-07", "G2", "target record is not open (already actioned)"), v=v)
 
         with self._conn_factory() as conn:
-            scope = conn.execute("SELECT max_amount::text, vendors FROM delegations WHERE on_behalf_of = %s",
-                                 (req.on_behalf_of,)).fetchone()
-            vendor_id = data.get("vendor_id")
+            if conn.execute("SELECT 1 FROM quarantine WHERE record_id = %s", (record_id,)).fetchone():
+                return deny(_QUARANTINED, v=v)
             committed = conn.execute(
                 "SELECT COALESCE(SUM(amount), 0)::numeric(18,2)::text FROM commits WHERE actor = %s AND vendor_id = %s",
-                (req.actor, vendor_id)).fetchone()[0]
-        args = {name: req.args[name].value for name in ("amount", "variance") if name in req.args}
-        args["vendor_id"] = vendor_id
-        payload = {
-            "tool": req.tool,
-            "actor": req.actor,
-            "on_behalf_of": req.on_behalf_of,
-            "verify": {"ok": v.ok, "reasons": [asdict(r) for r in v.reasons]},
-            "args": args,
-            # No delegation = empty scope, so the policy denies AP-SCOPE-02 (never a default grant).
-            "scope": {"max_amount": scope[0], "vendors": list(scope[1])} if scope else {"max_amount": "0.00", "vendors": []},
-            "cumulative": {"committed": committed},
-        }
+                (req.actor, data.get("vendor_id"))).fetchone()[0]
+            payload = self._policy_input(conn, req, v.ok, v.reasons, data.get("vendor_id"), committed)
         d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
-        reasons = list(d.reasons) + ([r for r in v.reasons if r not in d.reasons] if not v.ok else [])
+        reasons = _merge(d, v.ok, v.reasons)
         if d.outcome not in ("ALLOW", "REVIEW"):
             return deny(*reasons, v=v)
 
@@ -216,6 +243,38 @@ class Gate:
             "idempotency_key": req.idempotency_key,
         })
         return PrepareResult(d.outcome, reasons, v, diff, receipt, req)
+
+    @staticmethod
+    def _policy_input(conn, req: ActionRequest, v_ok: bool, v_reasons: list[Reason], vendor_id, committed: str) -> dict:
+        """Policy input from the system of record (scope from delegations, vendor from the record), never the agent."""
+        scope = conn.execute("SELECT max_amount::text, vendors FROM delegations WHERE on_behalf_of = %s",
+                             (req.on_behalf_of,)).fetchone()
+        args = {name: req.args[name].value for name in ("amount", "variance") if name in req.args}
+        args["vendor_id"] = vendor_id
+        return {
+            "tool": req.tool,
+            "actor": req.actor,
+            "on_behalf_of": req.on_behalf_of,
+            "verify": {"ok": v_ok, "reasons": [asdict(r) for r in v_reasons]},
+            "args": args,
+            # No delegation = empty scope, so the policy denies AP-SCOPE-02 (never a default grant).
+            "scope": {"max_amount": scope[0], "vendors": list(scope[1])} if scope else {"max_amount": "0.00", "vendors": []},
+            "cumulative": {"committed": committed},
+        }
+
+    # ------------------------------------------------------------------ quarantine
+
+    def release_quarantine(self, record_id: str, reviewer: str) -> bool:
+        """Reconcile path (admin, not tool-facing): a human checked the tool's real outcome for a record whose
+        commit was burned and lifts the block. Returns whether a row was released. Raises on bad input.
+        # ponytail: audit hook (who released what, when) arrives with the audit tables in Phase 5."""
+        if not isinstance(record_id, str) or not record_id:
+            raise ValueError("record_id is required")
+        if not isinstance(reviewer, str) or not reviewer.strip():
+            raise ValueError("reviewer is required")
+        with self._conn_factory() as conn:
+            return conn.execute("DELETE FROM quarantine WHERE record_id = %s RETURNING record_id",
+                                (record_id,)).fetchone() is not None
 
     # ------------------------------------------------------------------ review tokens
 
@@ -238,13 +297,14 @@ class Gate:
 
     # ------------------------------------------------------------------ commit
 
-    def commit(self, receipt, req, review_token=None) -> CommitResult:
+    def commit(self, receipt, req, review_token=None, *, principal) -> CommitResult:
+        """`principal` is the caller identity from the transport; required (no default = no fail-open)."""
         try:
-            return self._commit(receipt, req, review_token)
+            return self._commit(receipt, req, review_token, principal)
         except Exception as e:  # fail closed (invariant 1)
             return _deny(_err(f"commit failed: {type(e).__name__}"))
 
-    def _commit(self, receipt, req, review_token) -> CommitResult:
+    def _commit(self, receipt, req, review_token, principal) -> CommitResult:
         if not signing.verify(receipt, self._verify_key):
             return _deny(_r("AP-SIG-09", "G2", "receipt signature invalid"))
         p = receipt["payload"]
@@ -252,13 +312,16 @@ class Gate:
             return _deny(_r("AP-SIG-09", "G2", "receipt payload malformed"))
         if not isinstance(p["exp"], int) or _now() >= p["exp"]:
             return _deny(_r("AP-EXP-06", "G2", "receipt expired"))
-        if not isinstance(req, ActionRequest):
-            try:
-                req = parse_request(req)
-            except ContractError:
-                return _deny(_r("AP-HASH-08", "G2", "request does not match the receipt"))
+        # Always re-validate, even an ActionRequest instance: model_construct/model_copy skip validation, and the
+        # hash and the tool must see the same strictly-typed data.
+        try:
+            req = parse_request(req.model_dump(mode="json") if isinstance(req, ActionRequest) else req)
+        except Exception:
+            return _deny(_r("AP-HASH-08", "G2", "request does not match the receipt"))
         if request_hash(req) != p["request_hash"]:
             return _deny(_r("AP-HASH-08", "G2", "request changed after prepare"))
+        if not _bound(req, principal):
+            return _deny(_UNBOUND)
         if p["decision"] not in ("ALLOW", "REVIEW"):
             return _deny(_err("receipt decision is not executable"))
         if p["decision"] == "REVIEW" and not isinstance(review_token, str):
@@ -276,13 +339,11 @@ class Gate:
                 except (errors.SerializationFailure, errors.DeadlockDetected):
                     conn.rollback()
                     if st.invoked:  # never call the tool twice for one receipt
-                        self._burn(conn, st)
-                        return _deny(_err("serialization failure after the tool was called"))
+                        return _deny(_err("serialization failure after the tool was called"), *self._burn(conn, st))
                 except Exception as e:
                     conn.rollback()
-                    if st.invoked:
-                        self._burn(conn, st)
-                    return _deny(_err(f"commit failed: {type(e).__name__}"))
+                    burned = self._burn(conn, st) if st.invoked else []
+                    return _deny(_err(f"commit failed: {type(e).__name__}"), *burned)
             return _deny(_err(f"serialization failure after {MAX_RETRIES} retries"))
         finally:
             conn.close()
@@ -300,6 +361,8 @@ class Gate:
         now = _now()
         if now >= p["exp"]:  # the receipt may have expired while waiting for the lane
             return deny(_r("AP-EXP-06", "G2", "receipt expired"))
+        if conn.execute("SELECT 1 FROM quarantine WHERE record_id = %s", (p["record_id"],)).fetchone():
+            return deny(_QUARANTINED)
 
         if p["decision"] == "REVIEW":
             row = conn.execute(
@@ -333,6 +396,9 @@ class Gate:
         diff = self._tool.dry_run(req)
         if _diff_hash(diff, data) != p["diff_hash"]:
             return deny(_r("AP-STALE-07", "G2", "dry-run diff changed since prepare"))
+        stale = self._recheck_policy(conn, p, req, data, str((total - amount).quantize(CENT)))
+        if stale:
+            return deny(*stale)
 
         st.invoked = True
         try:
@@ -340,19 +406,18 @@ class Gate:
         except Exception as e:
             after = conn.execute("SELECT data, version FROM records WHERE record_id = %s", (p["record_id"],)).fetchone()
             conn.rollback()
-            self._burn(conn, st)
+            burned = self._burn(conn, st)
             # Classification only (the outcome is DENY + rollback either way): the version moved but the approved
             # effect is absent -> someone else wrote mid-flight (STALE); otherwise the tool itself failed.
             target = str(diff.get("status", "")).partition("->")[2]
             applied = after is not None and after[1] == version + 1 and after[0].get("status") == target
             if (after is None or after[1] != version) and not applied:
-                return _deny(_r("AP-STALE-07", "G2", "record changed while the tool ran"))
-            return _deny(_err(f"tool error: {type(e).__name__}"))
+                return _deny(_r("AP-STALE-07", "G2", "record changed while the tool ran"), *burned)
+            return _deny(_err(f"tool error: {type(e).__name__}"), *burned)
         after = conn.execute("SELECT version FROM records WHERE record_id = %s", (p["record_id"],)).fetchone()
         if after is None or after[0] not in (version, version + 1):
             conn.rollback()
-            self._burn(conn, st)
-            return _deny(_r("AP-STALE-07", "G2", "record changed beyond the approved diff"))
+            return _deny(_r("AP-STALE-07", "G2", "record changed beyond the approved diff"), *self._burn(conn, st))
         # The receipt's version is consumed even if a tool forgot to bump it.
         conn.execute("UPDATE records SET version = %s WHERE record_id = %s", (version + 1, p["record_id"]))
         conn.commit()
@@ -369,15 +434,44 @@ class Gate:
             return _r("AP-EXP-06", "G2", "review token expired")
         return _r("AP-REV-10", "G2", "review token not valid for this request")
 
+    def _recheck_policy(self, conn, p: dict, req: ActionRequest, data: dict, committed: str) -> list[Reason]:
+        """ADR-014: the receipt froze a decision; the world may have moved. Re-derive the policy input from CURRENT
+        state (delegation scope, PO total, committed sum) under the commit lock and decide again. Returns the deny
+        reasons, or [] when the fresh decision is no stricter than the receipt's."""
+        sor = dict(self._tool.sor_for(req.args["invoice_id"].value))
+        vr = _sor_mismatches(req, data, sor)
+        if "variance" not in req.args:
+            vr.append(_ver("variance: required argument missing (evidence gap)"))
+        payload = self._policy_input(conn, req, not vr, vr, data.get("vendor_id"), committed)
+        d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
+        if d.outcome == "ALLOW" or (d.outcome == "REVIEW" and p["decision"] == "REVIEW"):
+            return []
+        if d.outcome == "REVIEW":  # receipt said ALLOW; fresh state needs a human
+            return [_r("AP-STALE-07", "G2", "policy outcome changed since prepare (now REVIEW)")]
+        return _merge(d, not vr, vr) or [_err("fresh policy decision was not executable")]
+
     @staticmethod
-    def _burn(conn, st: _Attempt) -> None:
+    def _burn(conn, st: _Attempt) -> list[Reason]:
         """The tool was reached but the tx rolled back: the outcome is unknown, so the nonce and idempotency key
-        are spent (a retry is AP-REP-05) and the amount counts toward the cap (fail closed, ADR-010)."""
-        try:
-            conn.execute(
-                "INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount, "
-                "record_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", st.row)
-            conn.commit()
-        except Exception:
-            # ponytail: if the burn itself fails, a retry is stopped only by the tool-side idempotency key.
-            conn.rollback()
+        are spent (a retry is AP-REP-05), the amount counts toward the cap (ADR-010), and the record is quarantined
+        so no new receipt can apply it again until a human reconciles (ADR-014). Each write is attempted on its own
+        so one failing does not skip the other. Returns reasons for the DENY when a write failed."""
+        writes = (
+            ("burn", "INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount, "
+                     "record_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", st.row),
+            ("quarantine", "INSERT INTO quarantine (record_id, nonce, created_at) VALUES (%s, %s, %s) "
+                           "ON CONFLICT DO NOTHING", (st.row[7], st.row[0], st.row[8])),
+        )
+        failed = []
+        for name, sql, params in writes:
+            try:
+                conn.execute(sql, params)
+                conn.commit()
+            except Exception:
+                failed.append(name)
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+        # ponytail: if both fail, a retry is stopped only by the tool-side idempotency key (documented in ADR-014).
+        return [_err(f"unknown outcome not recorded ({', '.join(failed)} failed)")] if failed else []

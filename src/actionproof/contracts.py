@@ -100,12 +100,18 @@ class Claim(BaseModel):
         return self
 
 
+# Canonical identifiers (ADR-012): one spelling per principal, so case, whitespace and zero-width aliases are
+# contract errors, not new cap keys. Explicit ASCII classes; pydantic's Rust regex `$` is end-of-text only, so a
+# trailing newline cannot pass (tests/test_contracts.py).
+IDENT = r"^[a-z0-9][a-z0-9_.-]{0,63}$"
+
+
 class ActionRequest(BaseModel):
     model_config = _STRICT
 
     tool: str
-    on_behalf_of: str
-    actor: str
+    on_behalf_of: Annotated[str, Field(pattern=IDENT)]
+    actor: Annotated[str, Field(pattern=IDENT)]
     idempotency_key: str
     args: dict[str, Claim]
 

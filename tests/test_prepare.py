@@ -4,6 +4,7 @@ from gatekit import HERO_DOCS, rules
 from actionproof import gate as gate_mod
 from actionproof import signing
 from actionproof.contracts import request_hash
+from actionproof.gate import Principal
 
 SLIDE_1 = """ACTION INTERCEPTED
 action: approve_invoice
@@ -107,7 +108,7 @@ def test_already_approved_record_denied(kit):
 
 def test_no_delegation_is_out_of_scope(kit):
     req, docs = kit.json_request("INV-9002", "100.00", on_behalf_of="user-nobody")
-    r = kit.gate.prepare(req, docs)
+    r = kit.gate.prepare(req, docs, principal=Principal("agent-7", "user-nobody"))
     assert r.decision == "DENY" and set(rules(r)) == {"AP-SCOPE-02"}  # amount AND vendor out of the empty scope
 
 
@@ -119,12 +120,14 @@ def test_cumulative_advisory_at_prepare(kit):
 
 
 def test_docs_provider_used_when_docs_omitted(kit):
+    from gatekit import AGENT
+
     from actionproof.gate import Gate
 
     req, docs = kit.json_request("INV-9004", "100.00")
     seen = []
     g = Gate(kit.settings, kit.signer, kit.factory, kit.tool, docs_provider=lambda r: seen.append(r) or docs)
-    assert g.prepare(req).decision == "ALLOW" and seen == [req]
+    assert g.prepare(req, principal=AGENT).decision == "ALLOW" and seen == [req]
     assert kit.gate.prepare(req).decision == "DENY"  # no provider, no docs: DIRECT claims cannot verify
 
 

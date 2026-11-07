@@ -17,7 +17,20 @@ import hero  # noqa: E402
 from actionproof import db as dbmod  # noqa: E402
 from actionproof.config import Settings  # noqa: E402
 from actionproof.contracts import ActionRequest  # noqa: E402
-from actionproof.gate import Gate  # noqa: E402
+from actionproof.gate import Gate, Principal  # noqa: E402
+
+AGENT = Principal("agent-7", "user-123")  # the trusted session identity of the honest test agent
+
+
+class KitGate(Gate):
+    """Test-only: the transport's session identity is AGENT unless a test passes another `principal`.
+    The real Gate has no default (ADR-012); tests that probe identity pass the principal explicitly."""
+
+    def prepare(self, req, docs=None, *, principal=AGENT):
+        return super().prepare(req, docs, principal=principal)
+
+    def commit(self, receipt, req, review_token=None, *, principal=AGENT):
+        return super().commit(receipt, req, review_token, principal=principal)
 from actionproof.mocks import MockERP, MockPayments  # noqa: E402
 from actionproof.signing import Signer  # noqa: E402
 
@@ -102,7 +115,7 @@ class Kit:
                                  tesseract_cmd=os.environ.get("TESSERACT_CMD", "tesseract"),
                                  signing_key_path=str(key_path))
         self.signer = Signer.from_path(self.settings.signing_key_path, self.settings.signing_kid)
-        self.gate = Gate(self.settings, self.signer, self.factory, self.tool)
+        self.gate = KitGate(self.settings, self.signer, self.factory, self.tool)
         # Count how often the GATE invoked execute (the mock's .calls counts tool-side effects).
         self.executes = 0
         real = self.tool.execute
@@ -174,7 +187,10 @@ class Kit:
             },
         }
         d.update(over)
-        return ActionRequest.model_validate(d), {doc_id: blob}
+        try:
+            return ActionRequest.model_validate(d), {doc_id: blob}
+        except ValueError:  # e.g. a non-canonical actor: hand the raw dict to the gate, which must DENY it
+            return d, {doc_id: blob}
 
     def mint(self, req: ActionRequest, submitter: str = "agent-7", reviewer: str = "alice") -> str:
         from actionproof.contracts import request_hash

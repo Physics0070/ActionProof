@@ -42,16 +42,18 @@ def test_allow_executes_once(kit):
 
 def test_allow_with_unpooled_connections(kit):
     """The kit pools connections for speed; the gate also works with plain fresh psycopg connections."""
+    from gatekit import AGENT
+
     from actionproof import db as dbmod
     from actionproof.gate import Gate
 
     raw = lambda: dbmod.connect(url=kit.pg)  # noqa: E731
     g = Gate(kit.settings, kit.signer, raw, kit.tool)
     req, docs = kit.json_request("INV-1201", "100.00")
-    r = g.prepare(req, docs)
+    r = g.prepare(req, docs, principal=AGENT)
     assert r.decision == "ALLOW"
-    assert g.commit(r.receipt, req).outcome == "EXECUTED"
-    assert rules(g.commit(r.receipt, req)) == ["AP-REP-05"] and len(kit.tool.calls) == 1
+    assert g.commit(r.receipt, req, principal=AGENT).outcome == "EXECUTED"
+    assert rules(g.commit(r.receipt, req, principal=AGENT)) == ["AP-REP-05"] and len(kit.tool.calls) == 1
 
 
 def test_review_without_token_denied(kit):
@@ -226,3 +228,55 @@ def test_cap_mirrors_rego():
     rego = (ROOT / "policy" / "actionproof.rego").read_text(encoding="utf-8")
     cents = int(re.search(r"^cap_cents := (\d+)$", rego, re.M).group(1))
     assert gate_mod.CAP * 100 == cents
+
+
+def test_identity_bound_to_transport_principal(kit):
+    """ADR-012: the Gate takes the caller identity from the transport; no default, no request-supplied identity."""
+    from actionproof.gate import Gate, Principal
+
+    raw = Gate(kit.settings, kit.signer, kit.factory, kit.tool)
+    req, docs = kit.json_request("INV-1301", "100.00")
+    with pytest.raises(TypeError):
+        raw.prepare(req, docs)  # principal is required: forgetting it can never fail open
+    with pytest.raises(TypeError):
+        raw.commit({}, req)
+    for bad in (None, ("agent-7", "user-123"), Principal("agent-8", "user-123"), Principal("agent-7", "cfo")):
+        r = raw.prepare(req, docs, principal=bad)
+        assert r.decision == "DENY" and r.receipt is None
+        assert [(x.rule, x.guarantee) for x in r.reasons] == [("AP-SCOPE-02", "G1")]
+    receipt = kit.gate.prepare(req, docs).receipt
+    for bad in (None, Principal("agent-8", "user-123"), Principal("agent-7", "user-999")):
+        assert rules(raw.commit(receipt, req, principal=bad)) == ["AP-SCOPE-02"]
+    assert kit.tool.calls == []
+    assert raw.commit(receipt, req, principal=Principal("agent-7", "user-123")).outcome == "EXECUTED"
+
+
+def test_model_construct_request_revalidated_at_commit(kit):
+    """An ActionRequest built without validation (non-canonical actor) is re-parsed at commit and refused."""
+    from actionproof.contracts import ActionRequest
+
+    req, receipt = _allow(kit)
+    bad = ActionRequest.model_construct(**{**dict(req), "actor": "Agent-7"})
+    assert rules(kit.gate.commit(receipt, bad)) == ["AP-HASH-08"] and kit.tool.calls == []
+
+
+def test_fresh_policy_review_after_allow_is_stale(kit):
+    """ADR-014: an ALLOW receipt whose fresh decision is REVIEW (PO moved, honest variance claim) -> AP-STALE-07."""
+    req, docs = kit.json_request("INV-1302", "1000.00", "1000.00")
+    p = kit.gate.prepare(req, docs)
+    assert p.decision == "ALLOW"
+    kit.sql("UPDATE records SET data = data || '{\"total\": \"500.00\"}'::jsonb WHERE record_id = 'po:PO-INV-1302'")
+    c = kit.gate.commit(p.receipt, req)
+    assert c.outcome == "DENY" and "AP-VER-01" in rules(c) and kit.tool.calls == []
+    assert kit.commits() == 0
+
+
+def test_fresh_policy_stricter_outcome(kit, monkeypatch):
+    """The fresh decision is computed at commit: REVIEW after an ALLOW receipt is AP-STALE-07 (G2)."""
+    from actionproof import policy
+
+    req, receipt = _allow(kit)
+    monkeypatch.setattr(gate_mod.policy, "decide", lambda *a: policy.Decision(
+        "REVIEW", [gate_mod.Reason("AP-INV-04", "G1", "variance > 100")]))
+    c = kit.gate.commit(receipt, req)
+    assert [(x.rule, x.guarantee) for x in c.reasons] == [("AP-STALE-07", "G2")] and kit.tool.calls == []

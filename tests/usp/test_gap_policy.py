@@ -24,7 +24,9 @@ def test_vendor_outside_user_scope(kit):
 
 def test_no_delegation_no_scope(kit):
     """USP G1: an on_behalf_of with no delegation row has an empty scope (never a default grant)."""
-    _assert_scope_denied(kit, kit.gate.prepare(*kit.json_request("INV-7102", "100.00", on_behalf_of="user-404")))
+    from actionproof.gate import Principal  # the session really is user-404's: the scope, not the binding, denies
+    _assert_scope_denied(kit, kit.gate.prepare(*kit.json_request("INV-7102", "100.00", on_behalf_of="user-404"),
+                                               principal=Principal("agent-7", "user-404")))
 
 
 def test_scope_cannot_be_swapped_at_commit(kit):

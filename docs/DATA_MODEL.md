@@ -57,5 +57,17 @@ Enforces: consumed atomically by `UPDATE ... WHERE token AND request_hash AND us
 a second use or a token for another request returns no row → **AP-REV-10 / AP-REP-05 (G2)**.
 `# ponytail: tokens stored as-is for the prototype; upgrade path is storing sha256(token).`
 
+## quarantine — records with an unknown outcome (ADR-014)
+| Column | Type | Constraint |
+|---|---|---|
+| record_id | text | PRIMARY KEY (one block per record) |
+| nonce | text | NOT NULL (the burned receipt's nonce) |
+| created_at | bigint | NOT NULL, CHECK `>= 0` (UTC epoch seconds) |
+
+Written by the gate's burn path when a commit reached the tool and then rolled back. While a row exists, `prepare`
+DENYs the record and `commit` re-checks it inside the tx: **AP-REP-05 (G2)** "unknown outcome from a previous
+attempt; reconcile". Removed only by `Gate.release_quarantine(record_id, reviewer)` (admin reconcile path).
+Included in `db.reset` (tests).
+
 ## Not here
 Audit tables arrive in Phase 5. No signing key material is ever stored in the database (invariant 6, ADR-007).

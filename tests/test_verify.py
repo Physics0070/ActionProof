@@ -136,8 +136,25 @@ def test_derived_arity_and_cycles():
     assert_g1(verify_request(req(hero_args(variance=variance(inputs=["variance", "po.total"]))), DOCS, hero_sor()))
     a = hero_args(variance=variance(inputs=["x", "po.total"]), x=variance("500.00", inputs=["variance", "po.total"]))
     assert_g1(verify_request(req(a), DOCS, hero_sor()))
+    # ADR-013: variance is pinned to sub(invoice.total, po.total); a self-consistent sum no longer verifies.
     a = hero_args(variance=variance("9100.00", fn="sum", inputs=["invoice.total", "po.total"]))
-    assert verify_request(req(a), DOCS, hero_sor()).ok
+    assert_g1(verify_request(req(a), DOCS, hero_sor()))
+
+
+def test_variance_pinned_and_asserted_never_an_input():
+    """ADR-013: other inputs, a DIRECT variance, or an ASSERTED input all fail, even when the arithmetic holds."""
+    for inputs in (["invoice.total", "invoice.total"], ["amount", "invoice.total"], ["po.total", "po.total"],
+                   ["po.total", "invoice.total"]):
+        assert_g1(verify_request(req(hero_args(variance=variance("0.00", inputs=inputs))), DOCS, hero_sor()))
+    a = hero_args(note={"value": "4800.00", "claim": "ASSERTED"},
+                  variance=variance("0.00", inputs=["invoice.total", "note"]))
+    assert_g1(verify_request(req(a), DOCS, hero_sor()))
+    a = hero_args(**{"po.total": {"value": "4300.00", "claim": "ASSERTED"}})
+    r = verify_request(req(a), DOCS, hero_sor())
+    assert_g1(r)
+    assert "ASSERTED" in r.claims["variance"].reason.msg
+    a = hero_args(variance=json_claim("po.json", "total"))  # a DIRECT variance (any cited doc)
+    assert_g1(verify_request(req(a), DOCS, hero_sor()))
 
 
 def test_unknown_tool_fails():
