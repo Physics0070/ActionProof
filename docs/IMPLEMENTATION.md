@@ -18,11 +18,11 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [x] docs: THREAT_MODEL, TESTING
 
 ## Phase 3 — Gate (W2)
-- [ ] db schema + docs/DATA_MODEL.md; config.py (validated env)
-- [ ] policy/actionproof.rego (AP-VER-01, AP-SCOPE-02, AP-CUM-03, AP-INV-04) + `opa test`; docs/POLICY.md
-- [ ] policy.py (200 ms timeout, fail closed), gate.py prepare/commit
-- [ ] mocks/ (payments, ERP/PO, vendor master; hostile modes)
-- [ ] tests/usp G2; replay/race/concurrency tests; gate-reviewer pass
+- [x] db schema + docs/DATA_MODEL.md; config.py (validated env)
+- [x] policy/actionproof.rego (AP-VER-01, AP-SCOPE-02, AP-CUM-03, AP-INV-04) + `opa test`; docs/POLICY.md
+- [x] policy.py (200 ms timeout, fail closed), gate.py prepare/commit
+- [x] mocks/ (payments, ERP/PO, vendor master; hostile modes)
+- [x] tests/usp G2; replay/race/concurrency tests; gate-reviewer pass
 
 ## Phase 4 — Decisions
 - [ ] llm-council → ADR-008 (reviewer ≠ submitter?), ADR-009 (second connector)

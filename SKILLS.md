@@ -7,7 +7,7 @@ All 60+ skills named in the brief exist in the library; none needed `npx skills 
 |---|---|---|
 | 1 Foundation | planning-and-task-breakdown, writing-plans, spec-driven-development, contract-first, documentation-and-adrs, architecture-decision-records, living-docs-governance, agent-development, subagent-driven-development, docker-patterns | yes (all but subagent-driven-development, docker-patterns loaded) |
 | 2 Claims | python-patterns, python-testing, test-driven-development, tdd-workflow, security-review, error-handling | TDD enforced via subagent briefs (tests first); subagent-driven-development used (Opus 5.5 hard tasks, Haiku 5.5 mechanical) |
-| 3 Gate | postgres-patterns, database-migrations, security-and-hardening, cso, auth, fastapi-patterns, api-design, error-handling, ai-regression-testing | – |
+| 3 Gate | postgres-patterns, database-migrations, security-and-hardening, cso, auth, fastapi-patterns, api-design, error-handling, ai-regression-testing | red-team round via gate-reviewer role (Opus 5.5); regression tests kept in tests/redteam |
 | 4 Decisions | llm-council | – |
 | 5 Surface | mcp-builder, mcp-server-patterns, fastapi-patterns, api-design, agent-development, agent-eval, security-review | – |
 | 6 Proof | eval-harness, benchmark-methodology, agent-eval, ai-regression-testing, subagent-driven-development | – |
