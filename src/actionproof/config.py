@@ -22,6 +22,8 @@ class Settings(BaseModel):
     signing_key_path: str
     signing_kid: str = "k1"
     receipt_ttl_seconds: int = 300
+    # `exp` of REVIEW receipts only: a human review can outlast RECEIPT_TTL_SECONDS (ALLOW keeps the short TTL).
+    review_receipt_ttl_seconds: int = 3600
     review_token_ttl_seconds: int = 3600
     opa_timeout_seconds: float = 0.2
     # ponytail: entries after the last checkpoint can be truncated undetected, so the default checkpoints every
@@ -42,7 +44,8 @@ class Settings(BaseModel):
             raise ValueError("must be an http(s) URL")
         return v
 
-    @field_validator("receipt_ttl_seconds", "review_token_ttl_seconds", "opa_timeout_seconds", "audit_checkpoint_every")
+    @field_validator("receipt_ttl_seconds", "review_receipt_ttl_seconds", "review_token_ttl_seconds",
+                     "opa_timeout_seconds", "audit_checkpoint_every")
     @classmethod
     def _positive(cls, v):
         if not (math.isfinite(v) and v > 0):

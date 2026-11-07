@@ -9,7 +9,8 @@ from psycopg.types.json import Jsonb, set_json_dumps
 from actionproof.config import load_settings
 
 SCHEMA = Path(__file__).with_name("schema.sql")
-TABLES = ("records", "delegations", "commits", "review_tokens", "quarantine", "people", "pending_reviews", "api_clients")
+TABLES = ("records", "delegations", "commits", "review_tokens", "quarantine", "people", "pending_reviews", "api_clients",
+          "console_users", "console_sessions")
 AUDIT_TABLES = ("audit_log", "audit_checkpoints")
 
 

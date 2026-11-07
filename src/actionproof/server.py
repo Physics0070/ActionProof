@@ -3,6 +3,7 @@
     python -m actionproof.server [--stdio]        # default; Principal from ACTIONPROOF_ACTOR / ACTIONPROOF_ON_BEHALF_OF
     python -m actionproof.server --http --port N  # Principal from `Authorization: Bearer` (api_clients)
     python -m actionproof.server --print-config   # Claude Desktop `mcpServers` entry (no secrets)
+    python -m actionproof.server --proxy "<cmd>"  # proxy mode: front a stdio upstream MCP server (actionproof.proxy)
 
 - Only registry tools exist: payments_approve_invoice, payments_refund_payment (-> ActionRequest tools
   payments.approve_invoice / payments.refund_payment), and the read-only extract_fields and review_status. Any other
@@ -59,6 +60,7 @@ class ServerSettings(BaseModel):
     server_port: int = 8765
     actionproof_actor: str | None = None
     actionproof_on_behalf_of: str | None = None
+    proxy_map_path: str | None = None  # proxy mode only (actionproof.proxy); required with --proxy
 
     @field_validator("docs_dir")
     @classmethod
@@ -186,9 +188,11 @@ def _reasons(rs) -> list[dict]:
 class App:
     """Transport-independent tool logic. `call` never raises and never returns a secret."""
 
-    def __init__(self, gate: Gate, docs: DocStore, conn_factory, *, rate_limit_per_minute: int = 60):
+    def __init__(self, gate: Gate, docs: DocStore, conn_factory, *, rate_limit_per_minute: int = 60, tools=None):
+        """`tools`: exposed MCP name -> registry tool. Default TOOLS; proxy mode passes the proxy map's names."""
         self.gate = gate
         self.docs = docs
+        self.tools = dict(TOOLS if tools is None else tools)
         self._conn_factory = conn_factory
         self._limiter = RateLimiter(rate_limit_per_minute)
 
@@ -214,7 +218,7 @@ class App:
                 return self._refuse("rate_limited", "rate limit exceeded; retry later",
                                     Reason("AP-ERR-11", "G1", "rate limit exceeded (fail closed)"), principal, name,
                                     audit=False)
-            if name in TOOLS:
+            if name in self.tools:
                 return self._action(name, arguments, principal)
             if name == "extract_fields":
                 return self._extract_fields(arguments, principal)
@@ -233,7 +237,7 @@ class App:
     # ---- action tools
 
     def _action(self, name: str, arguments, principal: Principal) -> dict:
-        tool = TOOLS[name]
+        tool = self.tools[name]
         if not isinstance(arguments, dict) or arguments.get("tool", tool) != tool:
             return self._malformed("arguments must be the ActionRequest JSON for this tool", principal, name)
         try:
@@ -256,7 +260,7 @@ class App:
         """REVIEW: store the receipt server-side and hand the agent only the request hash."""
         h = res.receipt["payload"]["request_hash"]
         try:
-            status, stored = review.park(self._conn_factory, req, res.receipt, res.reasons)
+            status, stored = review.park(self._conn_factory, req, res.receipt, res.reasons, res)
         except Exception as e:
             r = Reason("AP-ERR-11", "G1", f"review could not be recorded: {type(e).__name__}")
             self.gate._audit_deny("refuse", decision="DENY", rules=_reasons([r]), request_hash=h, actor=req.actor,
@@ -273,6 +277,7 @@ class App:
             return self._malformed("arguments must be {request_hash: 64 lowercase hex}", principal, "review_status")
         h = arguments["request_hash"]
         with self._conn_factory() as conn:
+            review.reconcile(conn)
             row = conn.execute("SELECT status, reasons FROM pending_reviews WHERE request_hash = %s AND actor = %s "
                                "AND on_behalf_of = %s", (h, principal.actor, principal.on_behalf_of)).fetchone()
         if row is None:  # someone else's request is indistinguishable from no request
@@ -304,20 +309,29 @@ def _action_schema() -> dict:
     return s
 
 
-def tool_defs() -> list[types.Tool]:
+ACTION_DESCRIPTIONS = {
+    TOOL: "Approve an invoice (payments.approve_invoice). Arguments: the ActionRequest JSON; every money value must "
+          "be a DIRECT citation (doc id + page/bbox or JSON pointer) or a DERIVED value. Returns DENY with rule ids, "
+          "EXECUTED, or pending human review.",
+    REFUND_TOOL: "Refund a captured payment (payments.refund_payment). Arguments: the ActionRequest JSON. refund_to "
+                 "must be the original payment method from the system of record.",
+}
+
+
+def tool_defs(tools=None) -> list[types.Tool]:
+    """`tools`: exposed name -> registry tool (default TOOLS). Proxied names say so in their description."""
+    tools = TOOLS if tools is None else tools
     action = _action_schema()
     ro = types.ToolAnnotations(read_only_hint=True, destructive_hint=False, idempotent_hint=True,
                                open_world_hint=False)
     rw = types.ToolAnnotations(read_only_hint=False, destructive_hint=True, idempotent_hint=False,
                                open_world_hint=False)
-    return [
-        types.Tool(name="payments_approve_invoice", annotations=rw, input_schema=action,
-                   description="Approve an invoice (payments.approve_invoice). Arguments: the ActionRequest JSON; "
-                               "every money value must be a DIRECT citation (doc id + page/bbox or JSON pointer) or "
-                               "a DERIVED value. Returns DENY with rule ids, EXECUTED, or pending human review."),
-        types.Tool(name="payments_refund_payment", annotations=rw, input_schema=action,
-                   description="Refund a captured payment (payments.refund_payment). Arguments: the ActionRequest "
-                               "JSON. refund_to must be the original payment method from the system of record."),
+    acts = [types.Tool(name=name, annotations=rw, input_schema=action,
+                       description=(ACTION_DESCRIPTIONS[t] if TOOLS.get(name) == t else
+                                    f"Proxied upstream tool '{name}' behind the ActionProof gate. "
+                                    + ACTION_DESCRIPTIONS[t]))
+            for name, t in tools.items()]
+    return acts + [
         types.Tool(name="extract_fields", annotations=ro,
                    input_schema={"type": "object", "properties": {"doc_id": {"type": "string"}},
                                  "required": ["doc_id"], "additionalProperties": False},
@@ -342,7 +356,7 @@ def _result(s: dict) -> types.CallToolResult:
 def build_server(app: App, principal_of) -> Server:
     """`principal_of(ctx) -> Principal | None` is the transport's identity: fixed for stdio, the bearer token's
     api_clients row for HTTP. Runs in a worker thread with the call (it may hit the database)."""
-    defs = tool_defs()
+    defs = tool_defs(app.tools)
 
     async def list_tools(ctx, params):
         return types.ListToolsResult(tools=defs)
@@ -419,12 +433,19 @@ def http_app(app: App, conn_factory):
 
 # --------------------------------------------------------------------------------------------------- wiring
 
-def build_app(settings, ssettings: ServerSettings) -> App:
-    """Production wiring. Raises ConfigError on anything unusable (fail closed at startup)."""
-    from actionproof import db
+def build_app(settings, ssettings: ServerSettings, proxy_cmd: str | None = None) -> App:
+    """Production wiring. Raises ConfigError on anything unusable (fail closed at startup).
+    `proxy_cmd`: proxy mode (actionproof.proxy): only the PROXY_MAP_PATH tools exist, executed upstream."""
+    from actionproof import db, proxy
     from actionproof.mocks import MockERP, MockPayments, MockRefunds
     from actionproof.signing import Signer
 
+    pmap = None
+    if proxy_cmd is not None:  # the map is validated before anything is started
+        if not ssettings.proxy_map_path:
+            raise ConfigError("invalid or missing config: PROXY_MAP_PATH (proxy mode needs a proxy map)")
+        pmap = proxy.load_map(ssettings.proxy_map_path)
+        argv = proxy.split_command(proxy_cmd)
     try:
         signer = Signer.from_path(settings.signing_key_path, settings.signing_kid)
     except Exception:
@@ -440,8 +461,22 @@ def build_app(settings, ssettings: ServerSettings) -> App:
         raise ConfigError(f"invalid or missing config: DATABASE_URL (database unusable: {type(e).__name__})") from None
     # ponytail: the mocks are the only adapters; a real ERP/PSP adapter implements the same 4-method contract.
     erp = MockERP(factory)
-    gate = Gate(settings, signer, factory, {TOOL: MockPayments(erp, factory), REFUND_TOOL: MockRefunds(erp, factory)})
-    return App(gate, DocStore(ssettings.docs_dir), factory, rate_limit_per_minute=ssettings.rate_limit_per_minute)
+    adapters = {TOOL: MockPayments(erp, factory), REFUND_TOOL: MockRefunds(erp, factory)}
+    tools = None
+    if pmap is not None:
+        upstream = proxy.Upstream(argv, pmap.timeout_seconds)
+        try:
+            pmap.check_offered(upstream.tool_names)
+        except ConfigError:
+            upstream.close()
+            raise
+        # Default deny: the gate serves ONLY the mapped registry tools, each through its upstream.
+        adapters = {s.action: proxy.ProxyAdapter(name, s, upstream, adapters[s.action])
+                    for name, s in pmap.tools.items()}
+        tools = pmap.exposed()
+    docs = DocStore(ssettings.docs_dir)
+    gate = Gate(settings, signer, factory, adapters)
+    return App(gate, docs, factory, rate_limit_per_minute=ssettings.rate_limit_per_minute, tools=tools)
 
 
 def _redact_dsn(dsn: str) -> str:
@@ -485,6 +520,8 @@ def main(argv=None) -> int:
     mode.add_argument("--http", action="store_true", help="serve streamable HTTP on 127.0.0.1")
     mode.add_argument("--print-config", action="store_true", help="print a Claude Desktop config snippet")
     ap.add_argument("--port", type=int, default=None, help="HTTP port (default SERVER_PORT)")
+    ap.add_argument("--proxy", metavar="CMD", default=None,
+                    help="proxy mode: front the stdio upstream MCP server CMD (tools from PROXY_MAP_PATH)")
     args = ap.parse_args(argv)
     if args.print_config:
         print(json.dumps(config_snippet(), indent=2))
@@ -492,7 +529,7 @@ def main(argv=None) -> int:
     try:
         settings = load_settings()
         ss = load_server_settings(need_principal=not args.http)
-        app = build_app(settings, ss)
+        app = build_app(settings, ss, args.proxy)
     except ConfigError as e:
         print(f"ConfigError: {e}", file=sys.stderr)
         return 2

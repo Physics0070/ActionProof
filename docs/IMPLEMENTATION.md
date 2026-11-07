@@ -32,14 +32,15 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [x] server.py MCP proxy (stdio + HTTP bearer, default deny, refuse audit, rate limit) + extract_fields + review_status; `pending_reviews` / `api_clients`; `review.py` (`park`, `complete_review`); `--print-config`; card rule priority; LangChain adapter `review_db`; tests `tests/test_mcp_default_deny.py`, `tests/e2e/test_slide1_mcp_stdio.py`, `tests/e2e/test_mcp_http.py`, `tests/usp/test_mcp_no_secret_surface.py`; docs/API.md "MCP server"
 - [x] adapters/langchain.py (`gate_tool`, `wrap_existing` + `ExistingToolStep`) + offline example agent `examples/langchain_agent.py`; `tests/e2e/test_slide1_langchain.py`; docs/API.md "LangChain adapter"
 - [x] audit.py + verifier CLI (hash chain, signed checkpoints, append-only triggers, gate entries for prepare/commit/mint/release_quarantine; `tests/test_audit.py`)
-- [ ] console backend endpoints; docs/API.md
+- [x] proxy mode `--proxy "<cmd>"` (`proxy.py`: map `PROXY_MAP_PATH`, upstream MCP client, `ProxyAdapter` = gate execute step; `examples/mock_upstream_server.py`, `examples/proxy-map.json`; `tests/e2e/test_proxy_stdio.py`, `tests/test_proxy_map.py`)
+- [x] console backend endpoints (`console.py` FastAPI: argon2 + server-side sessions + CSRF + lockout, queue/detail/page PNG/decision/audit/public; `console_users`, `console_sessions`; `scripts/seed_console.py`; `scripts/gen_openapi.py` -> `web/openapi.json`; `REVIEW_RECEIPT_TTL_SECONDS`; stale-status `review.reconcile`; `tests/test_console.py`, `tests/test_review_ttl.py`); docs/API.md
 
 ### Reviewer separation (ADR-008)
 - [x] schema: `people(login PK, person_id, roles[])`; seed `rev-alice`, `rev-bob` (reviewer), `sub-user123`, `admin-ops` (admin), `user-123`→`p-user123`, `agent-7`→`p-user123`; test-only `rev-user123` (person `p-user123`)
 - [x] failing red-team test first: `rev-user123` mint → DENY AP-SEP-12 (mint + commit); unmapped login → DENY; `admin-ops` mint → refused (no reviewer role)
 - [x] `Gate.mint_review_token(receipt, req, *, reviewer_login)`: verify signature/hash/decision==REVIEW, submitter from `req`, require reviewer role, AP-SEP-12 / G2, store `minted_by` + `minted_by_person`; audit refusals (now audit chain entries, audit.py)
 - [x] commit: re-apply AP-SEP-12 inside the tx after token consume (people re-read under the commit lock)
-- [ ] console backend: reviewer identity only from the server-side session subject; label "requested by X for Y · approved by Z (different person)" (rule documented in ARCHITECTURE.md; lands with the console backend)
+- [x] console backend (`tests/test_console.py::test_separation_reject_and_body_identity`): reviewer identity only from the server-side session subject; label "requested by X for Y · approved by Z (different person)" (rule documented in ARCHITECTURE.md; lands with the console backend)
 - [x] docs: POLICY.md row AP-SEP-12; THREAT_MODEL residuals (collusion, session hijack); DATA_MODEL `people`
 
 ### Refund connector (ADR-009)

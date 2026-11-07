@@ -206,6 +206,8 @@ class PrepareResult:
     diff: dict | None
     receipt: dict | None
     request: ActionRequest | None = field(default=None, repr=False, compare=False)
+    # The record state the diff applies to ({data, version}), for the reviewer's before/after view.
+    before: dict | None = field(default=None, repr=False, compare=False)
 
     def card(self) -> str:
         """Deck slide 1 text shape."""
@@ -395,13 +397,15 @@ class Gate:
             "record_id": record_id,
             "version": version,
             "nonce": secrets.token_urlsafe(16),
-            "exp": _now() + self._settings.receipt_ttl_seconds,
+            # A human review can outlast the short ALLOW lifetime; AP-EXP-06 applies to both (Task 5.6).
+            "exp": _now() + (self._settings.review_receipt_ttl_seconds if d.outcome == "REVIEW"
+                             else self._settings.receipt_ttl_seconds),
             "tool": req.tool,
             "actor": req.actor,
             "on_behalf_of": req.on_behalf_of,
             "idempotency_key": req.idempotency_key,
         })
-        return PrepareResult(d.outcome, reasons, v, diff, receipt, req)
+        return PrepareResult(d.outcome, reasons, v, diff, receipt, req, before={"data": data, "version": version})
 
     @staticmethod
     def _policy_input(conn, req: ActionRequest, v_ok: bool, v_reasons: list[Reason], counterparty,

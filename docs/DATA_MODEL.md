@@ -112,9 +112,35 @@ Included in `db.reset` (tests).
 | reasons | jsonb | NOT NULL DEFAULT `[]`, `[{rule, guarantee, msg}]` of the latest outcome |
 | reviewer | text | NULL, console session subject that completed it |
 | decided_at | bigint | NULL |
+| card | text | NULL, `PrepareResult.card()` (deck slide 1 text) at park |
+| claims | jsonb | NOT NULL DEFAULT `{}`, `{arg: {name, claim, ok, value, method, reason}}` (verify.ClaimResult at park) |
+| diff | jsonb | NULL, the tool's dry-run diff at park |
+| before | jsonb | NULL, `{data, version}` of the target record at prepare |
 
-Written by `review.park` (INSERT ... ON CONFLICT DO NOTHING); completed by `review.complete_review` under `FOR UPDATE`.
-Single use is still the gate's (receipt nonce and token UNIQUE, G2); this table is the queue, not the guard.
+Index `pending_reviews_queue (created_at DESC, request_hash)` serves the console queue. Written by `review.park`
+(INSERT ... ON CONFLICT DO NOTHING); completed by `review.complete_review` under `FOR UPDATE`. Single use is still
+the gate's (receipt nonce and token UNIQUE, G2); this table is the queue, not the guard. `review.reconcile` marks a
+`pending`/`approved` row `executed` when its request has a `commit`/`EXECUTED` audit entry (a lost status update;
+every reader calls it first).
+
+## console_users — review console logins (`console.py`)
+| Column | Type | Constraint |
+|---|---|---|
+| login | text | PRIMARY KEY, REFERENCES `people(login)` ON DELETE CASCADE (roles come from `people.roles`) |
+| password_hash | text | NOT NULL, CHECK `LIKE '$argon2%'` (argon2id via argon2-cffi; the password is never stored) |
+| disabled | boolean | NOT NULL DEFAULT false; a disabled user's sessions stop working at once |
+
+Seeded by `scripts/seed_console.py` (passwords from env or generated and printed once).
+
+## console_sessions — server-side console sessions
+| Column | Type | Constraint |
+|---|---|---|
+| sid_hash | text | PRIMARY KEY, CHECK `^[0-9a-f]{64}$`: `sha256(session id)`; the cookie value is never stored |
+| login | text | NOT NULL, REFERENCES `console_users(login)` ON DELETE CASCADE |
+| csrf_token | text | NOT NULL, the double-submit token for this session |
+| created_at, expires_at, last_seen | bigint | NOT NULL, CHECK `>= 0`; `expires_at = created_at + SESSION_TTL_SECONDS` |
+
+Both console tables are in `db.reset` (tests).
 
 ## api_clients — HTTP transport identities (ADR-012)
 | Column | Type | Constraint |

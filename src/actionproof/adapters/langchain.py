@@ -59,7 +59,7 @@ def _run(gate, principal, raw, pending: dict, on_receipt: Callable[[str], None] 
             # factory) it is parked in pending_reviews, where review.complete_review (the console) finds it, like the
             # MCP server's REVIEWs. Without it: the operator's in-process dict (ponytail: lost on restart, unbounded).
             if review_db is not None:
-                status, _ = review.park(review_db, req, res.receipt, res.reasons)
+                status, _ = review.park(review_db, req, res.receipt, res.reasons, res)
                 if status != "pending":
                     return "\n".join([*lines, f"request_hash: {h}", f"status: {status.upper()} (already reviewed)"])
             else:

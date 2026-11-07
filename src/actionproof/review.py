@@ -16,21 +16,40 @@ from actionproof.gate import Principal, ReviewRefused
 from actionproof.verify import Reason
 
 
-def park(conn_factory, req, receipt: dict, reasons) -> tuple[str, list[dict]]:
+def park(conn_factory, req, receipt: dict, reasons, res=None) -> tuple[str, list[dict]]:
     """Store one REVIEW (idempotent per request_hash). Returns (status, reasons) of the stored row: 'pending' for a
     new one; for a request parked earlier, its current status and that outcome's reasons. Raises on a DB failure
-    (the caller must then DENY: no REVIEW is reported that a reviewer cannot find)."""
+    (the caller must then DENY: no REVIEW is reported that a reviewer cannot find).
+    `res` (the gate's PrepareResult) adds the reviewer view: card, per-claim verification, dry-run diff and the
+    record's before-state."""
     h = receipt["payload"]["request_hash"]
     rules = [asdict(r) if isinstance(r, Reason) else dict(r) for r in reasons]
+    claims = {k: asdict(v) for k, v in res.verify.claims.items()} if res is not None else {}
     with conn_factory() as conn:
         conn.execute(
-            "INSERT INTO pending_reviews (request_hash, request, receipt, actor, on_behalf_of, created_at, reasons) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (request_hash) DO NOTHING",
+            "INSERT INTO pending_reviews (request_hash, request, receipt, actor, on_behalf_of, created_at, reasons, "
+            "card, claims, diff, before) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (request_hash) DO NOTHING",
             (h, Jsonb(req.model_dump(mode="json")), Jsonb(receipt), req.actor, req.on_behalf_of, int(time.time()),
-             Jsonb(rules)))
+             Jsonb(rules), res.card() if res is not None else None, Jsonb(claims),
+             Jsonb(res.diff) if res is not None and res.diff is not None else None,
+             Jsonb(res.before) if res is not None and res.before is not None else None))
+        reconcile(conn)
         status, stored = conn.execute("SELECT status, reasons FROM pending_reviews WHERE request_hash = %s",
                                       (h,)).fetchone()
     return status, stored
+
+
+def reconcile(conn) -> None:
+    """Stale-status repair (reconcile on read). gate.commit runs in its own transaction, so if the final
+    pending_reviews UPDATE in complete_review is lost after an EXECUTED commit, the row would still say 'pending'.
+    The commit's EXECUTED audit entry is written inside the commit tx (it exists iff the commit committed), so
+    every reader first marks such rows executed. Runs in the caller's transaction."""
+    conn.execute(
+        "UPDATE pending_reviews p SET status = 'executed', reasons = '[]'::jsonb, "
+        "reviewer = COALESCE(p.reviewer, a.detail->>'reviewer'), decided_at = COALESCE(p.decided_at, a.ts) "
+        "FROM audit_log a WHERE p.status IN ('pending', 'approved') AND a.kind = 'commit' "
+        "AND a.decision = 'EXECUTED' AND a.request_hash = p.request_hash")
 
 
 @dataclass(frozen=True)
@@ -51,6 +70,7 @@ def complete_review(gate, conn_factory, request_hash: str, reviewer_login: str, 
         raise ValueError("approve must be a bool")
     note = reason.strip()[:500]
     with conn_factory() as conn:
+        reconcile(conn)
         row = conn.execute("SELECT request, receipt, actor, on_behalf_of, status FROM pending_reviews "
                            "WHERE request_hash = %s FOR UPDATE", (request_hash,)).fetchone()
         detail = {"reviewer_login": reviewer_login, "reason": note, "approve": approve}

@@ -1,0 +1,12 @@
+{
+  "timeout_seconds": 10,
+  "tools": {
+    "approve_invoice": {
+      "action": "payments.approve_invoice",
+      "args": {"invoice_id": "invoice_id", "amount": "amount"},
+      "idempotency_arg": "idempotency_key",
+      "read_record": "get_record",
+      "dry_run": "preview_approval"
+    }
+  }
+}

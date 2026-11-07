@@ -16,6 +16,7 @@ dependencies = [
   "psycopg[binary]",
   "langchain-core",
   "httpx",
+  "argon2-cffi>=25.1.0",
 ]
 
 [dependency-groups]

@@ -118,10 +118,35 @@ Still open: the global commit lock can DENY legitimate commits under load (avail
 | Call flooding | per-Principal token bucket | `::test_rate_limit_per_principal` |
 
 Residuals: the rate limiter is in-memory per process (several replicas multiply the limit); rate-limited calls are
-not audited (by design: a flood must not become a flood of signed entries). A REVIEW receipt still expires after
-`RECEIPT_TTL_SECONDS` (default 300 s): a review completed later is DENY AP-EXP-06 and the agent must resubmit
-(availability, not safety). stdio trusts the operator's client config for the Principal (whoever can edit that
-config is the operator).
+not audited (by design: a flood must not become a flood of signed entries). A REVIEW receipt expires after
+`REVIEW_RECEIPT_TTL_SECONDS` (default 3600 s; ALLOW receipts keep `RECEIPT_TTL_SECONDS`): a review completed later is
+DENY AP-EXP-06 and the agent must resubmit (availability, not safety). stdio trusts the operator's client config for
+the Principal (whoever can edit that config is the operator).
+
+## 4e. Proxy mode and the review console (Task 5.6)
+| Threat | Defence | Test |
+|---|---|---|
+| Upstream offers a dangerous tool (`delete_all_invoices`) | only proxy-map tools are listed; any other name is the audited `unknown_tool` refusal and is never forwarded | `tests/e2e/test_proxy_stdio.py::test_proxy_review_unmapped_deny_allow` |
+| Upstream write reached before or without the checks | the upstream write IS the gate's `execute` step (inside the commit tx, after every check, once per receipt); DENY never reaches it | same |
+| Upstream crashes / hangs / errors mid-commit | hard timeout; any failure -> DENY AP-ERR-11, burn + quarantine (unknown outcome, ADR-014) | `::test_upstream_failure_fails_closed` |
+| Hostile upstream applies twice | the reported applications move the record version past the approved diff -> DENY AP-STALE-07 + quarantine | `::test_hostile_upstream_double_apply_is_denied` |
+| Ambiguous or tampered proxy map | strict schema, registry-checked actions and args, startup aborts | `tests/test_proxy_map.py`, `::test_proxy_map_errors_abort_startup` |
+| Upstream learns the signing key | the upstream process env drops `SIGNING_KEY_PATH` / `SIGNING_KID` | code review (`proxy.NO_UPSTREAM_ENV`) |
+| Console credential guessing / user enumeration | argon2id; one generic 401 for unknown login and wrong password (dummy-hash verify for unknown); lockout per (login, IP) for any login string | `tests/test_console.py::test_login_ok_and_bad_credentials_are_identical`, `::test_lockout_per_login_and_ip` |
+| Session theft from the database | only sha256(session id) stored; cookie httpOnly + SameSite=Strict + Secure on https | `::test_session_cookie_flags_and_only_hash_stored` |
+| Session fixation | every login mints a new id and deletes the presented one | `::test_login_rotates_session_against_fixation` |
+| Session replay after logout / expiry / disable | server-side row deleted / `expires_at` / `disabled` checked on every request | `::test_logout_invalidates_and_expired_session_refused` |
+| CSRF | SameSite=Strict + double-submit token (header = cookie = session token) on every POST; CORS only `WEB_ORIGIN` | `::test_csrf_required_on_state_changes`, `::test_cors_only_the_web_origin` |
+| Reviewer identity forged in the request | reviewer = session login only; `DecisionBody` forbids extra fields (422) | `::test_separation_reject_and_body_identity` |
+| Admin or submitter decides | decision needs the `reviewer` role; AP-SEP-12 still at mint + commit | `::test_role_enforcement` |
+| Page render as file read | doc id = document-store key, PDF only, boxes only for this request's verified DIRECT citations | `::test_page_png_draws_the_cited_box_and_refuses_traversal` |
+| Error / secret leakage | structured errors without input echo or traceback; no receipt, signature, nonce, token or idempotency key in any response | `::test_errors_are_structured_with_security_headers`, `::test_mcp_review_to_console_approve_executes_once` |
+| Lost status update after an executed commit | `review.reconcile` from the commit's EXECUTED audit entry; a second decision is AP-REP-05 | `::test_stale_status_is_reconciled` |
+
+Residuals: login lockout and the public rate limit are in-memory per process (`# ponytail`); the lockout lets an
+attacker lock a known reviewer out for 300 s from one IP (availability). Login itself is not CSRF-protected beyond
+SameSite + CORS (login CSRF can only log the victim into the attacker's account). The console process holds the
+signing key (it commits approved reviews); it must never be exposed to the agent's network.
 
 ## 5. Out of scope
 
@@ -138,7 +163,7 @@ Quoted from deck slide 10:
 |---|---|---|---|
 | OCR misreads cause false blocks | A correct document fails verification, so a legitimate write is denied | Two independent readers must agree (pdfplumber and raster/OCR, ADR-002); disagreement fails closed. This costs availability, not safety | planned (Phase 2) |
 | Reviewer collusion | Two DIFFERENT people (e.g. the user-123 operator and rev-bob) agree to approve each other's bad write | ADR-008 stops one person approving their own request (AP-SEP-12), not two people colluding. Every token records `minted_by` + `minted_by_person` for the audit trail | accepted (prototype) |
-| Reviewer session hijack | An attacker who holds a reviewer's console session mints as that reviewer | The reviewer identity is only the server-side session subject, never a request field (ADR-008); session security is the console's (Phase 5/7). Separation is only as strong as console authentication and the `people` data | accepted (prototype) |
+| Reviewer session hijack | An attacker who holds a reviewer's console session mints as that reviewer | The reviewer identity is only the server-side session subject, never a request field (ADR-008); console sessions: server-side, sha256-only, httpOnly + SameSite=Strict + Secure, rotation at login, CSRF double-submit, expiry (section 4e). Separation is only as strong as console authentication and the `people` data | accepted (prototype) |
 | `people` directory tampering | An admin maps a reviewer login to a different person to pass AP-SEP-12 | Commit re-reads `people` inside the tx, so edits after a mint are caught; every mint entry records `reviewer_login` + `reviewer_person`, so a remap is visible in the chain. The edit itself is not an audit entry until the console backend has an admin edit path | open (console backend) |
 | Audit: superuser / owner tampering | The DB owner (the gate's role in dev) can disable the append-only trigger and edit rows | Detection, not prevention: hash chain + gate-signed checkpoints; the verifier needs only the public key (`tests/test_audit.py` edit, rehashed-chain, delete, reorder, forged-signature cases) | accepted (detected) |
 | Audit: tail truncation with its checkpoints | Deleting the last k entries AND their checkpoints leaves a shorter, valid chain; emptying both tables verifies as `OK (0 entries, 0 checkpoints)` | Checkpoint every entry by default (`AUDIT_CHECKPOINT_EVERY=1`) so no entry is ever unpinned; the residual needs an external anchor (publish checkpoint heads off-box / to a WORM store) | open (Phase 8 ops) |

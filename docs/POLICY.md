@@ -42,7 +42,7 @@ Invoice inputs and reason texts are unchanged.
 | AP-POL-FAIL | policy.py | OPA_URL unset, connect error, > 200 ms, non-200, missing/unknown outcome, malformed reasons, DENY/REVIEW without reasons, float or non-dict payload | DENY | G1 | pytest `test_missing_opa_url_denied`, `test_closed_port_denied`, `test_slow_server_denied`, `test_trickling_server_denied`, `test_malformed_opa_response_denied[*]`, `test_float_in_payload_denied_before_opa` |
 | AP-SIG-09 | gate.commit | receipt signature invalid | DENY | G2 | Phase 3 gate tests |
 | AP-HASH-08 | gate.commit | request hash != receipt.request_hash | DENY | G2 | Phase 3 gate tests |
-| AP-EXP-06 | gate.commit | receipt/token expired | DENY | G2 | Phase 3 gate tests |
+| AP-EXP-06 | gate.commit | receipt/token expired. Receipt `exp` = prepare time + `REVIEW_RECEIPT_TTL_SECONDS` (default 3600) for a REVIEW receipt, + `RECEIPT_TTL_SECONDS` (default 300) for ALLOW | DENY | G2 | Phase 3 gate tests, `tests/test_review_ttl.py` |
 | AP-REP-05 | gate.commit | nonce / idempotency key / review token already used | DENY | G2 | Phase 3 gate tests |
 | AP-REP-05 | gate.prepare + gate.commit (ADR-014) | target record quarantined after a burned (unknown-outcome) commit | DENY | G2 | `tests/redteam/test_rt_g2_replay.py::test_burned_receipt_*`, `test_receipt_prepared_before_burn_blocked_at_commit` |
 | AP-STALE-07 | gate.commit | record version != receipt.version, or diff changed | DENY | G2 | Phase 3 gate tests |

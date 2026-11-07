@@ -90,10 +90,81 @@ path); max 5 MB per document, 2000 spans.
 Per Principal, in-memory token bucket: `RATE_LIMIT_PER_MINUTE` (default 60) calls of burst, refilled continuously;
 over the limit -> `refused` / `rate_limited` (`# ponytail`: per process).
 
+### Proxy mode (deck slide 3 step 1, S3.2)
+`python -m actionproof.server --proxy "<upstream command>"` (stdio or `--http`): the server connects as an MCP
+CLIENT to a stdio upstream MCP server and re-exposes ONLY the upstream tools named in the proxy map
+(`PROXY_MAP_PATH`, module `actionproof.proxy`). Example upstream + map: `examples/mock_upstream_server.py`,
+`examples/proxy-map.json`:
+```json
+{"timeout_seconds": 10, "tools": {"approve_invoice": {"action": "payments.approve_invoice",
+  "args": {"invoice_id": "invoice_id", "amount": "amount"}, "idempotency_arg": "idempotency_key",
+  "read_record": "get_record", "dry_run": "preview_approval"}}}
+```
+- Listing = the map's write tools (here `approve_invoice`) + `extract_fields`, `review_status`. Unmapped upstream
+  tools (`delete_all_invoices`, and the read helpers `get_record` / `preview_approval`) are not listed; a call is
+  `refused` / `unknown_tool` (audited `refuse`) and never forwarded (default deny).
+- A proxied tool's arguments are the ActionRequest JSON, exactly as for `payments_approve_invoice`. `args` maps
+  upstream param -> ActionRequest arg; the upstream write gets those values + the idempotency key.
+- The upstream write is the gate's `execute` step: it runs only after commit passed, inside the commit tx, at most
+  once per receipt. `read_record` (`{record_id} -> {data, version}`) and `dry_run` (same args as the write -> diff)
+  go to the named upstream read tools (else the local adapter); `sor_for` stays the local system of record. The
+  gate mirrors the reported effect on the record row; a reported `applied > 1` moves the version past the approved
+  diff -> DENY AP-STALE-07 + burn + quarantine.
+- Upstream crash, error result or timeout (`timeout_seconds`, 1..300) -> DENY AP-ERR-11 / G1 (fail closed); a write
+  that may have happened burns the receipt and quarantines the record (ADR-014).
+- Startup aborts (`ConfigError: ... PROXY_MAP_PATH`, exit 2) on a missing/invalid map (unknown action, arg outside
+  the tool's registry, one action twice, reserved or clashing names, extra keys) or a mapped tool the upstream does
+  not offer. The upstream process inherits the env minus `SIGNING_KEY_PATH` / `SIGNING_KID`.
+
 ### Human review (not an MCP tool)
 `review.complete_review(gate, conn_factory, request_hash, reviewer_login, approve, reason) -> ReviewOutcome(status,
-reasons)`: for the console backend only (Task 5.7), `reviewer_login` = the authenticated session subject. Approve ->
+reasons)`: for the console backend only, `reviewer_login` = the authenticated session subject. Approve ->
 `Gate.mint_review_token` (AP-SEP-12 refusal leaves it `pending`) then `Gate.commit` with the token -> `executed` /
 `denied`; reject -> `rejected` with `AP-REV-10 "rejected by reviewer: <reason>"`; a completed review -> AP-REP-05.
-`review.park(conn_factory, req, receipt, reasons)` is the shared REVIEW store (MCP server, and the LangChain adapter
-with `review_db=<conn factory>`).
+`review.park(conn_factory, req, receipt, reasons, res=None)` is the shared REVIEW store (MCP server, and the
+LangChain adapter with `review_db=<conn factory>`); `res` (the PrepareResult) adds the reviewer view (card, per-claim
+verification, dry-run diff, record before-state). `review.reconcile(conn)` repairs a lost status update: a row still
+`pending` whose commit has an EXECUTED audit entry reads as `executed` (every reader calls it first).
+
+REVIEW receipts expire after `REVIEW_RECEIPT_TTL_SECONDS` (default 3600), ALLOW receipts after
+`RECEIPT_TTL_SECONDS` (300); AP-EXP-06 / G2 applies to both.
+
+## Review console (HTTP)
+Module `actionproof.console` (FastAPI): `python -m actionproof.console [--proxy "<cmd>"]` on
+`127.0.0.1:CONSOLE_PORT`. OpenAPI: `/openapi.json`, committed as `web/openapi.json` by `python scripts/gen_openapi.py`
+(`--check` fails if stale; UI types are generated from it). Seed users: `python scripts/seed_console.py` (passwords
+from `CONSOLE_PASSWORD_<LOGIN>` env, else generated and printed ONCE; only argon2id hashes are stored; never
+commit a password).
+
+### Auth
+- `POST /api/auth/login {login, password}` -> `{login, roles, csrf_token}` + cookies `ap_session` (random id;
+  httpOnly, SameSite=Strict, Secure on https / `CONSOLE_COOKIE_SECURE`) and `ap_csrf` (readable by the page).
+  The database stores only sha256(session id); a login always mints a new id and deletes the presented one.
+  Bad login or password -> 401 `invalid_credentials` (identical for unknown logins). 5 failures per (login, client
+  IP) -> 429 `rate_limited` for 300 s (`# ponytail`: in-memory, per process).
+- `POST /api/auth/logout`, `GET /api/auth/me` -> `{login, roles}`. Sessions expire after `SESSION_TTL_SECONDS`;
+  a disabled user's sessions stop working at once.
+- Every POST except login needs header `X-CSRF-Token` = the `ap_csrf` cookie = the session's token, else 403 `csrf`.
+- Roles from `people.roles`: reads need `reviewer` or `admin`; a decision needs `reviewer` (admin cannot, ADR-008).
+  No session -> 401 `unauthenticated`; wrong role -> 403 `forbidden`.
+
+### Endpoints
+| Method, path | Role | Returns |
+|---|---|---|
+| `GET /api/queue?status=&tool=&actor=&limit=&cursor=` | reviewer/admin | `{items: [{request_hash, tool, actor, on_behalf_of, status, created_at, amount, top_rule, reasons, reviewer, decided_at}], next_cursor}`; newest first; `limit` 1..100 (50); opaque cursor |
+| `GET /api/requests/{request_hash}` | reviewer/admin | `{label: "requested by <actor> for <on_behalf_of>", card, claims: [{name, claim, value, evidence, taint, source {doc, page, bbox} or {doc, pointer}, derivation {fn, inputs}, doc_sha256, verification {ok, method, reason}}], taint_flags, policy_reasons, outcome_reasons, diff, before {data, version}, status, ...}`. ASSERTED claims have `evidence: false` (shown, never evidence). No receipt/signature material |
+| `GET /api/requests/{request_hash}/page/{n}.png?doc=` | reviewer/admin | PNG of page n (zoom 2) with a rectangle on every DIRECT claim of this request citing (doc, n) that passed verification. `doc` must be a document-store id (manifest key, never a path) of a PDF; anything else 404 |
+| `POST /api/requests/{request_hash}/decision {decision: approve\|reject, reason: 8..500 chars}` | reviewer + CSRF | `{outcome: EXECUTED\|DENY\|REJECTED, status, reasons}` after the commit outcome. Reviewer = session login only; extra body fields (e.g. `reviewer_login`) -> 422. Same person -> DENY AP-SEP-12 (stays pending); decided before -> DENY AP-REP-05; unknown hash -> 404 |
+| `GET /api/audit/verify` | reviewer/admin | `{ok, entries, checkpoints, error}` from `audit.verify` (library, one read-only snapshot, gate public key) |
+| `GET /api/audit?limit=` | reviewer/admin | `{items: [{seq, ts, kind, request_hash, actor, on_behalf_of, record_id, decision, rules, detail, entry_hash}]}`, newest first; `detail` allowlisted (no nonce, no idempotency key) |
+| `GET /api/public/replay/inv-2048` | none, rate-limited | the stored INV-2048 decision: `{card, claims, reasons, decision, status, reviewer, decided_at, audit {first_seq, last_seq}, ...}`, no receipt; 404 before one exists |
+| `GET /api/public/eval` | none, rate-limited | `{available: true, results}` from `eval/results.json`, else `{available: false}` |
+| `GET /api/health` | none | `{ok: true}`, 503 if the database is down |
+
+### Errors, headers, CORS, rate limits
+Every error is `{"error": {"code", "message"}}` (no input echo, no traceback): 401 `unauthenticated` /
+`invalid_credentials`, 403 `forbidden` / `csrf`, 404 `not_found`, 422 `validation_error`, 429 `rate_limited`,
+500 `internal`, 503 `unavailable`. Every response: `Content-Security-Policy: default-src 'none'; frame-ancestors
+'none'; ...`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`,
+`Cache-Control: no-store`. CORS: only `WEB_ORIGIN`, with credentials, methods GET/POST, headers Content-Type and
+X-CSRF-Token. Public endpoints: `RATE_LIMIT_PER_MINUTE` per client IP.

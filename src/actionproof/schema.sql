@@ -88,6 +88,28 @@ CREATE TABLE IF NOT EXISTS pending_reviews (
     decided_at   bigint NULL
 );
 CREATE INDEX IF NOT EXISTS pending_reviews_principal ON pending_reviews (actor, on_behalf_of);
+-- Reviewer view (Task 5.6), written once at park from the PrepareResult; none of it is receipt or key material.
+ALTER TABLE pending_reviews ADD COLUMN IF NOT EXISTS card   text  NULL;               -- deck slide 1 text
+ALTER TABLE pending_reviews ADD COLUMN IF NOT EXISTS claims jsonb NOT NULL DEFAULT '{}'; -- {arg: verify.ClaimResult}
+ALTER TABLE pending_reviews ADD COLUMN IF NOT EXISTS diff   jsonb NULL;               -- tool dry-run diff
+ALTER TABLE pending_reviews ADD COLUMN IF NOT EXISTS before jsonb NULL;               -- {data, version} at prepare
+CREATE INDEX IF NOT EXISTS pending_reviews_queue ON pending_reviews (created_at DESC, request_hash);
+
+-- Review console (Task 5.6, src/actionproof/console.py). Passwords are argon2id hashes; a session row stores only
+-- sha256(session id), so a database read cannot be replayed as a cookie. Roles come from people.roles.
+CREATE TABLE IF NOT EXISTS console_users (
+    login         text PRIMARY KEY REFERENCES people (login) ON DELETE CASCADE,
+    password_hash text    NOT NULL CHECK (password_hash LIKE '$argon2%'),
+    disabled      boolean NOT NULL DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS console_sessions (
+    sid_hash   text PRIMARY KEY CHECK (sid_hash ~ '^[0-9a-f]{64}$'),
+    login      text   NOT NULL REFERENCES console_users (login) ON DELETE CASCADE,
+    csrf_token text   NOT NULL,
+    created_at bigint NOT NULL CHECK (created_at >= 0),
+    expires_at bigint NOT NULL CHECK (expires_at >= 0),
+    last_seen  bigint NOT NULL CHECK (last_seen >= 0)
+);
 
 -- HTTP transport clients (ADR-012): the bearer token's sha256 maps to the Principal. The token itself is never
 -- stored. Seed with scripts/seed_api_client.py.

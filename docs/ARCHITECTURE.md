@@ -213,7 +213,7 @@ an unknown name, reaches one handler, so a refusal is ours to shape and audit. T
 - Flow: ActionRequest JSON -> `Gate.prepare` with the SERVER's documents (`DOCS_DIR` + manifest; doc ids are dict
   keys, never paths). DENY -> reasons + card. ALLOW -> `Gate.commit` in the same call. REVIEW -> `review.park`
   stores `{request_hash, request, receipt, principal, status: pending}` in `pending_reviews`; the agent gets only
-  `request_hash`, reasons and the card. `review.complete_review` (console only, Task 5.7) mints with the reviewer's
+  `request_hash`, reasons and the card. `review.complete_review` (console only) mints with the reviewer's
   session subject (AP-SEP-12) and commits, or rejects with the typed reason; the row is locked FOR UPDATE for the
   whole call; every outcome is audited (gate entries + kind `review`).
 - Card: `PrepareResult.card()` is `content[0]` of every action/refusal result; its rule line shows the
@@ -224,6 +224,45 @@ an unknown name, reaches one handler, so a refusal is ours to shape and audit. T
 - Rate limit: per-Principal in-memory token bucket (`RATE_LIMIT_PER_MINUTE`).
 - The server and review.py reach the Gate's audit writer through its private methods (`_audit_deny`, `_audit`) from
   inside the package; the Gate's public surface stays the four methods (`tests/usp/test_key_isolation.py`).
+
+## Phase 5 status: proxy mode (`src/actionproof/proxy.py`, deck slide 3 step 1, S3.2)
+`python -m actionproof.server --proxy "<cmd>"`: the server is an MCP CLIENT of one stdio upstream and lists only
+the tools of the proxy map (`PROXY_MAP_PATH`). Design choice: a proxied write becomes the gate's tool adapter
+(`ProxyAdapter`), not a pass-through, so "the upstream sees a call only after commit passes" is the gate's existing
+"execute at most once, after every check, inside the commit tx" and needs no second mechanism.
+- `Upstream` holds the MCP client session on a background event loop (anyio blocking portal; the gate is synchronous
+  and runs in worker threads); every call has `timeout_seconds`. Crash / error / timeout raise `UpstreamError`
+  (type name only) -> the gate's DENY AP-ERR-11, with burn + quarantine when the write may have happened.
+- `read_record` / `dry_run` go to the upstream read tools named in the map (so the diff and before-state are the
+  upstream's view); `sor_for` stays the local system of record (`# ponytail`: the mocks' ERP; upstream path is a
+  mapped read tool per SoR lookup). After the upstream write the local adapter mirrors the effect on the record row
+  in the commit tx, once per write the upstream reports (`applied`), so a double-applying upstream is DENY
+  AP-STALE-07 like a double-applying local tool.
+- Startup (fail closed): map validated before anything starts; then the upstream is spawned (env minus the signing
+  key path) and its tools/list must contain every mapped tool. Unmapped upstream tools are never listed; calls to
+  them are the ordinary `unknown_tool` refusal (audited `refuse`) and never reach the upstream.
+- A REVIEW parked through the proxy is approved in the console; start the console with the same `--proxy` so the
+  approved commit executes on the upstream (`python -m actionproof.console --proxy "<cmd>"`).
+
+## Phase 5 status: review console backend (`src/actionproof/console.py`, deck slide 3 step 4, S9.2 / S9.6 / S7.8)
+FastAPI JSON API for the Phase 7 UI; OpenAPI committed as `web/openapi.json` (`scripts/gen_openapi.py`). The
+console process holds the gate (it mints and commits through `review.complete_review`); nothing in it is reachable
+from the MCP/agent surface. Endpoints, auth and errors: docs/API.md "Review console".
+- Sessions server-side (`console_sessions`, sha256 of a random id), argon2id passwords (`console_users`), roles from
+  `people`. Double-submit CSRF on every state change; login lockout per (login, IP); one generic credential error.
+- The reviewer for approve/reject is the session login only (ADR-008); `DecisionBody` has no reviewer field and
+  forbids extras. The approval label is "requested by <actor> for <on_behalf_of>" + the stored reviewer.
+- The reviewer view is stored at park (`pending_reviews.card / claims / diff / before`), so the detail page shows
+  exactly what the gate verified at decision time: per-claim type, source, verification (ok, method, reason with
+  rule id + guarantee), ASSERTED flagged `evidence: false`, taint flags, policy reasons, dry-run diff, before-state.
+- Page images are PyMuPDF renders of a document-store PDF (manifest key only) with boxes ONLY for this request's
+  DIRECT claims that verified.
+- Stale status fix: `gate.commit` runs in its own tx while `complete_review` holds the pending row, so the final
+  status UPDATE cannot share the commit tx without a lock cycle. Instead every reader runs `review.reconcile`: a
+  `pending` row whose request has a commit EXECUTED audit entry (written inside the commit tx, so it exists iff the
+  commit committed) is marked `executed`. A second decision is then AP-REP-05.
+- REVIEW receipts use `REVIEW_RECEIPT_TTL_SECONDS` (default 3600) as `exp`; ALLOW receipts keep
+  `RECEIPT_TTL_SECONDS`. AP-EXP-06 is enforced for both at commit (and at mint).
 
 ## Stack (slide 7) and reasons
 | Layer | Choice | Reason |
