@@ -27,6 +27,9 @@ class MockPayments:
     def read_record(self, record_id: str) -> tuple[dict, int]:
         return self._erp.read_record(record_id)
 
+    def sor_for(self, invoice_id: str) -> dict:
+        return self._erp.sor_for(invoice_id)
+
     def dry_run(self, req) -> dict:
         return {"record_id": _record_id(req), "status": "open->approved", "amount": _amount(req)}
 

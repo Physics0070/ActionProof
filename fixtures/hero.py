@@ -39,6 +39,7 @@ def hero_request(idempotency_key: str = "idem-1") -> ActionRequest:
             "actor": "agent-7",
             "idempotency_key": idempotency_key,
             "args": {
+                "invoice_id": pdf_claim(inv, "invoice_id"),  # targets invoice:INV-2048 in the system of record
                 "amount": pdf_claim(inv, "total"),
                 "invoice.total": pdf_claim(inv, "total"),
                 "po.total": json_claim(po, "total"),

@@ -55,3 +55,68 @@ def db(pg):
     yield conn
     conn.rollback()
     conn.close()
+
+
+# --- Gate fixtures (Phase 3, task 4). Real OPA binary + real Postgres; helpers live in tests/gatekit.py.
+import socket  # noqa: E402
+import time  # noqa: E402
+
+_OPA_BIN = os.environ.get("OPA_BIN", "C:/Users/Soham/tools/opa/opa.exe")
+
+
+@pytest.fixture(scope="session")
+def opa_url(tmp_path_factory):
+    """A running OPA server loaded with policy/. Logs go to a file, never an unread pipe (it blocks OPA)."""
+    import httpx
+
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    log = tmp_path_factory.mktemp("opa-gate") / "opa.log"
+    log_f = log.open("wb")
+    proc = subprocess.Popen(
+        [_OPA_BIN, "run", "--server", "--log-level", "error", "--disable-telemetry",
+         "--addr", f"127.0.0.1:{port}", str(_ROOT / "policy")],
+        stdout=log_f, stderr=subprocess.STDOUT,
+    )
+    url = f"http://127.0.0.1:{port}"
+    try:
+        for _ in range(100):
+            if proc.poll() is not None:
+                raise RuntimeError(f"OPA exited: {log.read_text(errors='replace')}")
+            try:
+                if httpx.get(f"{url}/health", timeout=0.5).status_code == 200:
+                    break
+            except httpx.HTTPError:
+                pass
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("OPA did not become healthy")
+        httpx.post(f"{url}/v1/data/actionproof/decision", json={"input": {}}, timeout=5)  # warm up
+        yield url
+    finally:
+        proc.kill()
+        proc.wait()
+        log_f.close()
+
+
+@pytest.fixture
+def opa(opa_url, monkeypatch):
+    monkeypatch.setenv("OPA_URL", opa_url)
+
+
+@pytest.fixture(scope="session")
+def signing_key_path(tmp_path_factory):
+    from actionproof import signing
+
+    p = tmp_path_factory.mktemp("gate-key") / "gate.key"
+    signing.generate_key(p)
+    return p
+
+
+@pytest.fixture
+def kit(db, pg, opa, opa_url, signing_key_path):
+    """A wired Gate over the mocks on a freshly seeded database (see tests/gatekit.py)."""
+    import gatekit
+
+    return gatekit.Kit(pg, opa_url, signing_key_path, db)
