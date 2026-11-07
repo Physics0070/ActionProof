@@ -1,0 +1,374 @@
+/* ActionProof tokens. Source of truth: web/DESIGN.md (palette by role, type, grid, motion, signals).
+   Contrast of every allowed pairing: `npm run contrast` (scripts/contrast.mjs). 0px radius everywhere. */
+
+:root {
+  /* Ground (mist) */
+  --c-ground: #f6f8f7;
+  --c-paper: #ffffff;
+  --c-ink: #15141f;
+  --c-muted: #55535f;
+  --c-line: #c9ccd0;
+  --c-accent: #f5a524;
+  --c-accent-ink: #15141f;
+  --c-focus: #15141f;
+
+  /* Carbon band palette (applied by .band-carbon) */
+  --carbon: #15141f;
+  --carbon-raised: #211f2d;
+  --carbon-text: #f6f8f7;
+  --carbon-muted: #a9a7b4;
+  --carbon-line: #3a3846;
+
+  /* Signals: one colour per decision. "lamp" = emissive (3D, marks on carbon), "ink" = text/marks on mist.
+     Never colour alone: <Signal> always pairs colour + shape + word. */
+  --sig-allow-lamp: #3ddc84;
+  --sig-review-lamp: #f5a524;
+  --sig-deny-lamp: #ff5a4a;
+  --sig-allow-ink: #0b6b35;
+  --sig-review-ink: #7f4d00;
+  --sig-deny-ink: #b3261e;
+  --sig-allow: var(--sig-allow-ink);
+  --sig-review: var(--sig-review-ink);
+  --sig-deny: var(--sig-deny-ink);
+
+  /* Type */
+  --font-display: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-body: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --fs-mono: 0.8125rem; /* 13px labels */
+  --fs-small: 0.875rem; /* 14px */
+  --fs-body: 1.0625rem; /* 17px */
+  --fs-lede: clamp(1.1875rem, 1.05rem + 0.6vw, 1.5rem); /* 19 -> 24 */
+  --fs-h3: clamp(1.5rem, 1.3rem + 0.9vw, 2rem); /* 24 -> 32 */
+  --fs-h2: clamp(2.25rem, 1.6rem + 3vw, 4rem); /* 36 -> 64 */
+  --fs-display: clamp(3.25rem, 1.8rem + 7.2vw, 9.5rem); /* 52 -> 152 */
+  --fs-kinetic: clamp(5rem, 2rem + 15vw, 17.5rem); /* 80 -> 280 */
+  --track-display: -0.04em;
+  --track-h2: -0.03em;
+  --track-mono: 0.02em;
+  --lh-display: 0.92;
+  --lh-head: 1.05;
+  --lh-body: 1.55;
+
+  /* Space (4px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 144px;
+
+  /* Grid */
+  --grid-max: 1320px;
+  --grid-cols: 12;
+  --grid-gutter: 24px;
+  --grid-margin: clamp(16px, 4vw, 64px);
+
+  /* Shape */
+  --radius: 0px;
+  --hair: 1px;
+
+  /* Motion: verb "latch" (short travel, hard stop). One easing family. */
+  --ease-latch: cubic-bezier(0.2, 0, 0, 1);
+  --ease-release: cubic-bezier(0.4, 0, 1, 1);
+  --t-snap: 120ms;
+  --t-latch: 240ms;
+  --t-travel: 480ms;
+  --t-scene: 900ms;
+}
+
+.band-carbon {
+  --c-ground: var(--carbon);
+  --c-paper: var(--carbon-raised);
+  --c-ink: var(--carbon-text);
+  --c-muted: var(--carbon-muted);
+  --c-line: var(--carbon-line);
+  --c-focus: var(--c-accent);
+  --sig-allow: var(--sig-allow-lamp);
+  --sig-review: var(--sig-review-lamp);
+  --sig-deny: var(--sig-deny-lamp);
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+.band-mist {
+  background: var(--c-ground);
+  color: var(--c-ink);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-radius: 0 !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-ground);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: var(--lh-head);
+  text-wrap: balance;
+}
+
+p {
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+
+a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: var(--hair);
+  text-underline-offset: 0.2em;
+}
+
+img,
+svg,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--s-4);
+  top: -100px;
+  z-index: 100;
+  padding: var(--s-2) var(--s-4);
+  background: var(--c-accent);
+  color: var(--c-accent-ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+}
+.skip-link:focus {
+  top: var(--s-4);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Layout */
+.container {
+  width: 100%;
+  max-width: calc(var(--grid-max) + 2 * var(--grid-margin));
+  margin-inline: auto;
+  padding-inline: var(--grid-margin);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-cols), minmax(0, 1fr));
+  column-gap: var(--grid-gutter);
+}
+@media (max-width: 720px) {
+  :root {
+    --grid-cols: 4;
+    --grid-gutter: 16px;
+  }
+}
+
+/* Type roles */
+.t-display {
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: 500;
+  letter-spacing: var(--track-display);
+  line-height: var(--lh-display);
+}
+.t-kinetic {
+  font-family: var(--font-display);
+  font-size: var(--fs-kinetic);
+  font-weight: 500;
+  letter-spacing: var(--track-display);
+  line-height: 0.85;
+}
+.t-h2 {
+  font-size: var(--fs-h2);
+  letter-spacing: var(--track-h2);
+}
+.t-h3 {
+  font-size: var(--fs-h3);
+  letter-spacing: -0.015em;
+}
+.t-lede {
+  font-size: var(--fs-lede);
+  line-height: 1.4;
+}
+.t-muted {
+  color: var(--c-muted);
+}
+
+/* Primitives (components/ui) */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  letter-spacing: var(--track-mono);
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+.hairline {
+  border: 0;
+  margin: 0;
+  height: 0;
+  border-top: var(--hair) solid var(--c-line);
+}
+.hairline-strong {
+  border-top-color: var(--c-ink);
+}
+
+.band {
+  padding-block: var(--s-9);
+}
+@media (max-width: 720px) {
+  .band {
+    padding-block: var(--s-8);
+  }
+}
+
+.card {
+  background: var(--c-paper);
+  border: var(--hair) solid var(--c-line);
+  padding: var(--s-5);
+}
+
+.signal {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  letter-spacing: var(--track-mono);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+.signal svg {
+  width: 0.9em;
+  height: 0.9em;
+  flex: none;
+}
+.signal[data-state="ALLOW"] {
+  color: var(--sig-allow);
+}
+.signal[data-state="REVIEW"] {
+  color: var(--sig-review);
+}
+.signal[data-state="DENY"] {
+  color: var(--sig-deny);
+}
+.signal-solid {
+  padding: var(--s-1) var(--s-2);
+  color: var(--carbon) !important;
+}
+.signal-solid[data-state="ALLOW"] {
+  background: var(--sig-allow-lamp);
+}
+.signal-solid[data-state="REVIEW"] {
+  background: var(--sig-review-lamp);
+}
+.signal-solid[data-state="DENY"] {
+  background: var(--sig-deny-lamp);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 44px;
+  padding: var(--s-3) var(--s-5);
+  border: var(--hair) solid var(--c-ink);
+  background: transparent;
+  color: var(--c-ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  letter-spacing: var(--track-mono);
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--t-snap) var(--ease-latch),
+    color var(--t-snap) var(--ease-latch),
+    translate var(--t-latch) var(--ease-latch);
+}
+.button:hover {
+  background: var(--c-ink);
+  color: var(--c-ground);
+}
+.button:active {
+  translate: 0 1px;
+}
+.button-primary {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--c-accent-ink);
+}
+.button-primary:hover {
+  background: var(--c-ink);
+  border-color: var(--c-ink);
+  color: var(--c-ground);
+}
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+}

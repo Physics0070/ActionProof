@@ -60,7 +60,9 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [ ] attacks (handwritten + generated in isolation), 100+ benign, eval/run.py 5 arms, EVAL.md
 
 ## Phase 7 — Product UI
-- [ ] web/ site + /evaluation + console; web/DESIGN.md, web/reference/
+- [x] 7.1 design system + scaffold: web/DESIGN.md (3 concepts, chosen "Interlock", palette by role, signals, computed contrast `npm run contrast`), web/reference/ (attributed notes), Next.js 16 App Router + Turbopack scaffold (`(site)` `/`, `/evaluation`; `(console)/console`), `components/ui` (Signal, Hairline, MonoLabel, Band, Card), `lib/config.ts` (validated env, build fails loudly), `lib/api.ts` typed over `npm run gen:api` types, `/api/*` rewrite; .env.example web section
+- [ ] 7.2 public site: hero scene, sections, /evaluation from /api/public/eval
+- [ ] 7.3 console: login, queue, detail with cited spans, decision; Playwright + axe e2e
 
 ## Phase 8 — Ship
 - [ ] CSP/headers, compose full stack, GitHub Actions, demo.sh, video, RUNBOOK/DEMO/README
