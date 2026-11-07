@@ -5,7 +5,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 
 | id | slide | exact deck claim | where built | proving test / artifact | status |
 |---|---|---|---|---|---|
-| S1.1 | 1 | "ACTION INTERCEPTED: action: approve_invoice / amount: 4800.00 [DIRECT ok] / variance: 500.00 [DERIVED ok] / rule: AP-INV-04 (> 100) / decision: REVIEW" | gate.py, server.py, adapters/langchain.py | tests/test_prepare.py::test_hero_review_signed_and_card (card text exact); MCP stdio + LangChain e2e in Phase 5 | partial |
+| S1.1 | 1 | "ACTION INTERCEPTED: action: approve_invoice / amount: 4800.00 [DIRECT ok] / variance: 500.00 [DERIVED ok] / rule: AP-INV-04 (> 100) / decision: REVIEW" | gate.py, server.py, adapters/langchain.py | tests/test_prepare.py::test_hero_review_signed_and_card (card text exact); LangChain half: tests/e2e/test_slide1_langchain.py::test_slide1_card_exact_through_langchain_tool + ::test_example_agent_prints_slide1 (done); MCP stdio e2e in Phase 5 | partial |
 | S1.2 | 1 | "Before an AI agent acts, prove it should." | web hero, README | web e2e hero text; README first lines | todo |
 | S1.3 | 1 | "An evidence-verified safety gate for AI agents and the tools they control." | README, web hero | README check | todo |
 | S2.1 | 2 | "Approve INV-2048: Invoice $4,800 / Purchase order $4,300 / Unexplained $500. A filter that reads the agent's reply sees nothing wrong, so the write could execute." | fixtures/make.py, eval/run.py (LLM-judge arm) | eval results: output-filter arm passes INV-2048 attack; fixtures/manifest.json | todo |
@@ -49,7 +49,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S7.4 | 7 | Evidence — pdfplumber plus a vision pass — dual extraction of claims | extract.py | tests/test_extract.py (dual, ocr_image, disagreement) | done |
 | S7.5 | 7 | State — PostgreSQL — versions, tokens, audit chain | db schema | tests/test_db.py, schema.sql, docs/DATA_MODEL.md | done |
 | S7.6 | 7 | Signing — Ed25519 (PyNaCl) — receipts and checkpoints | gate.py, audit.py | tests/test_signing.py, tests/test_commit.py | done |
-| S7.7 | 7 | Agent adapter — LangChain wrapper — works with existing agents | adapters/langchain.py | tests/e2e/test_langchain.py | todo |
+| S7.7 | 7 | Agent adapter — LangChain wrapper — works with existing agents | adapters/langchain.py, examples/langchain_agent.py | tests/e2e/test_slide1_langchain.py (gate_tool + wrap_existing: original tool runs only as the gate's execute step; offline example agent) | done |
 | S7.8 | 7 | Console — Next.js and React — source-span review UI | web/ | Playwright e2e | todo |
 | S8.1 | 8 | "W1 Claims: schema and claim types, PDF and JSON extractor, dual-extraction check." | Phase 2 | Phase 2 gate: 212 tests | done |
 | S8.2 | 8 | "W2 Gate: OPA policy, prepare and commit protocol, adversarial mock services." | Phase 3, mocks/ | Phase 3 gate: 406 tests + opa test | done |

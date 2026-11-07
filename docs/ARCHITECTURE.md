@@ -177,6 +177,27 @@ Entries never hold key material, review tokens, receipt signatures, exception me
 (`tests/test_audit.py::test_entries_hold_no_secrets`). Identity fields come from the signed receipt payload when
 the receipt verified, else from the request's own (unverified) claim.
 
+## Phase 5 status: LangChain adapter (`src/actionproof/adapters/langchain.py`, deck S7.7, ADR-004)
+The second front door is in-process and operator-built; it calls the same `Gate.prepare` / `Gate.commit`, so every
+check above applies unchanged. The operator binds the `Principal` when building the tool (ADR-012); the tool's
+arguments never carry identity. Documents come from the Gate's `docs_provider` (the operator's document store); the
+agent only cites doc ids and hashes. The model sees only text: `PrepareResult.card()` plus a status line
+(`commit: EXECUTED` / `commit: DENY` + reasons, `request_hash` + `PENDING_REVIEW`, or DENY reasons). A REVIEW receipt
+goes to an operator-side pending dict keyed by `request_hash` (`# ponytail`: in-process; upgrade path is a gate-side
+pending store), never into the tool output. Any exception is a DENY AP-ERR-11 / G1 card (type name only).
+
+One design, two entry points sharing one call path (`_run`):
+- `gate_tool(gate, principal, name, description, args_schema=None, *, pending=None)`: the call is the ActionRequest
+  JSON; the effect is the adapter the Gate already serves for `req.tool`.
+- `wrap_existing(ExistingToolStep(tool, connector, to_request), gate, principal)`: an existing LangChain tool keeps
+  its name and arguments; `to_request` maps them to an ActionRequest; the step is registered in the Gate's tool map
+  and runs the original tool only as the gate's `execute`, after every check, then marks the record with the
+  dry-run target status in the commit tx (so a fresh prepare is AP-STALE-07). Why this and not a callback or a
+  monkey-patch: the Gate already owns "execute at most once, only after every check", so making the original tool
+  that step reuses the guarantee instead of re-implementing it. Limitation: the original tool must be
+  idempotent-keyed (take the request's idempotency key and dedupe), because after an unknown outcome (burn,
+  ADR-014) only the tool can know whether its effect happened; and the agent must be given only the wrapped tool.
+
 ## Stack (slide 7) and reasons
 | Layer | Choice | Reason |
 |---|---|---|

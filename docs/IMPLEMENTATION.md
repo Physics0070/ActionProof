@@ -29,7 +29,8 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [x] verdict written: docs/council/verdict.md
 
 ## Phase 5 — Surface (W3)
-- [ ] server.py MCP proxy + extract_fields; adapters/langchain.py + example agent
+- [ ] server.py MCP proxy + extract_fields
+- [x] adapters/langchain.py (`gate_tool`, `wrap_existing` + `ExistingToolStep`) + offline example agent `examples/langchain_agent.py`; `tests/e2e/test_slide1_langchain.py`; docs/API.md "LangChain adapter"
 - [x] audit.py + verifier CLI (hash chain, signed checkpoints, append-only triggers, gate entries for prepare/commit/mint/release_quarantine; `tests/test_audit.py`)
 - [ ] console backend endpoints; docs/API.md
 
