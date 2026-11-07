@@ -1,9 +1,10 @@
 # PROGRESS
 
-## Phase 1 — Foundation: OPEN (infra check blocked)
-- Built: pyproject + uv env, compose (postgres, opa sidecar), policy stub, all Phase 1 docs, DECK_TRACE, subagents, Tesseract 5.5.3 installed.
-- Check: `pytest tests/test_smoke.py` passes. `tests/test_infra.py` (postgres + OPA reachable) NOT run: Docker Desktop engine would not start (needs user).
-- USP: pending infra gate.
+## Phase 1 — Foundation: gate passed (no-Docker path)
+- Built: pyproject + uv env, compose (postgres, opa sidecar), policy stub, all Phase 1 docs, DECK_TRACE, subagents, Tesseract 5.5.3, local OPA 1.22.2 + Postgres 16.9 binaries.
+- Check: `pytest tests/test_infra.py tests/test_smoke.py -v` -> 3 passed (Postgres reachable on :5433, OPA reachable and default-denies on :8181).
+- Caveat: `docker-compose.yml` was NOT exercised (Docker Desktop engine would not start; onboarding terms need the user). Phase 8 gate requires `docker compose up` from a fresh clone, so that stays open.
+- USP: the default is closed — OPA answers DENY to empty input, so nothing is permitted until a rule proves it (G1 posture).
 
 ## Phase 2 — Claims (W1): code gate passed
 - Built: contracts.py (strict, RFC 8785), fixtures (53 docs, manifest, hero), extract.py (pdfplumber + raster/OCR dual check, JSON pointer), verify.py (DIRECT/DERIVED/ASSERTED, taint, fail closed, unknown args denied), THREAT_MODEL, TESTING.

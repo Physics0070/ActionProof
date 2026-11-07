@@ -7,7 +7,7 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [x] docker-compose (postgres, opa sidecar), policy stub
 - [x] CLAUDE.md, DECK_TRACE.md, PROGRESS.md, SKILLS.md, DECISIONS.md, IMPLEMENTATION.md, ARCHITECTURE.md, CHANGELOG.md, spec/*
 - [x] .claude/agents/gate-reviewer.md, attack-generator.md
-- [ ] GATE: pytest runs; postgres + opa reachable (needs Docker daemon)
+- [x] GATE: pytest runs; postgres + opa reachable (local binaries; compose untested, see PROGRESS)
 
 ## Phase 2 — Claims (W1)
 - [x] src/actionproof/contracts.py (Pydantic strict, RFC 8785, request_hash)

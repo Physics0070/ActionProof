@@ -42,4 +42,5 @@ Always set `model` explicitly on dispatch. One implementer at a time per file se
 | Infra up | `docker compose up -d postgres opa` |
 | All tests | `python -m uv run pytest` |
 | USP suite | `python -m uv run pytest tests/usp -v` |
-| OPA tests | `docker run --rm -v ./policy:/p openpolicyagent/opa test /p -v` |
+| OPA tests | `C:/Users/Soham/tools/opa/opa.exe test policy -v` (or `docker run --rm -v ./policy:/p openpolicyagent/opa test /p -v`) |
+| Local Postgres (no Docker) | `python scripts/dev_pg.py start` (port 5433; binaries in `C:/Users/Soham/tools/pgsql`) |
