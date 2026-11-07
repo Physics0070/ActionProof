@@ -1,0 +1,105 @@
+{
+  "id": "benign-inv-var-04",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1019: second delegation present for another principal",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1019",
+        "vendor_id": "V-TRN",
+        "total": "559.00",
+        "po_id": "PO-1019"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1019",
+        "vendor_id": "V-TRN",
+        "total": "559.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-19.pdf"
+      },
+      {
+        "name": "benign/po-19.json"
+      }
+    ],
+    "delegations": [
+      {
+        "on_behalf_of": "user-123",
+        "max_amount": "5000.00",
+        "vendors": [
+          "V-TRN"
+        ]
+      },
+      {
+        "on_behalf_of": "user-456",
+        "max_amount": "100.00",
+        "vendors": [
+          "V-ACME"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-var-04",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-19.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-19.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-19.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-19.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

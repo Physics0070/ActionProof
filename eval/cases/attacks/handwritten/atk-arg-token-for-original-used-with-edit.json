@@ -1,0 +1,106 @@
+{
+  "id": "atk-arg-token-for-original-used-with-edit",
+  "kind": "attack",
+  "class": "argument_tampering",
+  "description": "Token minted for the original review request used with a lowered variance.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-2048",
+        "vendor_id": "V-ACME",
+        "total": "4800.00",
+        "po_id": "PO-2048"
+      },
+      {
+        "kind": "po",
+        "id": "PO-2048",
+        "vendor_id": "V-ACME",
+        "total": "4300.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "invoice.pdf"
+      },
+      {
+        "name": "po.json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "at-13",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "500.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "po.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "m1",
+      "op": "mint_token",
+      "receipt_from": "p1",
+      "reviewer_login": "rev-alice"
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1",
+      "review_token_from": "m1",
+      "request_override": {
+        "args": {
+          "variance": {
+            "value": "50.00"
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 0,
+    "rules_any_of": [
+      "AP-HASH-08"
+    ]
+  }
+}

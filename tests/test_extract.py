@@ -150,7 +150,7 @@ def test_non_pdf_bytes():
 
 
 def test_ocr_agreement_rate_on_benign_totals(capsys):
-    names = [n for n, d in MANIFEST.items() if d["kind"] == "pdf" and n != "imageonly.pdf"]
+    names = [n for n, d in MANIFEST.items() if d["kind"] == "pdf" and "imageonly" not in n]
     misses = []
     for n in names:
         try:

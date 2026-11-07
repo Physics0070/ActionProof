@@ -1,0 +1,81 @@
+{
+  "id": "benign-ref-b2-604",
+  "kind": "benign",
+  "class": null,
+  "description": "REF-604 1000.01 on a 1000.01 payment (REVIEW, then human token)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "payment",
+        "id": "PAY-9004",
+        "customer_id": "CUST-904",
+        "amount": "1000.01",
+        "method_id": "pm_card_9003"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign2/refund/REF-604.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "idem-benign-ref-b2-604",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-604.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-904",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_9003"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-604.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "m1",
+      "op": "mint_token",
+      "receipt_from": "p1",
+      "reviewer_login": "rev-bob"
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1",
+      "review_token_from": "m1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED",
+    "rules_any_of": [
+      "AP-REF-13"
+    ]
+  }
+}

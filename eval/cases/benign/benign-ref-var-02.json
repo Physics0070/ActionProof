@@ -1,0 +1,80 @@
+{
+  "id": "benign-ref-var-02",
+  "kind": "benign",
+  "class": null,
+  "description": "REF-610 640.00 equal to the delegation max and the payment amount",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "payment",
+        "id": "PAY-9010",
+        "customer_id": "CUST-910",
+        "amount": "640.00",
+        "method_id": "pm_card_4002"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign2/refund/REF-610.pdf"
+      }
+    ],
+    "delegations": [
+      {
+        "on_behalf_of": "user-123",
+        "max_amount": "640.00",
+        "customers": [
+          "CUST-910"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "idem-benign-ref-var-02",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-610.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-910",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_4002"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-610.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

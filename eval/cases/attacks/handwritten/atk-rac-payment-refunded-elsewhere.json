@@ -1,0 +1,82 @@
+{
+  "id": "atk-rac-payment-refunded-elsewhere",
+  "kind": "attack",
+  "class": "race",
+  "description": "Someone else refunds 400.00 of the payment after prepare.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "payment",
+        "id": "PAY-7731",
+        "customer_id": "CUST-311",
+        "amount": "450.00",
+        "method_id": "pm_card_4242"
+      }
+    ],
+    "documents": [
+      {
+        "name": "refund/REF-311-clean.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "rc-10",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-311-clean.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-311",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_4242"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-311-clean.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "w",
+      "op": "mutate_record",
+      "record_id": "payment:PAY-7731",
+      "set": {
+        "refunded": "400.00"
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 0,
+    "rules_any_of": [
+      "AP-STALE-07"
+    ]
+  }
+}

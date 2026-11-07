@@ -1,0 +1,89 @@
+{
+  "id": "benign-inv-b1-14",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1014 total 3899.99 variance 480.00 (REVIEW, then human token)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1014",
+        "vendor_id": "V-OXB",
+        "total": "3899.99",
+        "po_id": "PO-1014"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1014",
+        "vendor_id": "V-OXB",
+        "total": "3419.99"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-14.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-b1-14",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-14.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-14.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-14.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "480.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "m1",
+      "op": "mint_token",
+      "receipt_from": "p1",
+      "reviewer_login": "rev-alice"
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1",
+      "review_token_from": "m1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED",
+    "rules_any_of": [
+      "AP-INV-04"
+    ]
+  }
+}

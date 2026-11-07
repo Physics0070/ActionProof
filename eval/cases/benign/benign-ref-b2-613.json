@@ -1,0 +1,71 @@
+{
+  "id": "benign-ref-b2-613",
+  "kind": "benign",
+  "class": null,
+  "description": "REF-613 480.25 on a 5000.00 payment",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "payment",
+        "id": "PAY-9013",
+        "customer_id": "CUST-913",
+        "amount": "5000.00",
+        "method_id": "pm_card_9012"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign2/refund/REF-613.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "idem-benign-ref-b2-613",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-613.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-913",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_9012"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-613.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

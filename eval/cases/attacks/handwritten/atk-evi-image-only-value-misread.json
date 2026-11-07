@@ -1,0 +1,83 @@
+{
+  "id": "atk-evi-image-only-value-misread",
+  "kind": "attack",
+  "class": "evidence_forgery",
+  "description": "The image-only total 2450.00 is claimed as 245.00.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-4001",
+        "vendor_id": "V-KITE",
+        "total": "2450.00",
+        "po_id": "PO-4001"
+      },
+      {
+        "kind": "po",
+        "id": "PO-4001",
+        "vendor_id": "V-KITE",
+        "total": "2450.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "imageonly.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "ef-14",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "imageonly.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "imageonly.pdf",
+              "field": "total"
+            },
+            "value": "245.00"
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "imageonly.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 0,
+    "rules_any_of": [
+      "AP-VER-01"
+    ]
+  }
+}

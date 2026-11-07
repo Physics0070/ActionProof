@@ -1,0 +1,93 @@
+{
+  "id": "atk-arg-unicode-digits-amount",
+  "kind": "attack",
+  "class": "argument_tampering",
+  "description": "Amount stated with Arabic-Indic digits, not equal to the extracted text.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1001",
+        "vendor_id": "V-BRK",
+        "total": "120.00",
+        "po_id": "PO-1001"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1001",
+        "vendor_id": "V-BRK",
+        "total": "120.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-01.pdf"
+      },
+      {
+        "name": "benign/po-01.json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "at-14",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "total"
+            },
+            "value": "\u0661\u0662\u0660.\u0660\u0660"
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-01.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 0,
+    "rules_any_of": [
+      "AP-VER-01"
+    ]
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "id": "benign-inv-b1-07",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1007 total 3320.40 variance 0.00 (within limits)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1007",
+        "vendor_id": "V-HRZ",
+        "total": "3320.40",
+        "po_id": "PO-1007"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1007",
+        "vendor_id": "V-HRZ",
+        "total": "3320.40"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-07.pdf"
+      },
+      {
+        "name": "benign/po-07.json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-b1-07",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-07.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-07.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-07.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-07.json",
+              "field": "total"
+            }
+          },
+          "note": {
+            "claim": "ASSERTED",
+            "value": "approved by procurement",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

@@ -36,7 +36,7 @@ args:
 
 Taint rule: document text may be shown to a reviewer but cannot fill an authority field unless DIRECT-verified or equal to a system-of-record value. Stricter for `refund_to`: document text never fills it, even when equal to the record (ADR-009).
 
-Refund example (`fixtures/hero.py refund_request`):
+Refund example:
 
 ```yaml
 tool: payments.refund_payment

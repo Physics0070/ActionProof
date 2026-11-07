@@ -1,0 +1,97 @@
+{
+  "id": "atk-rac-vendor-removed-from-scope",
+  "kind": "attack",
+  "class": "race",
+  "description": "The vendor is removed from the user's scope after prepare.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1001",
+        "vendor_id": "V-BRK",
+        "total": "120.00",
+        "po_id": "PO-1001"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1001",
+        "vendor_id": "V-BRK",
+        "total": "120.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-01.pdf"
+      },
+      {
+        "name": "benign/po-01.json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "rc-6",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-01.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "w",
+      "op": "set_delegation",
+      "on_behalf_of": "user-123",
+      "vendors": [
+        "V-ACME"
+      ]
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 0
+  }
+}

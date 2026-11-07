@@ -1,0 +1,79 @@
+{
+  "id": "benign-inv-b1-24",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1024 total 4425.60 variance 60.25 (within limits)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1024",
+        "vendor_id": "V-YRK",
+        "total": "4425.60",
+        "po_id": "PO-1024"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1024",
+        "vendor_id": "V-YRK",
+        "total": "4365.35"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-24.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-b1-24",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-24.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-24.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-24.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "60.25"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

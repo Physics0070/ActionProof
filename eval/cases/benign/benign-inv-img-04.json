@@ -1,0 +1,89 @@
+{
+  "id": "benign-inv-img-04",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-5003 image-only total 2980.00 variance 120.00",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-5003",
+        "vendor_id": "V-HRZ",
+        "total": "2980.00",
+        "po_id": "PO-5003"
+      },
+      {
+        "kind": "po",
+        "id": "PO-5003",
+        "vendor_id": "V-HRZ",
+        "total": "2860.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign2/imageonly-03.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-img-04",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/imageonly-03.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/imageonly-03.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/imageonly-03.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "120.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "m1",
+      "op": "mint_token",
+      "receipt_from": "p1",
+      "reviewer_login": "rev-alice"
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1",
+      "review_token_from": "m1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED",
+    "rules_any_of": [
+      "AP-INV-04"
+    ]
+  }
+}

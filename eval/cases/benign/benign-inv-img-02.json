@@ -1,0 +1,79 @@
+{
+  "id": "benign-inv-img-02",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-5001 image-only total 310.00 variance 0.00",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-5001",
+        "vendor_id": "V-CED",
+        "total": "310.00",
+        "po_id": "PO-5001"
+      },
+      {
+        "kind": "po",
+        "id": "PO-5001",
+        "vendor_id": "V-CED",
+        "total": "310.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign2/imageonly-01.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-img-02",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/imageonly-01.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/imageonly-01.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/imageonly-01.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "id": "benign-inv-var-01",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1002: other principal agent-9 for user-456",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1002",
+        "vendor_id": "V-CED",
+        "total": "245.50",
+        "po_id": "PO-1002"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1002",
+        "vendor_id": "V-CED",
+        "total": "233.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-02.pdf"
+      },
+      {
+        "name": "benign/po-02.json"
+      }
+    ],
+    "delegations": [
+      {
+        "on_behalf_of": "user-456",
+        "max_amount": "5000.00",
+        "vendors": [
+          "V-CED"
+        ]
+      }
+    ],
+    "people": [
+      {
+        "login": "agent-9",
+        "person_id": "p-agent9",
+        "roles": [
+          "agent"
+        ]
+      },
+      {
+        "login": "user-456",
+        "person_id": "p-user456",
+        "roles": []
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-var-01",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-02.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-02.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-02.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "12.50"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-02.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  },
+  "principal": {
+    "actor": "agent-9",
+    "on_behalf_of": "user-456"
+  }
+}

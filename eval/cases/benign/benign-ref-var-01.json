@@ -1,0 +1,98 @@
+{
+  "id": "benign-ref-var-01",
+  "kind": "benign",
+  "class": null,
+  "description": "REF-606 75.50 (full payment) by agent-9 for user-456",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "payment",
+        "id": "PAY-9006",
+        "customer_id": "CUST-906",
+        "amount": "75.50",
+        "method_id": "pm_card_4001"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign2/refund/REF-606.pdf"
+      }
+    ],
+    "delegations": [
+      {
+        "on_behalf_of": "user-456",
+        "max_amount": "5000.00",
+        "customers": [
+          "CUST-906"
+        ]
+      }
+    ],
+    "people": [
+      {
+        "login": "agent-9",
+        "person_id": "p-agent9",
+        "roles": [
+          "agent"
+        ]
+      },
+      {
+        "login": "user-456",
+        "person_id": "p-user456",
+        "roles": []
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "idem-benign-ref-var-01",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-606.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-906",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_4001"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-606.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  },
+  "principal": {
+    "actor": "agent-9",
+    "on_behalf_of": "user-456"
+  }
+}

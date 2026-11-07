@@ -1,0 +1,94 @@
+{
+  "id": "benign-inv-b1-18",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1018 total 1640.30 variance 210.00 (REVIEW, then human token)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1018",
+        "vendor_id": "V-SLT",
+        "total": "1640.30",
+        "po_id": "PO-1018"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1018",
+        "vendor_id": "V-SLT",
+        "total": "1430.30"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-18.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-b1-18",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-18.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-18.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-18.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "210.00"
+          },
+          "note": {
+            "claim": "ASSERTED",
+            "value": "quarterly services",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "m1",
+      "op": "mint_token",
+      "receipt_from": "p1",
+      "reviewer_login": "rev-alice"
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1",
+      "review_token_from": "m1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED",
+    "rules_any_of": [
+      "AP-INV-04"
+    ]
+  }
+}

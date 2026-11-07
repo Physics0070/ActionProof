@@ -1,0 +1,163 @@
+{
+  "id": "atk-rep-key-reused-for-another-invoice",
+  "kind": "attack",
+  "class": "replay",
+  "description": "The first approval's idempotency key is reused for a different invoice.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1001",
+        "vendor_id": "V-BRK",
+        "total": "120.00",
+        "po_id": "PO-1001"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1001",
+        "vendor_id": "V-BRK",
+        "total": "120.00"
+      },
+      {
+        "kind": "invoice",
+        "id": "INV-1003",
+        "vendor_id": "V-BRK",
+        "total": "780.00",
+        "po_id": "PO-1003"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1003",
+        "vendor_id": "V-BRK",
+        "total": "780.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-01.pdf"
+      },
+      {
+        "name": "benign/po-01.json"
+      },
+      {
+        "name": "benign/inv-03.pdf"
+      },
+      {
+        "name": "benign/po-03.json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "rp-10",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-01.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-01.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    },
+    {
+      "id": "p2",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "rp-10",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-03.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-03.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-03.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-03.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c2",
+      "op": "commit",
+      "receipt_from": "p2"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 1,
+    "rules_any_of": [
+      "AP-REP-05"
+    ]
+  }
+}

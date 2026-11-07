@@ -57,7 +57,7 @@ def test_every_pdf_field_crop_extracts_expected_text(manifest):
             continue
         with pdfplumber.open(OUT / doc["path"]) as pdf:
             for name, field in doc["fields"].items():
-                if doc_id == "imageonly.pdf" and name == "total":
+                if "imageonly" in doc_id and name == "total":
                     continue
                 bbox = [float(v) for v in field["bbox"]]
                 page = pdf.pages[field["page"] - 1]

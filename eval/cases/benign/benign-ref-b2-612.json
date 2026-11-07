@@ -1,0 +1,69 @@
+{
+  "id": "benign-ref-b2-612",
+  "kind": "benign",
+  "class": null,
+  "description": "REF-612 1500.00 on a 1500.00 payment (REVIEW, left pending)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "payment",
+        "id": "PAY-9012",
+        "customer_id": "CUST-912",
+        "amount": "1500.00",
+        "method_id": "pm_card_9011"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign2/refund/REF-612.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "idem-benign-ref-b2-612",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-612.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-912",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_9011"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/refund/REF-612.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    }
+  ],
+  "expect": {
+    "final": "REVIEW_PENDING",
+    "rules_any_of": [
+      "AP-REF-13"
+    ]
+  }
+}

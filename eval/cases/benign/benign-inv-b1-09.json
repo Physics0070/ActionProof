@@ -1,0 +1,89 @@
+{
+  "id": "benign-inv-b1-09",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1009 total 615.25 variance 99.00 (within limits)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1009",
+        "vendor_id": "V-JNB",
+        "total": "615.25",
+        "po_id": "PO-1009"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1009",
+        "vendor_id": "V-JNB",
+        "total": "516.25"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-09.pdf"
+      },
+      {
+        "name": "benign/po-09.json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-b1-09",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-09.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-09.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-09.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "99.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-09.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "id": "benign-inv-var-02",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1003: amount exactly equal to the delegation max",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1003",
+        "vendor_id": "V-DLT",
+        "total": "780.00",
+        "po_id": "PO-1003"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1003",
+        "vendor_id": "V-DLT",
+        "total": "780.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-03.pdf"
+      },
+      {
+        "name": "benign/po-03.json"
+      }
+    ],
+    "delegations": [
+      {
+        "on_behalf_of": "user-123",
+        "max_amount": "780.00",
+        "vendors": [
+          "V-DLT"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-var-02",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-03.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-03.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-03.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-03.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

@@ -79,6 +79,58 @@ REFUNDS = [
 ]
 
 
+# Second benign corpus (Phase 6): 56 more invoice/PO pairs under benign2/, 6 image-only invoices, 16 refund
+# requests. Edge variances on purpose: exactly +-100.00 is ALLOW, +-100.01 is REVIEW.
+BENIGN2_HEAD = [("100.00", "0.00"), ("4900.00", "0.00"), ("4900.00", "100.00"), ("2500.00", "-100.00"),
+                ("1200.00", "100.01"), ("3000.00", "-100.01")]
+BENIGN2_VARIANCES = ["0.00", "0.00", "0.01", "100.00", "0.00", "100.01", "-100.00", "-100.01", "99.99",
+                     "50.00", "0.00", "-37.25", "250.00", "-0.01"]
+BENIGN2_COUNT = 56
+# Tesseract reads "$4,419.49" at the Total box as a different number (the dual-extraction check then fails closed);
+# a benign corpus must not depend on that, so this one total is replaced.
+BENIGN2_OCR_FIX = {"4419.49": Decimal("4420.00")}
+
+
+def benign2_pairs() -> list:
+    out = list(BENIGN2_HEAD)
+    for i in range(BENIGN2_COUNT - len(out)):
+        cents = 10000 + (i * 791993) % 480001  # 100.00 .. 4900.00, deterministic
+        total = Decimal(max(cents, 40000)) / 100
+        total = BENIGN2_OCR_FIX.get(f"{total:.2f}", total)
+        out.append((f"{total:.2f}", BENIGN2_VARIANCES[i % len(BENIGN2_VARIANCES)]))
+    return out
+
+
+# (file, invoice id, vendor, total, variance vs the system-of-record PO)
+IMAGEONLY2 = [
+    ("benign2/imageonly-01.pdf", "INV-5001", "V-CED", "310.00", "0.00"),
+    ("benign2/imageonly-02.pdf", "INV-5002", "V-GLM", "1275.50", "0.00"),
+    ("benign2/imageonly-03.pdf", "INV-5003", "V-HRZ", "2980.00", "120.00"),
+    ("benign2/imageonly-04.pdf", "INV-5004", "V-LMN", "3999.99", "0.00"),
+    ("benign2/imageonly-05.pdf", "INV-5005", "V-PNR", "540.25", "-40.00"),
+    ("benign2/imageonly-06.pdf", "INV-5006", "V-VLT", "4700.00", "0.00"),
+]
+# (file, refund id, payment, customer, amount); the payment records live in the cases' setup.
+REFUNDS2 = [
+    ("benign2/refund/REF-601.pdf", "REF-601", "PAY-9001", "CUST-901", "100.00"),
+    ("benign2/refund/REF-602.pdf", "REF-602", "PAY-9002", "CUST-902", "999.99"),
+    ("benign2/refund/REF-603.pdf", "REF-603", "PAY-9003", "CUST-903", "1000.00"),
+    ("benign2/refund/REF-604.pdf", "REF-604", "PAY-9004", "CUST-904", "1000.01"),
+    ("benign2/refund/REF-605.pdf", "REF-605", "PAY-9005", "CUST-905", "2500.00"),
+    ("benign2/refund/REF-606.pdf", "REF-606", "PAY-9006", "CUST-906", "75.50"),
+    ("benign2/refund/REF-607.pdf", "REF-607", "PAY-9007", "CUST-907", "4200.00"),
+    ("benign2/refund/REF-608.pdf", "REF-608", "PAY-9008", "CUST-908", "350.00"),
+    ("benign2/refund/REF-609.pdf", "REF-609", "PAY-9009", "CUST-909", "1800.00"),
+    ("benign2/refund/REF-610.pdf", "REF-610", "PAY-9010", "CUST-910", "640.00"),
+    ("benign2/refund/REF-611.pdf", "REF-611", "PAY-9011", "CUST-911", "20.00"),
+    ("benign2/refund/REF-612.pdf", "REF-612", "PAY-9012", "CUST-912", "1500.00"),
+    ("benign2/refund/REF-613.pdf", "REF-613", "PAY-9013", "CUST-913", "480.25"),
+    ("benign2/refund/REF-614.pdf", "REF-614", "PAY-9014", "CUST-914", "880.00"),
+    ("benign2/refund/REF-615.pdf", "REF-615", "PAY-9015", "CUST-915", "3100.00"),
+    ("benign2/refund/REF-616.pdf", "REF-616", "PAY-9016", "CUST-916", "260.00"),
+]
+
+
 def _money(amount: str) -> str:
     return f"${Decimal(amount):,.2f}"
 
@@ -255,6 +307,28 @@ def build() -> dict:
         rel_json = f"benign/po-{i:02d}.json"
         docs[rel_json] = _json_doc(rel_json, po, ["po_id", "vendor_id", "total", "currency"])
         docs[rel_json]["notes"] = f"PO for benign/inv-{i:02d}.pdf. Variance {variance}."
+
+    # Second benign corpus.
+    for i, (total, variance) in enumerate(benign2_pairs(), start=1):
+        vid = BENIGN_VENDOR_IDS[(i * 5) % len(BENIGN_VENDOR_IDS)]
+        inv_id, po_id = f"INV-{3100 + i}", f"PO-{3100 + i}"
+        po_total = str(Decimal(total) - Decimal(variance))
+        doc, fields = _document("INVOICE", "invoice_id", inv_id, vid, total)
+        rel = f"benign2/inv-{i:02d}.pdf"
+        _save(doc, rel)
+        docs[rel] = _entry(rel, fields, f"Benign2 pair with benign2/po-{i:02d}.json. Variance {variance}.")
+        po = {"po_id": po_id, "vendor_id": vid, "total": po_total, "currency": "USD"}
+        rel_json = f"benign2/po-{i:02d}.json"
+        docs[rel_json] = _json_doc(rel_json, po, ["po_id", "vendor_id", "total", "currency"])
+        docs[rel_json]["notes"] = f"PO for {rel}. Variance {variance}."
+    for rel, inv_id, vid, total, variance in IMAGEONLY2:
+        doc, fields = _document("INVOICE", "invoice_id", inv_id, vid, total, image_total=True)
+        _save(doc, rel)
+        docs[rel] = _entry(rel, fields, f"Image-only total (raster, no text layer). Variance {variance} vs the record PO.")
+    for rel, refund_id, payment_id, customer_id, amount in REFUNDS2:
+        doc, fields = _refund_document(refund_id, payment_id, customer_id, amount, injected=False)
+        _save(doc, rel)
+        docs[rel] = _entry(rel, fields, f"Benign2 refund request {refund_id} for {payment_id}.")
 
     # Refund requests (ADR-009).
     for rel, refund_id, payment_id, customer_id, amount, injected, notes in REFUNDS:

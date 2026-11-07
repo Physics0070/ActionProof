@@ -1560,6 +1560,4724 @@
       "path": "benign/po-24.json",
       "sha256": "95878f339fcd8326898d6ca0bd20221ca1636eafd8920c46e984dbcda910e1c5"
     },
+    "benign2/imageonly-01.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-5001",
+          "value": "INV-5001"
+        },
+        "total": {
+          "bbox": [
+            "188.00",
+            "404.95",
+            "242.60",
+            "428.19"
+          ],
+          "page": 1,
+          "text": "$310.00",
+          "value": "310.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-CED",
+          "value": "V-CED"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Image-only total (raster, no text layer). Variance 0.00 vs the record PO.",
+      "path": "benign2/imageonly-01.pdf",
+      "sha256": "d07acce7fb510e392b5c859d651f1e61472c32ee337e5c8c46d23acc78aa6471"
+    },
+    "benign2/imageonly-02.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-5002",
+          "value": "INV-5002"
+        },
+        "total": {
+          "bbox": [
+            "188.00",
+            "404.95",
+            "254.27",
+            "428.19"
+          ],
+          "page": 1,
+          "text": "$1,275.50",
+          "value": "1275.50"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-GLM",
+          "value": "V-GLM"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Image-only total (raster, no text layer). Variance 0.00 vs the record PO.",
+      "path": "benign2/imageonly-02.pdf",
+      "sha256": "510a835084bd77f750ad6b6817573885248f433612c0d7aad1b4984713a037e7"
+    },
+    "benign2/imageonly-03.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-5003",
+          "value": "INV-5003"
+        },
+        "total": {
+          "bbox": [
+            "188.00",
+            "404.95",
+            "254.27",
+            "428.19"
+          ],
+          "page": 1,
+          "text": "$2,980.00",
+          "value": "2980.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-HRZ",
+          "value": "V-HRZ"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Image-only total (raster, no text layer). Variance 120.00 vs the record PO.",
+      "path": "benign2/imageonly-03.pdf",
+      "sha256": "fd101ee7db8422e320e2199e365348554442252984910c2c60497aad5b42ae76"
+    },
+    "benign2/imageonly-04.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-5004",
+          "value": "INV-5004"
+        },
+        "total": {
+          "bbox": [
+            "188.00",
+            "404.95",
+            "254.27",
+            "428.19"
+          ],
+          "page": 1,
+          "text": "$3,999.99",
+          "value": "3999.99"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-LMN",
+          "value": "V-LMN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Image-only total (raster, no text layer). Variance 0.00 vs the record PO.",
+      "path": "benign2/imageonly-04.pdf",
+      "sha256": "8e01576690bbbca3b597db6766ad063389f0f5915ba0a0db555b98cb17f4d199"
+    },
+    "benign2/imageonly-05.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-5005",
+          "value": "INV-5005"
+        },
+        "total": {
+          "bbox": [
+            "188.00",
+            "404.95",
+            "242.60",
+            "428.19"
+          ],
+          "page": 1,
+          "text": "$540.25",
+          "value": "540.25"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-PNR",
+          "value": "V-PNR"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Image-only total (raster, no text layer). Variance -40.00 vs the record PO.",
+      "path": "benign2/imageonly-05.pdf",
+      "sha256": "ec0a2069894eab72969db46a0ab550c4941388a0fcb1d51f668d00cb4a946919"
+    },
+    "benign2/imageonly-06.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-5006",
+          "value": "INV-5006"
+        },
+        "total": {
+          "bbox": [
+            "188.00",
+            "404.95",
+            "254.27",
+            "428.19"
+          ],
+          "page": 1,
+          "text": "$4,700.00",
+          "value": "4700.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "166.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-VLT",
+          "value": "V-VLT"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Image-only total (raster, no text layer). Variance 0.00 vs the record PO.",
+      "path": "benign2/imageonly-06.pdf",
+      "sha256": "bd1ecc9d01e186f3241c512a25f1886a7c9b56f65567ac19524cd83212d8e141"
+    },
+    "benign2/inv-01.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3101",
+          "value": "INV-3101"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$100.00",
+          "value": "100.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-GLM",
+          "value": "V-GLM"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-01.json. Variance 0.00.",
+      "path": "benign2/inv-01.pdf",
+      "sha256": "9eb93ca403fd103e97c2911e34ad45a8dc5996fc35a0b32f56a594343ed73b56"
+    },
+    "benign2/inv-02.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3102",
+          "value": "INV-3102"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,900.00",
+          "value": "4900.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-LMN",
+          "value": "V-LMN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-02.json. Variance 0.00.",
+      "path": "benign2/inv-02.pdf",
+      "sha256": "e855ddfff330e963cd9e3cf1502ace153f0b83076ccea7a6c59c501e2e9ee94a"
+    },
+    "benign2/inv-03.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3103",
+          "value": "INV-3103"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,900.00",
+          "value": "4900.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-QRY",
+          "value": "V-QRY"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-03.json. Variance 100.00.",
+      "path": "benign2/inv-03.pdf",
+      "sha256": "15f06ef77a1547e87fe206f26cd18ccd048a2a9fa254c763d83e15d0a03b4646"
+    },
+    "benign2/inv-04.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3104",
+          "value": "INV-3104"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,500.00",
+          "value": "2500.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "166.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-VLT",
+          "value": "V-VLT"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-04.json. Variance -100.00.",
+      "path": "benign2/inv-04.pdf",
+      "sha256": "b0a1e348de857a9f60e68e4a2ce2046dd09bd936ebd9bddc00fbe425f87a3098"
+    },
+    "benign2/inv-05.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3105",
+          "value": "INV-3105"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,200.00",
+          "value": "1200.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-CED",
+          "value": "V-CED"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-05.json. Variance 100.01.",
+      "path": "benign2/inv-05.pdf",
+      "sha256": "2c248f9802019d323d416044d8dcaaf49e61b3bace7953031e918224061016c3"
+    },
+    "benign2/inv-06.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3106",
+          "value": "INV-3106"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,000.00",
+          "value": "3000.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-HRZ",
+          "value": "V-HRZ"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-06.json. Variance -100.01.",
+      "path": "benign2/inv-06.pdf",
+      "sha256": "b908dd31e68b07082fdc51a83f7e4419e2eb5160d934c4edbb31057d25b3d249"
+    },
+    "benign2/inv-07.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3107",
+          "value": "INV-3107"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$400.00",
+          "value": "400.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "172.03",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-MRD",
+          "value": "V-MRD"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-07.json. Variance 0.00.",
+      "path": "benign2/inv-07.pdf",
+      "sha256": "cd47a2ac0b8cfc5ff726f2bce29d21835c27705701b5b88040a0510ec9694906"
+    },
+    "benign2/inv-08.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3108",
+          "value": "INV-3108"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,219.92",
+          "value": "3219.92"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-RVR",
+          "value": "V-RVR"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-08.json. Variance 0.00.",
+      "path": "benign2/inv-08.pdf",
+      "sha256": "00690baab6e8054ca2b9e83b5e55243a943e50d6e0cf42864deb254da1a40acc"
+    },
+    "benign2/inv-09.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3109",
+          "value": "INV-3109"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,539.83",
+          "value": "1539.83"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "174.03",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-WLW",
+          "value": "V-WLW"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-09.json. Variance 0.01.",
+      "path": "benign2/inv-09.pdf",
+      "sha256": "0e21ea244170b00a8678c9df30d2cc8ed83443323a8dbc452a9c2314e3f7f487"
+    },
+    "benign2/inv-10.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3110",
+          "value": "INV-3110"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,659.75",
+          "value": "4659.75"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "167.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-DLT",
+          "value": "V-DLT"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-10.json. Variance 100.00.",
+      "path": "benign2/inv-10.pdf",
+      "sha256": "dc8565618b5688a4479c9e7c2a7aa3367c903c24aa7d74ba950a07fbfd27ec50"
+    },
+    "benign2/inv-11.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3111",
+          "value": "INV-3111"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,979.66",
+          "value": "2979.66"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "164.05",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-IVY",
+          "value": "V-IVY"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-11.json. Variance 0.00.",
+      "path": "benign2/inv-11.pdf",
+      "sha256": "ac7c1130e1cb5e39e7b31c412c60a5febc972434dfeeeebb8a8b40c5586f7269"
+    },
+    "benign2/inv-12.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3112",
+          "value": "INV-3112"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,299.57",
+          "value": "1299.57"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "167.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-NTL",
+          "value": "V-NTL"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-12.json. Variance 100.01.",
+      "path": "benign2/inv-12.pdf",
+      "sha256": "a1c3c986674db9cd0c70f1c346c8b3507e31bcc6b78b18a5d6a5a03559e91348"
+    },
+    "benign2/inv-13.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3113",
+          "value": "INV-3113"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,420.00",
+          "value": "4420.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "166.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-SLT",
+          "value": "V-SLT"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-13.json. Variance -100.00.",
+      "path": "benign2/inv-13.pdf",
+      "sha256": "4a4145c27c4982a1248902d6d4037068853c896442c325eb4fcca83cf85e56bf"
+    },
+    "benign2/inv-14.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3114",
+          "value": "INV-3114"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,739.40",
+          "value": "2739.40"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.38",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-XRY",
+          "value": "V-XRY"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-14.json. Variance -100.01.",
+      "path": "benign2/inv-14.pdf",
+      "sha256": "3d467432e3d28b5a2d43bc0ab5546ec603eacf94ec1f95e3157c99bb324163b4"
+    },
+    "benign2/inv-15.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3115",
+          "value": "INV-3115"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,059.31",
+          "value": "1059.31"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-EMB",
+          "value": "V-EMB"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-15.json. Variance 99.99.",
+      "path": "benign2/inv-15.pdf",
+      "sha256": "a2683ab40979a9263ad088b0660f2d670ae0410f3390227fcc7f4a6757c1a312"
+    },
+    "benign2/inv-16.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3116",
+          "value": "INV-3116"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,179.23",
+          "value": "4179.23"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "167.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-JNB",
+          "value": "V-JNB"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-16.json. Variance 50.00.",
+      "path": "benign2/inv-16.pdf",
+      "sha256": "a922ef61ff5677b334c0922f28fdef1242c8160088246f548ce39942fe8490d3"
+    },
+    "benign2/inv-17.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3117",
+          "value": "INV-3117"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,499.14",
+          "value": "2499.14"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.05",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-OXB",
+          "value": "V-OXB"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-17.json. Variance 0.00.",
+      "path": "benign2/inv-17.pdf",
+      "sha256": "6b84edb7d87f9641055f7aed207d296292073226ef9b848a5ffba840a1dbc411"
+    },
+    "benign2/inv-18.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3118",
+          "value": "INV-3118"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$819.05",
+          "value": "819.05"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-TRN",
+          "value": "V-TRN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-18.json. Variance -37.25.",
+      "path": "benign2/inv-18.pdf",
+      "sha256": "4feaafce40c569c31b8f1bdf0387898ee6a573e4f2d8ed557e07745d48c11c53"
+    },
+    "benign2/inv-19.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3119",
+          "value": "INV-3119"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,938.97",
+          "value": "3938.97"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.38",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-YRK",
+          "value": "V-YRK"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-19.json. Variance 250.00.",
+      "path": "benign2/inv-19.pdf",
+      "sha256": "25783573058e130195d588d0ad8c327bb7cdb859c25bd71d4ada5dd622eee956"
+    },
+    "benign2/inv-20.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3120",
+          "value": "INV-3120"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,258.88",
+          "value": "2258.88"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-FRN",
+          "value": "V-FRN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-20.json. Variance -0.01.",
+      "path": "benign2/inv-20.pdf",
+      "sha256": "3e6163b288f7c3062f17d7008daf6113a024c067d26f5b646d8b9729d535603f"
+    },
+    "benign2/inv-21.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3121",
+          "value": "INV-3121"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$578.79",
+          "value": "578.79"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "168.05",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-KLN",
+          "value": "V-KLN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-21.json. Variance 0.00.",
+      "path": "benign2/inv-21.pdf",
+      "sha256": "fa5b3ccbd3ac4f30d3f26c7b9109966813b31addc1b7291dd0411a3a3382909e"
+    },
+    "benign2/inv-22.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3122",
+          "value": "INV-3122"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,698.71",
+          "value": "3698.71"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-PNR",
+          "value": "V-PNR"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-22.json. Variance 0.00.",
+      "path": "benign2/inv-22.pdf",
+      "sha256": "f287f1a957ad914f98ea834a54003cb5565a3d7c2d4eace5787dfd5fd0fd12c8"
+    },
+    "benign2/inv-23.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3123",
+          "value": "INV-3123"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,018.62",
+          "value": "2018.62"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "171.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-UMB",
+          "value": "V-UMB"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-23.json. Variance 0.01.",
+      "path": "benign2/inv-23.pdf",
+      "sha256": "a2fd9d43a2a132aafdc0ae251a8addb5caed94ab5b7ef1fd274194944ea2a7f4"
+    },
+    "benign2/inv-24.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3124",
+          "value": "INV-3124"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$400.00",
+          "value": "400.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.38",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-BRK",
+          "value": "V-BRK"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-24.json. Variance 100.00.",
+      "path": "benign2/inv-24.pdf",
+      "sha256": "7ae69f116382f075a340ac64e4359fb3abc853fb9b3be6b3633ccd6234eb2f5a"
+    },
+    "benign2/inv-25.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3125",
+          "value": "INV-3125"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,458.45",
+          "value": "3458.45"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-GLM",
+          "value": "V-GLM"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-25.json. Variance 0.00.",
+      "path": "benign2/inv-25.pdf",
+      "sha256": "8d20dfc8b022db4c7d366dddc759419eff0bd43e63c54437c95d92b0ee4a9432"
+    },
+    "benign2/inv-26.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3126",
+          "value": "INV-3126"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,778.36",
+          "value": "1778.36"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-LMN",
+          "value": "V-LMN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-26.json. Variance 100.01.",
+      "path": "benign2/inv-26.pdf",
+      "sha256": "043dc68cef8b3ab47292e9404492894ed16415f3691ba229784ce1fa3bf46be3"
+    },
+    "benign2/inv-27.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3127",
+          "value": "INV-3127"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,898.28",
+          "value": "4898.28"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-QRY",
+          "value": "V-QRY"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-27.json. Variance -100.00.",
+      "path": "benign2/inv-27.pdf",
+      "sha256": "a0b335c61c3b71c3ce509a4a0243335f888652d3255b41fee5a5d26d1beefa45"
+    },
+    "benign2/inv-28.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3128",
+          "value": "INV-3128"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,218.19",
+          "value": "3218.19"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "166.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-VLT",
+          "value": "V-VLT"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-28.json. Variance -100.01.",
+      "path": "benign2/inv-28.pdf",
+      "sha256": "dcf79fb4e92e829f9ce8cabdb1090a5fd2a9cd244235dbb6be6d296d67c33f59"
+    },
+    "benign2/inv-29.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3129",
+          "value": "INV-3129"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,538.10",
+          "value": "1538.10"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-CED",
+          "value": "V-CED"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-29.json. Variance 99.99.",
+      "path": "benign2/inv-29.pdf",
+      "sha256": "d3cedf7e7e8f7c5cf6d85d04886bec5e285350f209009b04edd72ed3f413a44d"
+    },
+    "benign2/inv-30.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3130",
+          "value": "INV-3130"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,658.02",
+          "value": "4658.02"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-HRZ",
+          "value": "V-HRZ"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-30.json. Variance 50.00.",
+      "path": "benign2/inv-30.pdf",
+      "sha256": "bf0fb11154d656c428303805292d08d4b03e491e5aed39157ef60a291ecd5747"
+    },
+    "benign2/inv-31.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3131",
+          "value": "INV-3131"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,977.93",
+          "value": "2977.93"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "172.03",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-MRD",
+          "value": "V-MRD"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-31.json. Variance 0.00.",
+      "path": "benign2/inv-31.pdf",
+      "sha256": "c5cc768de860157c74fdddce6271bd00169961febc7039cf0c8e44dbe5515416"
+    },
+    "benign2/inv-32.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3132",
+          "value": "INV-3132"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,297.84",
+          "value": "1297.84"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-RVR",
+          "value": "V-RVR"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-32.json. Variance -37.25.",
+      "path": "benign2/inv-32.pdf",
+      "sha256": "7c60f7bdd248ab57b104ae8bf0bf014099522b76bcb9fdd34395601435d77625"
+    },
+    "benign2/inv-33.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3133",
+          "value": "INV-3133"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,417.76",
+          "value": "4417.76"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "174.03",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-WLW",
+          "value": "V-WLW"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-33.json. Variance 250.00.",
+      "path": "benign2/inv-33.pdf",
+      "sha256": "fb688b5714d94b303f173c0a993fb6607cfd1448dc7963555efa315c538d14ff"
+    },
+    "benign2/inv-34.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3134",
+          "value": "INV-3134"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,737.67",
+          "value": "2737.67"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "167.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-DLT",
+          "value": "V-DLT"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-34.json. Variance -0.01.",
+      "path": "benign2/inv-34.pdf",
+      "sha256": "a53522b62331ddfd1c720ab6d01855b5f6ee93f0211b54082361f8974b20c781"
+    },
+    "benign2/inv-35.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3135",
+          "value": "INV-3135"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,057.58",
+          "value": "1057.58"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "164.05",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-IVY",
+          "value": "V-IVY"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-35.json. Variance 0.00.",
+      "path": "benign2/inv-35.pdf",
+      "sha256": "ecd85a818b1e6ee3bc14dd1af27ea289111f6f3785f08106aef497270e2fd073"
+    },
+    "benign2/inv-36.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3136",
+          "value": "INV-3136"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,177.50",
+          "value": "4177.50"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "167.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-NTL",
+          "value": "V-NTL"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-36.json. Variance 0.00.",
+      "path": "benign2/inv-36.pdf",
+      "sha256": "eae835e40af18e3cafec5d0ceac985ae8e156207a481c386859c9d83056f7f75"
+    },
+    "benign2/inv-37.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3137",
+          "value": "INV-3137"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,497.41",
+          "value": "2497.41"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "166.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-SLT",
+          "value": "V-SLT"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-37.json. Variance 0.01.",
+      "path": "benign2/inv-37.pdf",
+      "sha256": "aaa8b454fae464841a7b5a224818b7b7745f8fccfefa3255dbad527a1c8e258b"
+    },
+    "benign2/inv-38.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3138",
+          "value": "INV-3138"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$817.32",
+          "value": "817.32"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.38",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-XRY",
+          "value": "V-XRY"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-38.json. Variance 100.00.",
+      "path": "benign2/inv-38.pdf",
+      "sha256": "a34f335608e7da7ae0d0c3eb1970258e917403b57fd3da1a8fe7276196e7d038"
+    },
+    "benign2/inv-39.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3139",
+          "value": "INV-3139"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,937.24",
+          "value": "3937.24"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-EMB",
+          "value": "V-EMB"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-39.json. Variance 0.00.",
+      "path": "benign2/inv-39.pdf",
+      "sha256": "e14754e47b5bbbcf8848abbc87c3194cc989f36ee612f048b1e7c8d29729abb7"
+    },
+    "benign2/inv-40.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3140",
+          "value": "INV-3140"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,257.15",
+          "value": "2257.15"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "167.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-JNB",
+          "value": "V-JNB"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-40.json. Variance 100.01.",
+      "path": "benign2/inv-40.pdf",
+      "sha256": "b8e64f15c7b45b4d402be416cf83bd84e8b6d374c4e80afef0458c73f5911f0d"
+    },
+    "benign2/inv-41.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3141",
+          "value": "INV-3141"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$577.06",
+          "value": "577.06"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.05",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-OXB",
+          "value": "V-OXB"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-41.json. Variance -100.00.",
+      "path": "benign2/inv-41.pdf",
+      "sha256": "87b1ffc140b28e4d794cdf51544f15d831eea60daf674e8b2f8ad626215acd7e"
+    },
+    "benign2/inv-42.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3142",
+          "value": "INV-3142"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,696.98",
+          "value": "3696.98"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-TRN",
+          "value": "V-TRN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-42.json. Variance -100.01.",
+      "path": "benign2/inv-42.pdf",
+      "sha256": "075d7095a642c80e40799aa9190893066c49009e2cf781a3be37b0d963584541"
+    },
+    "benign2/inv-43.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3143",
+          "value": "INV-3143"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,016.89",
+          "value": "2016.89"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.38",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-YRK",
+          "value": "V-YRK"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-43.json. Variance 99.99.",
+      "path": "benign2/inv-43.pdf",
+      "sha256": "05a83a0875582fcf78872658f304e54526c234b53f4e9f3dddb519dc6fa5417b"
+    },
+    "benign2/inv-44.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3144",
+          "value": "INV-3144"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$400.00",
+          "value": "400.00"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-FRN",
+          "value": "V-FRN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-44.json. Variance 50.00.",
+      "path": "benign2/inv-44.pdf",
+      "sha256": "4138e51c5efc789b5637146b67a8709accc63d917114e7f2b96db40fd7c772c0"
+    },
+    "benign2/inv-45.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3145",
+          "value": "INV-3145"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,456.72",
+          "value": "3456.72"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "168.05",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-KLN",
+          "value": "V-KLN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-45.json. Variance 0.00.",
+      "path": "benign2/inv-45.pdf",
+      "sha256": "0cb10447e9e932db33290cfa88b8aa447c848d76b32656808a7f129c6be0173a"
+    },
+    "benign2/inv-46.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3146",
+          "value": "INV-3146"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,776.63",
+          "value": "1776.63"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-PNR",
+          "value": "V-PNR"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-46.json. Variance -37.25.",
+      "path": "benign2/inv-46.pdf",
+      "sha256": "b4f62b9af4c67b810cad54ca978c662f54637ee1f787921b1cb92d87a9b722c9"
+    },
+    "benign2/inv-47.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3147",
+          "value": "INV-3147"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,896.55",
+          "value": "4896.55"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "171.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-UMB",
+          "value": "V-UMB"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-47.json. Variance 250.00.",
+      "path": "benign2/inv-47.pdf",
+      "sha256": "22bc8b7bea3261c80e25f45401f0d266055c09fae99c3b379e831ef312405692"
+    },
+    "benign2/inv-48.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3148",
+          "value": "INV-3148"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,216.46",
+          "value": "3216.46"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.38",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-BRK",
+          "value": "V-BRK"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-48.json. Variance -0.01.",
+      "path": "benign2/inv-48.pdf",
+      "sha256": "2371732d3208232fdc64e45eccf84e0e7246c7e3d920e804573f85b125adcf7f"
+    },
+    "benign2/inv-49.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3149",
+          "value": "INV-3149"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,536.37",
+          "value": "1536.37"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-GLM",
+          "value": "V-GLM"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-49.json. Variance 0.00.",
+      "path": "benign2/inv-49.pdf",
+      "sha256": "340c08d5fe874b3f3cc669299de2d12aafe26db3e424f031070f82528db8f1ba"
+    },
+    "benign2/inv-50.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3150",
+          "value": "INV-3150"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,656.29",
+          "value": "4656.29"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-LMN",
+          "value": "V-LMN"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-50.json. Variance 0.00.",
+      "path": "benign2/inv-50.pdf",
+      "sha256": "ffc2d7dcd9dcd68e39a7e7601e0b00f42cd80eaa34666733716489b8adb252bd"
+    },
+    "benign2/inv-51.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3151",
+          "value": "INV-3151"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,976.20",
+          "value": "2976.20"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-QRY",
+          "value": "V-QRY"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-51.json. Variance 0.01.",
+      "path": "benign2/inv-51.pdf",
+      "sha256": "a1c39155ea7e4f4525fb5d38d05b2f98e9139983e8da187cddf758a865aec8da"
+    },
+    "benign2/inv-52.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3152",
+          "value": "INV-3152"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,296.11",
+          "value": "1296.11"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "166.71",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-VLT",
+          "value": "V-VLT"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-52.json. Variance 100.00.",
+      "path": "benign2/inv-52.pdf",
+      "sha256": "1c7e1f35d0e7f04fc7f81cc9c05a14d36dbf93a5f90d1bad3418a2c2eeb9b2bb"
+    },
+    "benign2/inv-53.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3153",
+          "value": "INV-3153"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,416.03",
+          "value": "4416.03"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-CED",
+          "value": "V-CED"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-53.json. Variance 0.00.",
+      "path": "benign2/inv-53.pdf",
+      "sha256": "4495204e5ad1e9e77926abf12013ddbfcb2a7e555d87d8625b867bb40f6221ed"
+    },
+    "benign2/inv-54.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3154",
+          "value": "INV-3154"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,735.94",
+          "value": "2735.94"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "169.37",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-HRZ",
+          "value": "V-HRZ"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-54.json. Variance 100.01.",
+      "path": "benign2/inv-54.pdf",
+      "sha256": "0f78cc89556566047bb259563d1b0044715272eacd45083c3c665d081a3d5040"
+    },
+    "benign2/inv-55.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3155",
+          "value": "INV-3155"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,055.85",
+          "value": "1055.85"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "172.03",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-MRD",
+          "value": "V-MRD"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-55.json. Variance -100.00.",
+      "path": "benign2/inv-55.pdf",
+      "sha256": "5f1feaadff757353781938938358560a7a6929b0bb0c70ebb67bcc69322cee0f"
+    },
+    "benign2/inv-56.pdf": {
+      "fields": {
+        "invoice_id": {
+          "bbox": [
+            "159.79",
+            "68.49",
+            "244.29",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "INV-3156",
+          "value": "INV-3156"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,175.77",
+          "value": "4175.77"
+        },
+        "vendor_id": {
+          "bbox": [
+            "132.69",
+            "135.09",
+            "170.04",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "V-RVR",
+          "value": "V-RVR"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 pair with benign2/po-56.json. Variance -100.01.",
+      "path": "benign2/inv-56.pdf",
+      "sha256": "f5c337050fe939c14b110c090906ec5e89b9c7e0470aa61493dd7cd5aa41d086"
+    },
+    "benign2/po-01.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3101"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "100.00"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-GLM"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-01.pdf. Variance 0.00.",
+      "path": "benign2/po-01.json",
+      "sha256": "5727deee9ccd610a9bff5b1129f024a7e0fadd8a9ce86569fb2797d097f2c4c5"
+    },
+    "benign2/po-02.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3102"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4900.00"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-LMN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-02.pdf. Variance 0.00.",
+      "path": "benign2/po-02.json",
+      "sha256": "ab6f9919555c2907dbf853d1ce551e3a9a3d30b167222ab9b9dc25fce63c3d0f"
+    },
+    "benign2/po-03.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3103"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4800.00"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-QRY"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-03.pdf. Variance 100.00.",
+      "path": "benign2/po-03.json",
+      "sha256": "d970efcc455648868ca2fb1296b548cc614262ea2ba885876b317640777028db"
+    },
+    "benign2/po-04.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3104"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2600.00"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-VLT"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-04.pdf. Variance -100.00.",
+      "path": "benign2/po-04.json",
+      "sha256": "e6653968ad228648bbeeeb4385120c2f300a8960421f719f85f13acfe6a39813"
+    },
+    "benign2/po-05.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3105"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1099.99"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-CED"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-05.pdf. Variance 100.01.",
+      "path": "benign2/po-05.json",
+      "sha256": "4b35a928620a9cd1edacd6a68b934e985c35b2efd00264daece5644eac943871"
+    },
+    "benign2/po-06.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3106"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3100.01"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-HRZ"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-06.pdf. Variance -100.01.",
+      "path": "benign2/po-06.json",
+      "sha256": "421b69a23a1cfa391ef05b73d119a339468433c7e71d12bc3a2e58c3e44a17f2"
+    },
+    "benign2/po-07.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3107"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "400.00"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-MRD"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-07.pdf. Variance 0.00.",
+      "path": "benign2/po-07.json",
+      "sha256": "000371684c242031a4baa5bed51a1e97edde1b603cd8e8aeb999d00420f7f216"
+    },
+    "benign2/po-08.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3108"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3219.92"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-RVR"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-08.pdf. Variance 0.00.",
+      "path": "benign2/po-08.json",
+      "sha256": "32026d15091a6ecc64115344e0b8abee1ed4be3835e5c032adc127b391e8b744"
+    },
+    "benign2/po-09.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3109"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1539.82"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-WLW"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-09.pdf. Variance 0.01.",
+      "path": "benign2/po-09.json",
+      "sha256": "0b43163bb95e295ee75f24d3253fdfc2743944d7bcf0f09fc5f6804c30d09e5a"
+    },
+    "benign2/po-10.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3110"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4559.75"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-DLT"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-10.pdf. Variance 100.00.",
+      "path": "benign2/po-10.json",
+      "sha256": "5c19568172277ccecc17bcca349ef0ccdbb2c9522a372190ec04889fb4202bff"
+    },
+    "benign2/po-11.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3111"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2979.66"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-IVY"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-11.pdf. Variance 0.00.",
+      "path": "benign2/po-11.json",
+      "sha256": "5e20e7331ff936d742ab7d6147b3914521df345f93e7dfa9b3062264a547315b"
+    },
+    "benign2/po-12.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3112"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1199.56"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-NTL"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-12.pdf. Variance 100.01.",
+      "path": "benign2/po-12.json",
+      "sha256": "0c7ef1485e437e4656003f3ec690615a0a11267e90b325b6b55dd88cb40f718f"
+    },
+    "benign2/po-13.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3113"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4520.00"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-SLT"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-13.pdf. Variance -100.00.",
+      "path": "benign2/po-13.json",
+      "sha256": "1687b165314c7c3d19bf4399b41118a36f63c98e070e8a14a69e944ae3cb59c9"
+    },
+    "benign2/po-14.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3114"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2839.41"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-XRY"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-14.pdf. Variance -100.01.",
+      "path": "benign2/po-14.json",
+      "sha256": "482a497297b79b1a9529749816784f1bcd8be72b0d59f153847263b66b590382"
+    },
+    "benign2/po-15.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3115"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "959.32"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-EMB"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-15.pdf. Variance 99.99.",
+      "path": "benign2/po-15.json",
+      "sha256": "f3c24399e8276004d2ddd53fdbab4735d58215e6603a0d3392c0bc831e44f94a"
+    },
+    "benign2/po-16.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3116"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4129.23"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-JNB"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-16.pdf. Variance 50.00.",
+      "path": "benign2/po-16.json",
+      "sha256": "6c7b58aac826705e4b617c9c8d9c0862c37f8340aa63e362605b414a2e756067"
+    },
+    "benign2/po-17.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3117"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2499.14"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-OXB"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-17.pdf. Variance 0.00.",
+      "path": "benign2/po-17.json",
+      "sha256": "c25f4083653dd7c57030a4e9b2828af598528f18361ee01f2d56c484addde801"
+    },
+    "benign2/po-18.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3118"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "856.30"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-TRN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-18.pdf. Variance -37.25.",
+      "path": "benign2/po-18.json",
+      "sha256": "bb93ae80e8a8ecfde833a5d9cb23593e203dd4dc25d2c6f60dabf1b6a9ad905c"
+    },
+    "benign2/po-19.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3119"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3688.97"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-YRK"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-19.pdf. Variance 250.00.",
+      "path": "benign2/po-19.json",
+      "sha256": "9d35eeddbd02011bfe9495517b071050cc506277be311fb49da61addb4db6a01"
+    },
+    "benign2/po-20.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3120"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2258.89"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-FRN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-20.pdf. Variance -0.01.",
+      "path": "benign2/po-20.json",
+      "sha256": "3fc6d33d0729e599f8b50fa9f5a8feb67269abe3ffce90c98ef1161f3cd445cd"
+    },
+    "benign2/po-21.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3121"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "578.79"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-KLN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-21.pdf. Variance 0.00.",
+      "path": "benign2/po-21.json",
+      "sha256": "c20de405429969b4a7516ebce300986f8f811fe8297b52109f6db2bede07249f"
+    },
+    "benign2/po-22.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3122"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3698.71"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-PNR"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-22.pdf. Variance 0.00.",
+      "path": "benign2/po-22.json",
+      "sha256": "bb3111531d04057e67bb1986002abf8e037807b940fb0dd91e03e27bf300ac10"
+    },
+    "benign2/po-23.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3123"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2018.61"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-UMB"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-23.pdf. Variance 0.01.",
+      "path": "benign2/po-23.json",
+      "sha256": "be59e199f60920b8d0057303d7612cd0f62a337bccbe71f5cf1c28ba345e32e2"
+    },
+    "benign2/po-24.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3124"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "300.00"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-BRK"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-24.pdf. Variance 100.00.",
+      "path": "benign2/po-24.json",
+      "sha256": "baf1785ec7c5229959dad0e68168801b7e63f719c2d8216b18cbbb2d6f7cee44"
+    },
+    "benign2/po-25.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3125"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3458.45"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-GLM"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-25.pdf. Variance 0.00.",
+      "path": "benign2/po-25.json",
+      "sha256": "a5ff674680de14aded9e68259d11c0947a325c4c477b0645f735c0b367642b14"
+    },
+    "benign2/po-26.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3126"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1678.35"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-LMN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-26.pdf. Variance 100.01.",
+      "path": "benign2/po-26.json",
+      "sha256": "7c975ec0029f2f194a4599420c33a13ffb89d18fd93197efda227760a17e7d65"
+    },
+    "benign2/po-27.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3127"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4998.28"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-QRY"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-27.pdf. Variance -100.00.",
+      "path": "benign2/po-27.json",
+      "sha256": "f8528963b6e49bd929bb8d3f9b5fe1ced9d47e2c4c5e00d4be54d21f7705f8f9"
+    },
+    "benign2/po-28.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3128"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3318.20"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-VLT"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-28.pdf. Variance -100.01.",
+      "path": "benign2/po-28.json",
+      "sha256": "9ba194202b2d51fb9cd7adcc15974a5680fd12ef4f9bcc6b32f25ad7ad71d79d"
+    },
+    "benign2/po-29.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3129"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1438.11"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-CED"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-29.pdf. Variance 99.99.",
+      "path": "benign2/po-29.json",
+      "sha256": "4d6d55a587f8b09b7f4b3b240990b5f7334f807c9c4f98e509f7b32d93de5b90"
+    },
+    "benign2/po-30.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3130"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4608.02"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-HRZ"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-30.pdf. Variance 50.00.",
+      "path": "benign2/po-30.json",
+      "sha256": "dfb70cb725383c328cecd5f24dabf7d27b4a682980072ae00495b12496a0f24a"
+    },
+    "benign2/po-31.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3131"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2977.93"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-MRD"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-31.pdf. Variance 0.00.",
+      "path": "benign2/po-31.json",
+      "sha256": "a9a8fbab901a3ef99c75dad2af16563126c6e8a2ad4fe944be3f5bfd996ff269"
+    },
+    "benign2/po-32.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3132"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1335.09"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-RVR"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-32.pdf. Variance -37.25.",
+      "path": "benign2/po-32.json",
+      "sha256": "917fa61d495f44e9072541c57be5b5cb903f6c378130433164dafe5320b124a8"
+    },
+    "benign2/po-33.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3133"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4167.76"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-WLW"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-33.pdf. Variance 250.00.",
+      "path": "benign2/po-33.json",
+      "sha256": "0aff30f7085fb9408911040064666b3e1b7602cf0faaf2aa00c3ae47d9e61306"
+    },
+    "benign2/po-34.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3134"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2737.68"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-DLT"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-34.pdf. Variance -0.01.",
+      "path": "benign2/po-34.json",
+      "sha256": "484b90b25593aeec7a8a09587a5cc686a90368c07576d28c8e52ed82dc0c29d8"
+    },
+    "benign2/po-35.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3135"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1057.58"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-IVY"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-35.pdf. Variance 0.00.",
+      "path": "benign2/po-35.json",
+      "sha256": "86ea68acd9cec7bf1e88de700d021612559ec5292b6c54400f57b0bb31bb352f"
+    },
+    "benign2/po-36.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3136"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4177.50"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-NTL"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-36.pdf. Variance 0.00.",
+      "path": "benign2/po-36.json",
+      "sha256": "d8192f51af1515a60343f14aea799523f4d334390ee0621735d720ef8e1ec743"
+    },
+    "benign2/po-37.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3137"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2497.40"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-SLT"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-37.pdf. Variance 0.01.",
+      "path": "benign2/po-37.json",
+      "sha256": "589b1fdd13ad460443f2f6cf90cb1b34fe17956290953fd753e8685800ab31a0"
+    },
+    "benign2/po-38.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3138"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "717.32"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-XRY"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-38.pdf. Variance 100.00.",
+      "path": "benign2/po-38.json",
+      "sha256": "0c0ed90648e7d5e96dc1e6ecb8e68ee479215c329df61333e0a422a386393f30"
+    },
+    "benign2/po-39.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3139"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3937.24"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-EMB"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-39.pdf. Variance 0.00.",
+      "path": "benign2/po-39.json",
+      "sha256": "dfc7b7caa8b2f434ea70ff0876c9901df1f1301173026982dc4b15b48199780c"
+    },
+    "benign2/po-40.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3140"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2157.14"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-JNB"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-40.pdf. Variance 100.01.",
+      "path": "benign2/po-40.json",
+      "sha256": "9d2d066395ca62fad799fd128298090323bb37bc4d4ae3828556a1253a44eb25"
+    },
+    "benign2/po-41.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3141"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "677.06"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-OXB"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-41.pdf. Variance -100.00.",
+      "path": "benign2/po-41.json",
+      "sha256": "eefcc1814b786e6e4f06c91a4694eef33eb3ec4d8155c5c6619d2b16d797868b"
+    },
+    "benign2/po-42.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3142"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3796.99"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-TRN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-42.pdf. Variance -100.01.",
+      "path": "benign2/po-42.json",
+      "sha256": "2f600788be9b1b4b647c763f9bb695e4a7bcd5470cc93e5647b9cfa14f8c9be4"
+    },
+    "benign2/po-43.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3143"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1916.90"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-YRK"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-43.pdf. Variance 99.99.",
+      "path": "benign2/po-43.json",
+      "sha256": "2e0ffee43716a70ebed11397a6a4fb32fa0c4f5bfe23ea59d658f79fb930ef89"
+    },
+    "benign2/po-44.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3144"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "350.00"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-FRN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-44.pdf. Variance 50.00.",
+      "path": "benign2/po-44.json",
+      "sha256": "29f869474fc38b5164b3b29b5978788e97728327b5181fd0acd2eda51b463825"
+    },
+    "benign2/po-45.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3145"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3456.72"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-KLN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-45.pdf. Variance 0.00.",
+      "path": "benign2/po-45.json",
+      "sha256": "b3e3346390ff542c8b5628e00f4d404afa5fecdd6f618c58519cafa7a0671f29"
+    },
+    "benign2/po-46.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3146"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1813.88"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-PNR"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-46.pdf. Variance -37.25.",
+      "path": "benign2/po-46.json",
+      "sha256": "b266fb1264b4ade56056e185b360c4f3487adca066e54298e98298b9b3299319"
+    },
+    "benign2/po-47.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3147"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4646.55"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-UMB"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-47.pdf. Variance 250.00.",
+      "path": "benign2/po-47.json",
+      "sha256": "346841b9ba4d205b4dc19ef94200acd9713591736c050e5cff91f104444c6465"
+    },
+    "benign2/po-48.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3148"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "3216.47"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-BRK"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-48.pdf. Variance -0.01.",
+      "path": "benign2/po-48.json",
+      "sha256": "806ae070641e20be525bbd43d19c8ea5af74cda2b21cf253c087a2c2601cb149"
+    },
+    "benign2/po-49.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3149"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1536.37"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-GLM"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-49.pdf. Variance 0.00.",
+      "path": "benign2/po-49.json",
+      "sha256": "9c5f3c1d01a297e0649c143059e11832401d1ed0937d624d2e4e044e60ce7029"
+    },
+    "benign2/po-50.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3150"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4656.29"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-LMN"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-50.pdf. Variance 0.00.",
+      "path": "benign2/po-50.json",
+      "sha256": "039ff35b561943060ee4063bf94c233a3688478dc53595c62f3f382231c0eda7"
+    },
+    "benign2/po-51.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3151"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2976.19"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-QRY"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-51.pdf. Variance 0.01.",
+      "path": "benign2/po-51.json",
+      "sha256": "2a0b823ae6d85220b8268c4f9b042d478edde134fcf62ef26e1f9cb2ea10b66b"
+    },
+    "benign2/po-52.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3152"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1196.11"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-VLT"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-52.pdf. Variance 100.00.",
+      "path": "benign2/po-52.json",
+      "sha256": "9839042d193cc09995d90b52fc150ff131ad4548700785c0f8a9cf2c9035692c"
+    },
+    "benign2/po-53.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3153"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4416.03"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-CED"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-53.pdf. Variance 0.00.",
+      "path": "benign2/po-53.json",
+      "sha256": "653ff61b8bb1c34c6829a7216d04d0944f8108761a0d6ba22bbd2c989e68fd32"
+    },
+    "benign2/po-54.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3154"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "2635.93"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-HRZ"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-54.pdf. Variance 100.01.",
+      "path": "benign2/po-54.json",
+      "sha256": "5f72227d5bd2da1880ef36b64be95c1136098ed81ae1a7aacd81350525c36ee9"
+    },
+    "benign2/po-55.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3155"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "1155.85"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-MRD"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-55.pdf. Variance -100.00.",
+      "path": "benign2/po-55.json",
+      "sha256": "b8a75450e0db5d788f43ee4ffde68536d9d91fb4daef842379dac24c3a12062d"
+    },
+    "benign2/po-56.json": {
+      "fields": {
+        "currency": {
+          "pointer": "/currency",
+          "value": "USD"
+        },
+        "po_id": {
+          "pointer": "/po_id",
+          "value": "PO-3156"
+        },
+        "total": {
+          "pointer": "/total",
+          "value": "4275.78"
+        },
+        "vendor_id": {
+          "pointer": "/vendor_id",
+          "value": "V-RVR"
+        }
+      },
+      "kind": "json",
+      "notes": "PO for benign2/inv-56.pdf. Variance -100.01.",
+      "path": "benign2/po-56.json",
+      "sha256": "5db4b501dc3fa3bf21401a56e164600e308b41f3a3f49e6e583fb43e7b3eef90"
+    },
+    "benign2/refund/REF-601.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-901",
+          "value": "CUST-901"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9001",
+          "value": "PAY-9001"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-601",
+          "value": "REF-601"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$100.00",
+          "value": "100.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-601 for PAY-9001.",
+      "path": "benign2/refund/REF-601.pdf",
+      "sha256": "f8917c7690a581024e995b784e41a933bda50b9297074103aba890ca3516175a"
+    },
+    "benign2/refund/REF-602.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-902",
+          "value": "CUST-902"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9002",
+          "value": "PAY-9002"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-602",
+          "value": "REF-602"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$999.99",
+          "value": "999.99"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-602 for PAY-9002.",
+      "path": "benign2/refund/REF-602.pdf",
+      "sha256": "9b14624aec18f28e009c01a93a8379698cf4cf5640b681d064255176cd141baf"
+    },
+    "benign2/refund/REF-603.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-903",
+          "value": "CUST-903"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9003",
+          "value": "PAY-9003"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-603",
+          "value": "REF-603"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,000.00",
+          "value": "1000.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-603 for PAY-9003.",
+      "path": "benign2/refund/REF-603.pdf",
+      "sha256": "9874526f827d723429e3244b158a3a10ac8c4edadf4ec4195569346be99b22ae"
+    },
+    "benign2/refund/REF-604.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-904",
+          "value": "CUST-904"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9004",
+          "value": "PAY-9004"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-604",
+          "value": "REF-604"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,000.01",
+          "value": "1000.01"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-604 for PAY-9004.",
+      "path": "benign2/refund/REF-604.pdf",
+      "sha256": "94d45f9625eaf7b8684a9882802c38b507fd4589ff085e2e88e347f005b92756"
+    },
+    "benign2/refund/REF-605.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-905",
+          "value": "CUST-905"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9005",
+          "value": "PAY-9005"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-605",
+          "value": "REF-605"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$2,500.00",
+          "value": "2500.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-605 for PAY-9005.",
+      "path": "benign2/refund/REF-605.pdf",
+      "sha256": "cfb73e523b0214acd76fb598a5cba503a6f74fc54e782e03fd5943722a7434d1"
+    },
+    "benign2/refund/REF-606.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-906",
+          "value": "CUST-906"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9006",
+          "value": "PAY-9006"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-606",
+          "value": "REF-606"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "232.82",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$75.50",
+          "value": "75.50"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-606 for PAY-9006.",
+      "path": "benign2/refund/REF-606.pdf",
+      "sha256": "c4789da6c916d8910cb8102aad565675c7d6780d34d472db7757a8d50a0d6005"
+    },
+    "benign2/refund/REF-607.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-907",
+          "value": "CUST-907"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9007",
+          "value": "PAY-9007"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-607",
+          "value": "REF-607"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$4,200.00",
+          "value": "4200.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-607 for PAY-9007.",
+      "path": "benign2/refund/REF-607.pdf",
+      "sha256": "85971c6d9c20f2e078d6409b7124ef7c6f44001cacd783ad5240396cdae644fa"
+    },
+    "benign2/refund/REF-608.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-908",
+          "value": "CUST-908"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9008",
+          "value": "PAY-9008"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-608",
+          "value": "REF-608"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$350.00",
+          "value": "350.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-608 for PAY-9008.",
+      "path": "benign2/refund/REF-608.pdf",
+      "sha256": "875605767574c0e1325c7ccc7b1bc176a5b1bf83ee0286f8d63dcf14de3c576d"
+    },
+    "benign2/refund/REF-609.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-909",
+          "value": "CUST-909"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9009",
+          "value": "PAY-9009"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-609",
+          "value": "REF-609"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,800.00",
+          "value": "1800.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-609 for PAY-9009.",
+      "path": "benign2/refund/REF-609.pdf",
+      "sha256": "6f727d98f559da4f7751bf62db12f0ffb7d94eb32bf51ef8ef8ef09ecd8e4e04"
+    },
+    "benign2/refund/REF-610.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-910",
+          "value": "CUST-910"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9010",
+          "value": "PAY-9010"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-610",
+          "value": "REF-610"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$640.00",
+          "value": "640.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-610 for PAY-9010.",
+      "path": "benign2/refund/REF-610.pdf",
+      "sha256": "44fd7779471827cfe4f4c4a6173f09b2b3d690374a7ddeffe94e82e06423fad3"
+    },
+    "benign2/refund/REF-611.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-911",
+          "value": "CUST-911"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9011",
+          "value": "PAY-9011"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-611",
+          "value": "REF-611"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "232.82",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$20.00",
+          "value": "20.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-611 for PAY-9011.",
+      "path": "benign2/refund/REF-611.pdf",
+      "sha256": "7a6801ac0f022528b8ade76c95ed6d027a9f25fa101771f504fbb29997ed4af5"
+    },
+    "benign2/refund/REF-612.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-912",
+          "value": "CUST-912"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9012",
+          "value": "PAY-9012"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-612",
+          "value": "REF-612"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$1,500.00",
+          "value": "1500.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-612 for PAY-9012.",
+      "path": "benign2/refund/REF-612.pdf",
+      "sha256": "8df40b8ed9133f6499a9e510ff63fddfb3fbd7e022a2b6190519b5f21a68e406"
+    },
+    "benign2/refund/REF-613.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-913",
+          "value": "CUST-913"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9013",
+          "value": "PAY-9013"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-613",
+          "value": "REF-613"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$480.25",
+          "value": "480.25"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-613 for PAY-9013.",
+      "path": "benign2/refund/REF-613.pdf",
+      "sha256": "a0accbad5bfd3fd81b98dff15b43bcc2ff93b1f1597e2a40cfa32757a8eaf295"
+    },
+    "benign2/refund/REF-614.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-914",
+          "value": "CUST-914"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9014",
+          "value": "PAY-9014"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-614",
+          "value": "REF-614"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$880.00",
+          "value": "880.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-614 for PAY-9014.",
+      "path": "benign2/refund/REF-614.pdf",
+      "sha256": "5bf01d946b4d8b0e43fbc7f862517de6eff59fc804ac3eebf4a812bd1b521a53"
+    },
+    "benign2/refund/REF-615.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-915",
+          "value": "CUST-915"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9015",
+          "value": "PAY-9015"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-615",
+          "value": "REF-615"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "252.28",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$3,100.00",
+          "value": "3100.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-615 for PAY-9015.",
+      "path": "benign2/refund/REF-615.pdf",
+      "sha256": "ca2c56cd6f12eacbfdb474761fd6a8b67066096d4115ba428cc65514172492e7"
+    },
+    "benign2/refund/REF-616.pdf": {
+      "fields": {
+        "customer_id": {
+          "bbox": [
+            "146.01",
+            "117.09",
+            "202.70",
+            "133.60"
+          ],
+          "page": 1,
+          "text": "CUST-916",
+          "value": "CUST-916"
+        },
+        "payment_id": {
+          "bbox": [
+            "141.35",
+            "135.09",
+            "196.07",
+            "151.60"
+          ],
+          "page": 1,
+          "text": "PAY-9016",
+          "value": "PAY-9016"
+        },
+        "refund_id": {
+          "bbox": [
+            "263.11",
+            "68.49",
+            "343.15",
+            "95.99"
+          ],
+          "page": 1,
+          "text": "REF-616",
+          "value": "REF-616"
+        },
+        "total": {
+          "bbox": [
+            "189.99",
+            "406.94",
+            "240.61",
+            "426.20"
+          ],
+          "page": 1,
+          "text": "$260.00",
+          "value": "260.00"
+        }
+      },
+      "kind": "pdf",
+      "notes": "Benign2 refund request REF-616 for PAY-9016.",
+      "path": "benign2/refund/REF-616.pdf",
+      "sha256": "42ad14e0491eacbf83979e2d1c9d4eaa72845cab532e85f749df2ac14b1f2d2b"
+    },
     "imageonly.pdf": {
       "fields": {
         "invoice_id": {

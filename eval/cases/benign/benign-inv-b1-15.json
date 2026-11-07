@@ -1,0 +1,89 @@
+{
+  "id": "benign-inv-b1-15",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-1015 total 1088.88 variance 0.00 (within limits)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1015",
+        "vendor_id": "V-PNR",
+        "total": "1088.88",
+        "po_id": "PO-1015"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1015",
+        "vendor_id": "V-PNR",
+        "total": "1088.88"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-15.pdf"
+      },
+      {
+        "name": "benign/po-15.json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-b1-15",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-15.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-15.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-15.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-15.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

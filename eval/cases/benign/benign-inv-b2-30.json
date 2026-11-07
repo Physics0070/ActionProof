@@ -1,0 +1,79 @@
+{
+  "id": "benign-inv-b2-30",
+  "kind": "benign",
+  "class": null,
+  "description": "INV-3130 total 4658.02 variance 50.00 (within limits)",
+  "origin": "corpus",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-3130",
+        "vendor_id": "V-HRZ",
+        "total": "4658.02",
+        "po_id": "PO-3130"
+      },
+      {
+        "kind": "po",
+        "id": "PO-3130",
+        "vendor_id": "V-HRZ",
+        "total": "4608.02"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign2/inv-30.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "idem-benign-inv-b2-30",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/inv-30.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/inv-30.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign2/inv-30.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "50.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "final": "EXECUTED"
+  }
+}

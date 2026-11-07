@@ -1,0 +1,161 @@
+{
+  "id": "atk-rep-review-token-reused",
+  "kind": "attack",
+  "class": "replay",
+  "description": "One review token spent on a second receipt of the same request.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-2048",
+        "vendor_id": "V-ACME",
+        "total": "4800.00",
+        "po_id": "PO-2048"
+      },
+      {
+        "kind": "po",
+        "id": "PO-2048",
+        "vendor_id": "V-ACME",
+        "total": "4300.00"
+      }
+    ],
+    "documents": [
+      {
+        "name": "invoice.pdf"
+      },
+      {
+        "name": "po.json"
+      }
+    ],
+    "delegations": [
+      {
+        "on_behalf_of": "user-123",
+        "max_amount": "5000.00",
+        "vendors": [
+          "V-ACME"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "rp-3",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "500.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "po.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "p2",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "rp-3",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "invoice.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "500.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "po.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "m1",
+      "op": "mint_token",
+      "receipt_from": "p1",
+      "reviewer_login": "rev-alice"
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1",
+      "review_token_from": "m1"
+    },
+    {
+      "id": "c2",
+      "op": "commit",
+      "receipt_from": "p2",
+      "review_token_from": "m1"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 1,
+    "rules_any_of": [
+      "AP-REP-05"
+    ]
+  }
+}
