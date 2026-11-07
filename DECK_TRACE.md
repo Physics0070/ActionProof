@@ -9,21 +9,21 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S1.2 | 1 | "Before an AI agent acts, prove it should." | web hero, README | web e2e hero text; README first lines | todo |
 | S1.3 | 1 | "An evidence-verified safety gate for AI agents and the tools they control." | README, web hero | README check | todo |
 | S2.1 | 2 | "Approve INV-2048: Invoice $4,800 / Purchase order $4,300 / Unexplained $500. A filter that reads the agent's reply sees nothing wrong, so the write could execute." | fixtures/make.py, eval/run.py (LLM-judge arm) | eval results: output-filter arm passes INV-2048 attack; fixtures/manifest.json | todo |
-| S2.2 | 2 | "01 Evidence gap — A tool argument can hold a value with no source field and no document citation behind it." | verify.py | tests/usp/test_gap_evidence.py (fails without gate) | todo |
+| S2.2 | 2 | "01 Evidence gap — A tool argument can hold a value with no source field and no document citation behind it." | verify.py | tests/usp/test_gap_evidence.py | done |
 | S2.3 | 2 | "02 Policy gap — A valid tool name can still carry an amount, target or actor outside the caller's scope." | policy/actionproof.rego AP-SCOPE-02 | tests/usp/test_gap_policy.py + opa test | todo |
 | S2.4 | 2 | "03 Execution gap — Retries, stale records and check-then-commit races can repeat or invalidate an approved write." | gate.py commit | tests/usp/test_gap_execution.py (retry, stale, race) | todo |
 | S3.1 | 3 | "USP: Proof before permission. No value can authorize a write unless its derivation re-checks, and no approval can be replayed." | CLAUDE.md, tests/usp/, README, web, eval | CI job "USP: proof before permission" | todo |
 | S3.2 | 3 | "1 Intercept: An MCP proxy sits in front of every tool. Default deny." | server.py | tests/test_mcp_default_deny.py | todo |
-| S3.3 | 3 | "2 Verify: Re-extract each cited value, recompute derived ones, check taint." | extract.py, verify.py | tests/test_verify_*.py | todo |
+| S3.3 | 3 | "2 Verify: Re-extract each cited value, recompute derived ones, check taint." | extract.py, verify.py | tests/test_verify.py, tests/test_extract.py | done |
 | S3.4 | 3 | "3 Authorize: OPA/Rego policy, plus a dry-run diff and a state version." | policy.py, rego, gate.prepare | opa test; tests/test_prepare.py | todo |
 | S3.5 | 3 | "4 Receipt and commit: A signed one-use receipt. Commit re-checks state, then calls the tool." | gate.py | tests/usp/test_replay.py, tests/test_commit.py | todo |
 | S3.6 | 3 | "5 Audit: Hash-chained log with signed checkpoints and a verifier CLI." | audit.py | tests/test_audit.py (edit/delete detected) | todo |
 | S3.7 | 3 | "Outcomes: ALLOW, REVIEW (a human mints a one-use token) or DENY. Any error fails closed." | gate.py, console | tests/usp/test_fail_closed.py, tests/test_review_token.py | todo |
-| S4.1 | 4 | "DIRECT: a deterministic parser re-extracts the value at the cited page and box. Value and document hash must both match." | extract.py, verify.py | tests/test_verify_direct.py | todo |
-| S4.2 | 4 | "DERIVED: recomputed by an allowlisted pure function over verified claims. The model never does the arithmetic." | verify.py | tests/usp/test_derived_only_pure.py (500.00 passes, 501.00 fails) | todo |
-| S4.3 | 4 | "ASSERTED: model-only. Fine for low-risk fields, never enough to authorize a money-moving argument." | verify.py | tests/usp/test_taint.py (ASSERTED amount fails) | todo |
+| S4.1 | 4 | "DIRECT: a deterministic parser re-extracts the value at the cited page and box. Value and document hash must both match." | extract.py, verify.py | tests/test_verify.py (DIRECT), tests/test_extract.py | done |
+| S4.2 | 4 | "DERIVED: recomputed by an allowlisted pure function over verified claims. The model never does the arithmetic." | verify.py | tests/usp/test_derived_only_pure.py (500.00 passes, 501.00 fails) | done |
+| S4.3 | 4 | "ASSERTED: model-only. Fine for low-risk fields, never enough to authorize a money-moving argument." | verify.py | tests/usp/test_taint.py (ASSERTED amount fails) | done |
 | S4.4 | 4 | "SIMPLIFIED ACTIONREQUEST: tool payments.approve_invoice; amount 4800.00 DIRECT src invoice.pdf p1 box doc_sha256; variance 500.00 DERIVED fn sub inputs invoice.total, po.total; note ASSERTED taint doc" | contracts.py | tests/test_contracts.py, tests/usp/test_no_floats.py (61 pass) | done |
-| S4.5 | 4 | "Taint rule: text from documents can be shown to a reviewer, but it can't fill an authority field unless it is DIRECT-verified or matches a system of record." | verify.py, console | tests/usp/test_taint.py; console e2e (greyed "not evidence") | todo |
+| S4.5 | 4 | "Taint rule: text from documents can be shown to a reviewer, but it can't fill an authority field unless it is DIRECT-verified or matches a system of record." | verify.py, console | tests/usp/test_taint.py; console e2e (Phase 7) | partial |
 | S5.1 | 5 | Table: Output filter or LLM judge — No/No/No/No/No | eval arm `llm_judge` | eval results.json measured | todo |
 | S5.2 | 5 | Table: Schema validation only — Types/No/No/No/No | eval arm `schema_only` | eval results.json | todo |
 | S5.3 | 5 | Table: Plain policy gateway (OPA, Cedar) — Yes/No/No/Partial/Varies | eval arm `policy_gateway` (OPA without evidence) | eval results.json | todo |
@@ -46,7 +46,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S7.1 | 7 | Gateway — Python, FastAPI, MCP SDK — proxy every tool call | server.py | tests/test_mcp_*.py | todo |
 | S7.2 | 7 | Contracts — Pydantic v2 strict, RFC 8785 | contracts.py | tests/test_contracts.py, tests/usp/test_no_floats.py (61 pass) | done |
 | S7.3 | 7 | Policy — OPA sidecar, Rego — default-deny decisions | policy/, docker-compose.yml | opa test; docker compose ps | todo |
-| S7.4 | 7 | Evidence — pdfplumber plus a vision pass — dual extraction of claims | extract.py | tests/test_extract_dual.py | todo |
+| S7.4 | 7 | Evidence — pdfplumber plus a vision pass — dual extraction of claims | extract.py | tests/test_extract.py (dual, ocr_image, disagreement) | done |
 | S7.5 | 7 | State — PostgreSQL — versions, tokens, audit chain | db schema | tests/test_db_*.py | todo |
 | S7.6 | 7 | Signing — Ed25519 (PyNaCl) — receipts and checkpoints | gate.py, audit.py | tests/test_signed_receipt.py | todo |
 | S7.7 | 7 | Agent adapter — LangChain wrapper — works with existing agents | adapters/langchain.py | tests/e2e/test_langchain.py | todo |

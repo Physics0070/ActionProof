@@ -10,12 +10,12 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [ ] GATE: pytest runs; postgres + opa reachable (needs Docker daemon)
 
 ## Phase 2 — Claims (W1)
-- [ ] src/actionproof/contracts.py (Pydantic strict, RFC 8785, request_hash)
-- [ ] fixtures/make.py + manifest.json (INV-2048/PO-2048, 20+ benign, injection PDF, image-only total, JSON docs)
-- [ ] src/actionproof/extract.py (pdfplumber, raster+OCR, JSON pointer, dual check)
-- [ ] src/actionproof/verify.py (DIRECT, DERIVED, taint)
-- [ ] tests/ for the Phase 2 gate list; tests/usp/ G1 tests
-- [ ] docs: THREAT_MODEL, TESTING
+- [x] src/actionproof/contracts.py (Pydantic strict, RFC 8785, request_hash)
+- [x] fixtures/make.py + manifest.json (INV-2048/PO-2048, 20+ benign, injection PDF, image-only total, JSON docs)
+- [x] src/actionproof/extract.py (pdfplumber, raster+OCR, JSON pointer, dual check)
+- [x] src/actionproof/verify.py (DIRECT, DERIVED, taint)
+- [x] tests/ for the Phase 2 gate list; tests/usp/ G1 tests
+- [x] docs: THREAT_MODEL, TESTING
 
 ## Phase 3 — Gate (W2)
 - [ ] db schema + docs/DATA_MODEL.md; config.py (validated env)

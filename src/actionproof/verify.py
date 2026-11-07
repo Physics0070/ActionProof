@@ -45,6 +45,7 @@ REGISTRY: dict[str, dict] = {
         "required": {"amount", "variance"},
         "authority": {"amount", "variance", "vendor_id", "invoice_id"},
         "money": {"amount", "variance"},
+        "allowed": {"amount", "variance", "vendor_id", "invoice_id", "invoice.total", "po.total", "note"},
     }
 }
 
@@ -99,6 +100,8 @@ def _verify(req: ActionRequest, docs, sor) -> VerifyResult:
     if spec is None:
         return VerifyResult(False, {}, [_reason(f"unknown tool {req.tool!r}")])
     reasons = [_reason(f"{n}: required argument missing (evidence gap)") for n in sorted(spec["required"] - req.args.keys())]
+
+    reasons += [_reason(f"{n}: unknown argument for {req.tool} (fail closed)") for n in sorted(req.args.keys() - spec["allowed"])]
 
     results: dict[str, ClaimResult] = {}
     visiting: set[str] = set()
