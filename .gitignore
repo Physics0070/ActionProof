@@ -9,3 +9,4 @@ node_modules/
 web/out/
 eval/generator_sandbox/out/
 .superpowers/
+.pgdata/
