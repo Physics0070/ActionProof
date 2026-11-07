@@ -23,7 +23,7 @@ HERO = {
     "verify": {"ok": True, "reasons": []},
     "args": {"amount": "4800.00", "variance": "500.00", "vendor_id": "V-ACME"},
     "scope": {"max_amount": "5000.00", "vendors": ["V-ACME"]},
-    "cumulative": {"committed": "0.00"},
+    "cumulative": {"committed": "0.00", "person_committed": "0.00"},
 }
 
 
@@ -90,6 +90,21 @@ def test_cum03_over_cap(opa):
     d = decide(patched(args={"amount": "4900.00", "variance": "0.00"}, cumulative={"committed": "4900.00"}), opa, TIMEOUT)
     assert d.outcome == "DENY" and rules(d) == {"AP-CUM-03"}
     assert all(r.guarantee == "G1" for r in d.reasons)
+
+
+def test_cum03_person_cap_actor_rotation(opa):
+    """ADR-016: a fresh actor for the same person still meets the per-person cap."""
+    d = decide(patched(args={"amount": "4900.00", "variance": "0.00"},
+                       cumulative={"committed": "0.00", "person_committed": "4900.00"}), opa, TIMEOUT)
+    assert d.outcome == "DENY" and [(r.rule, r.guarantee, r.msg) for r in d.reasons] == [
+        ("AP-CUM-03", "G1", "person+vendor cumulative total exceeds 5000.00")]
+
+
+def test_missing_person_committed_denied(opa):
+    p = patched()
+    del p["cumulative"]["person_committed"]
+    d = decide(p, opa, TIMEOUT)
+    assert d.outcome == "DENY" and rules(d) == {"AP-VER-01"}
 
 
 def test_float_in_payload_denied_before_opa(opa):

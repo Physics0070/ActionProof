@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS commits (
 );
 COMMENT ON COLUMN commits.vendor_id IS
     'counterparty id from the system of record: vendor (payments.approve_invoice) or customer (payments.refund_payment); ADR-015';
--- AP-CUM-03 sums by actor+counterparty inside the commit tx.
+-- AP-CUM-03 sums by actor+counterparty inside the commit tx, and by person (people join on on_behalf_of)+counterparty
+-- (ADR-016; no column: the person key is read through the directory at decision time).
 CREATE INDEX IF NOT EXISTS commits_actor_vendor ON commits (actor, vendor_id);
 -- ADR-009: refunds already committed against one payment (refundable balance), re-read inside the commit tx.
 CREATE INDEX IF NOT EXISTS commits_record ON commits (record_id);

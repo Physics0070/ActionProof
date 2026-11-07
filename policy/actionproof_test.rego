@@ -10,7 +10,7 @@ hero := {
 	"verify": {"ok": true, "reasons": []},
 	"args": {"amount": "4800.00", "variance": "500.00", "vendor_id": "V-ACME"},
 	"scope": {"max_amount": "5000.00", "vendors": ["V-ACME"]},
-	"cumulative": {"committed": "0.00"},
+	"cumulative": {"committed": "0.00", "person_committed": "0.00"},
 }
 
 with_args(patch) := object.union(hero, {"args": object.union(hero.args, patch)})
@@ -133,6 +133,54 @@ test_cum03_cap_plus_cent_deny if {
 	rules(inp) == {"AP-CUM-03"}
 }
 
+# ---- AP-CUM-03 per person behind on_behalf_of (ADR-016): a second cap, same limit, same rule id
+
+person(c) := object.union(clean({"amount": "4900.00"}), {"cumulative": {"person_committed": c}})
+
+person_msg := {"rule": "AP-CUM-03", "guarantee": "G1", "msg": "person+vendor cumulative total exceeds 5000.00"}
+
+actor_msg := {"rule": "AP-CUM-03", "guarantee": "G1", "msg": "actor+vendor cumulative total exceeds 5000.00"}
+
+test_cum03_person_equal_cap_allow if {
+	d(person("100.00")) == {"outcome": "ALLOW", "reasons": []}
+}
+
+test_cum03_person_cap_plus_cent_deny if {
+	d(person("100.01")) == {"outcome": "DENY", "reasons": [person_msg]}
+}
+
+test_cum03_person_only_trips if {
+	# actor rotation: this actor spent nothing, the same person 4900.00 via another actor
+	d(object.union(person("4900.00"), {"cumulative": {"committed": "0.00"}})) == {"outcome": "DENY", "reasons": [person_msg]}
+}
+
+test_cum03_actor_only_trips if {
+	inp := object.union(clean({"amount": "4900.00"}), {"cumulative": {"committed": "4900.00", "person_committed": "0.00"}})
+	d(inp) == {"outcome": "DENY", "reasons": [actor_msg]}
+}
+
+test_cum03_both_trip_one_reason if {
+	# both caps over: one AP-CUM-03 reason (the actor one), not two
+	inp := object.union(clean({"amount": "4900.00"}), {"cumulative": {"committed": "4900.00", "person_committed": "4900.00"}})
+	d(inp) == {"outcome": "DENY", "reasons": [actor_msg]}
+}
+
+test_cum03_person_committed_required if {
+	every inp in [
+		object.union(object.remove(hero, ["cumulative"]), {"cumulative": {"committed": "0.00"}}),
+		object.union(hero, {"cumulative": {"person_committed": 0}}),
+		object.union(hero, {"cumulative": {"person_committed": "1.5"}}),
+		object.union(object.remove(refund, ["cumulative"]), {"cumulative": {"committed": "0.00"}}),
+	] {
+		rules(inp) == {"AP-VER-01"}
+	}
+}
+
+test_refund_cum03_person_cap_plus_cent_deny if {
+	inp := object.union(refund, {"cumulative": {"person_committed": "4750.01"}})
+	d(inp) == {"outcome": "DENY", "reasons": [{"rule": "AP-CUM-03", "guarantee": "G1", "msg": "person+customer cumulative total exceeds 5000.00"}]}
+}
+
 test_precedence_deny_beats_review if {
 	# hero variance 500.00 would REVIEW; vendor out of scope DENYs
 	inp := with_args({"vendor_id": "V-EVIL"})
@@ -149,7 +197,7 @@ refund := {
 	"verify": {"ok": true, "reasons": []},
 	"args": {"amount": "250.00", "customer_id": "CUST-311"},
 	"scope": {"max_amount": "5000.00", "customers": ["CUST-311"]},
-	"cumulative": {"committed": "0.00"},
+	"cumulative": {"committed": "0.00", "person_committed": "0.00"},
 }
 
 refund_args(patch) := object.union(refund, {"args": object.union(refund.args, patch)})

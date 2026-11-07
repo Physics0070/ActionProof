@@ -131,6 +131,19 @@ def _money(v) -> bool:
     return isinstance(v, str) and bool(MONEY.match(v))
 
 
+# ADR-016: the second AP-CUM-03 key is the person behind on_behalf_of (people.person_id of that login, or the
+# on_behalf_of string itself when unmapped). Commits are keyed by the same mapping, read at decision time.
+_PERSON_SUM = (
+    "SELECT COALESCE(SUM(c.amount), 0)::numeric(18,2) FROM commits c LEFT JOIN people p ON p.login = c.on_behalf_of "
+    "WHERE c.vendor_id = %(cp)s AND COALESCE(p.person_id, c.on_behalf_of) = "
+    "COALESCE((SELECT person_id FROM people WHERE login = %(obo)s), %(obo)s)")
+
+
+def _person_total(conn, on_behalf_of: str, counterparty) -> Decimal:
+    """Sum of commits on `counterparty` for the person behind `on_behalf_of` (burned ones included, ADR-010)."""
+    return conn.execute(_PERSON_SUM, {"cp": counterparty, "obo": on_behalf_of}).fetchone()[0]
+
+
 def _refunded(conn, record_id: str, exclude_nonce: str | None = None) -> Decimal:
     """Refunds committed against one payment (burned ones included: unknown outcome = spent, ADR-010)."""
     return conn.execute("SELECT COALESCE(SUM(amount), 0) FROM commits WHERE record_id = %s "
@@ -382,7 +395,8 @@ class Gate:
             committed = conn.execute(
                 "SELECT COALESCE(SUM(amount), 0)::numeric(18,2)::text FROM commits WHERE actor = %s AND vendor_id = %s",
                 (req.actor, counterparty)).fetchone()[0]
-            payload = self._policy_input(conn, req, v.ok, v.reasons, counterparty, committed)
+            person = str(_person_total(conn, req.on_behalf_of, counterparty))
+            payload = self._policy_input(conn, req, v.ok, v.reasons, counterparty, committed, person)
         d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
         reasons = _merge(d, v.ok, v.reasons)
         if d.outcome not in ("ALLOW", "REVIEW"):
@@ -409,9 +423,10 @@ class Gate:
 
     @staticmethod
     def _policy_input(conn, req: ActionRequest, v_ok: bool, v_reasons: list[Reason], counterparty,
-                      committed: str) -> dict:
+                      committed: str, person_committed: str | None = None) -> dict:
         """Policy input from the system of record (scope from delegations, counterparty from the record), never the
-        agent. Invoices: args.vendor_id + scope.vendors; refunds: args.customer_id + scope.customers (ADR-009)."""
+        agent. Invoices: args.vendor_id + scope.vendors; refunds: args.customer_id + scope.customers (ADR-009).
+        A caller that omits person_committed gets an input without it, which the policy DENYs (fail closed)."""
         scope = conn.execute("SELECT max_amount::text, vendors, customers FROM delegations WHERE on_behalf_of = %s",
                              (req.on_behalf_of,)).fetchone()
         refund = req.tool == REFUND_TOOL
@@ -428,7 +443,9 @@ class Gate:
             # No delegation = empty scope, so the policy denies AP-SCOPE-02 (never a default grant).
             "scope": {"max_amount": scope[0], ids: list(scope[2 if refund else 1])} if scope
             else {"max_amount": "0.00", ids: []},
-            "cumulative": {"committed": committed},
+            # ADR-016: per actor AND per person behind on_behalf_of, both for this counterparty.
+            "cumulative": {"committed": committed} if person_committed is None
+            else {"committed": committed, "person_committed": person_committed},
         }
 
     # ------------------------------------------------------------------ quarantine
@@ -617,12 +634,16 @@ class Gate:
                              (req.actor, st.row[5])).fetchone()[0]
         if total > CAP:
             return deny(_r("AP-CUM-03", "G1", f"actor+{t.word} cumulative total exceeds 5000.00"))
+        person = _person_total(conn, req.on_behalf_of, st.row[5])  # includes this row (ADR-016)
+        if person > CAP:
+            return deny(_r("AP-CUM-03", "G1", f"person+{t.word} cumulative total exceeds 5000.00"))
         if version != p["version"]:
             return deny(_r("AP-STALE-07", "G2", "record version changed since prepare"))
         diff = tool.dry_run(req)
         if _diff_hash(diff, data) != p["diff_hash"]:
             return deny(_r("AP-STALE-07", "G2", "dry-run diff changed since prepare"))
-        stale = self._recheck_policy(conn, p, req, data, str((total - amount).quantize(CENT)))
+        stale = self._recheck_policy(conn, p, req, data, str((total - amount).quantize(CENT)),
+                                     str((person - amount).quantize(CENT)))
         if stale:
             return deny(*stale)
 
@@ -665,7 +686,8 @@ class Gate:
             return _r("AP-EXP-06", "G2", "review token expired")
         return _r("AP-REV-10", "G2", "review token not valid for this request")
 
-    def _recheck_policy(self, conn, p: dict, req: ActionRequest, data: dict, committed: str) -> list[Reason]:
+    def _recheck_policy(self, conn, p: dict, req: ActionRequest, data: dict, committed: str,
+                        person_committed: str) -> list[Reason]:
         """ADR-014: the receipt froze a decision; the world may have moved. Re-derive the policy input from CURRENT
         state (delegation scope, PO total, committed sum) under the commit lock and decide again. Returns the deny
         reasons, or [] when the fresh decision is no stricter than the receipt's.
@@ -679,7 +701,7 @@ class Gate:
             vr = _sor_mismatches(req, data, sor)
             if "variance" not in req.args:
                 vr.append(_ver("variance: required argument missing (evidence gap)"))
-        payload = self._policy_input(conn, req, not vr, vr, data.get(t.counterparty), committed)
+        payload = self._policy_input(conn, req, not vr, vr, data.get(t.counterparty), committed, person_committed)
         d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
         if d.outcome == "ALLOW" or (d.outcome == "REVIEW" and p["decision"] == "REVIEW"):
             return []

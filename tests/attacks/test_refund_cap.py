@@ -37,11 +37,21 @@ def test_cap_key_customer_comes_from_the_payment_record(kit):
     assert p.decision == "DENY" and "AP-CUM-03" in rules(p)
 
 
-def test_cap_is_per_actor_and_other_agents_do_not_count(kit):
+def test_other_agents_for_other_people_do_not_count(kit):
+    """agent-9 refunding CUST-311 for another person (user-456) touches neither of agent-7/user-123's caps."""
     kit.seed_refunds()
-    kit.prior_refunds("CUST-311", ["4800.00"], actor="agent-9")
+    kit.prior_refunds("CUST-311", ["4800.00"], actor="agent-9", on_behalf_of="user-456")
     req, docs = kit.refund(hero.REFUND_CLEAN, "other")
     assert kit.gate.prepare(req, docs).decision == "ALLOW"
+
+
+def test_other_agent_for_the_same_person_counts(kit):
+    """ADR-016: agent-9 refunding 4800.00 to CUST-311 for user-123 fills user-123's per-person cap."""
+    kit.seed_refunds()
+    kit.prior_refunds("CUST-311", ["4800.00"], actor="agent-9")
+    req, docs = kit.refund(hero.REFUND_CLEAN, "same-person")
+    p = kit.gate.prepare(req, docs)
+    assert p.decision == "DENY" and [r.msg for r in p.reasons] == ["person+customer cumulative total exceeds 5000.00"]
 
 
 def test_cap_is_not_reset_by_another_principal(kit):

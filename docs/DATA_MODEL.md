@@ -54,7 +54,9 @@ Index `commits_actor_vendor (actor, vendor_id)`; index `commits_record (record_i
 `payment:`) tells which tool wrote the row.
 Enforces: UNIQUE `nonce` / `idempotency_key` = a receipt or key can commit once; a duplicate insert raises
 `UniqueViolation` → **AP-REP-05 (G2)**. `SUM(amount)` by actor+counterparty inside the commit tx = **AP-CUM-03 (G1,
-ADR-006)**. `SUM(amount)` by `record_id` (other rows) inside the commit tx = the refunds already committed against a
+ADR-006)**; a second `SUM(amount)` by person+counterparty (`commits LEFT JOIN people ON login = on_behalf_of`, key
+`COALESCE(person_id, on_behalf_of)`, matched against the same key of the request's on_behalf_of) = AP-CUM-03 per
+person (ADR-016; no new column). `SUM(amount)` by `record_id` (other rows) inside the commit tx = the refunds already committed against a
 payment, so `amount <= payment.amount − that sum` (**AP-VER-01, G1**, ADR-009).
 
 ## review_tokens — human-minted, one-use approvals for REVIEW decisions

@@ -17,7 +17,8 @@ never from the request.
 | `payments.approve_invoice` | `amount`, `variance`, `vendor_id` | `max_amount`, `vendors` | invoice record `vendor_id` | AP-INV-04 |
 | `payments.refund_payment` | `amount`, `customer_id` | `max_amount`, `customers` | payment record `customer_id` | AP-REF-13 |
 
-Common: `tool`, `actor`, `on_behalf_of`, `verify {ok, reasons}`, `cumulative {committed}`. Rego reads the
+Common: `tool`, `actor`, `on_behalf_of`, `verify {ok, reasons}`, `cumulative {committed, person_committed}` (both
+required 2dp strings; a missing `person_committed` is malformed, DENY AP-VER-01, ADR-016). Rego reads the
 counterparty through `counterparty` / `scope_ids` / `counterparty_kind` (per tool); an input with the other tool's
 scope list is malformed (`test_refund_does_not_read_vendor_scope`, `test_invoice_does_not_read_customer_scope`).
 Invoice inputs and reason texts are unchanged.
@@ -35,7 +36,8 @@ Invoice inputs and reason texts are unchanged.
 | AP-SCOPE-02 | gate.prepare / gate.commit (ADR-012) | `req.actor` / `req.on_behalf_of` != the transport's `Principal` ("identity not bound to caller") | DENY | G1 | `tests/test_commit.py::test_identity_bound_to_transport_principal`, `tests/redteam/test_rt_g1_authority.py` |
 | AP-VER-01 | gate.prepare / gate.commit (ADR-013) | `variance` not DERIVED `sub(invoice.total, po.total)`, an ASSERTED derivation input, or variance != SoR invoice.total − po.total | DENY | G1 | `tests/test_verify.py::test_variance_pinned_and_asserted_never_an_input`, `tests/redteam/test_rt_g1_claims.py` |
 | AP-CUM-03 | Rego (advisory, at prepare) | `cumulative.committed + amount > 5000.00`, committed = SUM for (transport actor, SoR counterparty); msg "actor+vendor ..." / "actor+customer cumulative total exceeds 5000.00" | DENY | G1 | `test_cum03_0_plus_4900_allow`, `test_cum03_4900_plus_4900_deny`, `test_cum03_100_plus_4900_equal_cap_allow`, `test_cum03_cap_plus_cent_deny`, `test_refund_cum03_demo_4800_plus_250_deny`, `test_refund_cum03_equal_cap_allow`, `test_refund_cum03_cap_plus_cent_deny`; pytest `test_cum03_over_cap`, `tests/attacks/test_refund_cap.py::test_cap_denies_at_prepare` |
-| AP-CUM-03 | gate.commit (authoritative, ADR-006) | same sum re-read inside the SERIALIZABLE tx (refunds too: same lane, key from the locked payment record) | DENY | G1 | Phase 3 gate tests; `tests/attacks/test_refund_cap.py::test_concurrent_refunds_one_executes`, `test_sequential_refunds_capped_at_commit` |
+| AP-CUM-03 | Rego (advisory, at prepare, ADR-016) | actor cap holds AND `cumulative.person_committed + amount > 5000.00`, person_committed = SUM for (person behind `on_behalf_of`, SoR counterparty); person = `people.person_id` of the on_behalf_of login, else the on_behalf_of string; msg "person+vendor ..." / "person+customer cumulative total exceeds 5000.00". When both caps trip, only the actor reason is returned (one AP-CUM-03 reason) | DENY | G1 | `test_cum03_person_equal_cap_allow`, `test_cum03_person_cap_plus_cent_deny`, `test_cum03_person_only_trips`, `test_cum03_actor_only_trips`, `test_cum03_both_trip_one_reason`, `test_cum03_person_committed_required`, `test_refund_cum03_person_cap_plus_cent_deny`; pytest `test_cum03_person_cap_actor_rotation`, `test_missing_person_committed_denied` |
+| AP-CUM-03 | gate.commit (authoritative, ADR-006/016) | both sums re-read inside the SERIALIZABLE tx under the commit lock, actor first then person (refunds too: same lane, key from the locked payment record) | DENY | G1 | Phase 3 gate tests; `tests/attacks/test_refund_cap.py::test_concurrent_refunds_one_executes`, `test_sequential_refunds_capped_at_commit`, `test_other_agent_for_the_same_person_counts`; `tests/redteam/test_rt_g1_rotation.py` |
 | AP-INV-04 | Rego | invoice: `abs(variance) > 100.00` | REVIEW | G1 | `test_hero_review_inv04`, `test_inv04_variance_100_00_allow`, `test_inv04_variance_100_01_review`, `test_inv04_variance_negative_100_01_review`, `test_inv04_variance_negative_100_00_allow`, `test_inv04_variance_negative_500_review`, `test_refund_ignores_variance_rule`; pytest `test_hero_review_inv04`, `test_allow_when_variance_within_limit` |
 | AP-REF-13 | Rego (ADR-009) | refund: `amount > 1000.00` ("refund amount exceeds 1000.00"); needs a human review token (AP-REV-10), minted by a different person (AP-SEP-12, unchanged) | REVIEW | G1 | `test_refund_ref13_1000_00_allow`, `test_refund_ref13_1000_01_review`, `test_refund_deny_beats_ref13_review`, `test_invoice_large_amount_no_ref13`; `tests/test_refund_gate.py::test_review_above_1000_needs_a_token_from_a_different_person`, `test_refund_at_1000_is_allow` |
 | AP-DEFAULT | Rego | decision undefined (evaluation error) | DENY | G1 | backstop only: every input today resolves to a defined decision (empty input is AP-VER-01, `test_ver01_empty_input_deny`) |
@@ -66,7 +68,7 @@ A JSON number in a money field is AP-VER-01; a Python float anywhere in the payl
 
 ## Constants
 
-- `cap_cents := 500000` (5000.00), cumulative cap per actor+counterparty (vendor or customer, ADR-015). `# ponytail: constant, move to data.json if per-tenant caps are needed`.
+- `cap_cents := 500000` (5000.00), cumulative cap per actor+counterparty AND per person+counterparty (vendor or customer, ADR-015/016). `# ponytail: constant, move to data.json if per-tenant caps are needed`.
 - `variance_limit_cents := 10000` (100.00). 100.00 is ALLOW, 100.01 is REVIEW.
 - `refund_review_cents := 100000` (1000.00, AP-REF-13). 1000.00 is ALLOW, 1000.01 is REVIEW.
 

@@ -11,7 +11,7 @@ default decision := {
 	"reasons": [{"rule": "AP-DEFAULT", "guarantee": "G1", "msg": "no rule allowed this action"}],
 }
 
-# Cumulative per actor+counterparty cap, 5000.00.
+# Cumulative caps, 5000.00 each: per actor+counterparty AND per person (behind on_behalf_of)+counterparty (ADR-016).
 # ponytail: constant, move to data.json if per-tenant caps are needed
 cap_cents := 500000
 
@@ -77,6 +77,7 @@ common_well_formed if {
 	cents(input.args.amount) > 0
 	is_money(input.scope.max_amount)
 	is_money(input.cumulative.committed)
+	is_money(input.cumulative.person_committed)
 	is_string(counterparty)
 	is_array(scope_ids)
 	every v in scope_ids { is_string(v) }
@@ -114,7 +115,17 @@ deny contains {"rule": "AP-SCOPE-02", "guarantee": "G1", "msg": sprintf("%s not 
 
 deny contains {"rule": "AP-CUM-03", "guarantee": "G1", "msg": sprintf("actor+%s cumulative total exceeds 5000.00", [counterparty_kind])} if {
 	well_formed
-	cents(input.cumulative.committed) + cents(input.args.amount) > cap_cents
+	actor_over_cap
+}
+
+actor_over_cap if cents(input.cumulative.committed) + cents(input.args.amount) > cap_cents
+
+# ADR-016: actor rotation (agent-7 then agent-8 for the same person) must not reset the cap. Only reported when the
+# actor cap holds, so one over-cap request carries one AP-CUM-03 reason.
+deny contains {"rule": "AP-CUM-03", "guarantee": "G1", "msg": sprintf("person+%s cumulative total exceeds 5000.00", [counterparty_kind])} if {
+	well_formed
+	not actor_over_cap
+	cents(input.cumulative.person_committed) + cents(input.args.amount) > cap_cents
 }
 
 review contains {"rule": "AP-INV-04", "guarantee": "G1", "msg": "abs(invoice variance) exceeds 100.00"} if {

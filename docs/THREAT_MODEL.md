@@ -52,7 +52,7 @@ Expected result for every attack case: the tool executes **0 times** (`spec/atta
 | 2 | Argument tampering | Claims re-verified at the cited span; any change after `prepare` changes `request_hash` and invalidates the receipt | `tests/attacks/test_tampering.py` | G1 | planned (Phase 3) |
 | 3 | Evidence forgery | Span re-extraction and document hash match | `tests/attacks/test_forgery.py` | G1 | planned (Phase 2) |
 | 4 | Confused deputy | `on_behalf_of` scope checked in policy (AP-SCOPE-02); actor/on_behalf_of bound to the transport Principal (ADR-012) | `tests/attacks/test_confused_deputy.py` | G1 | planned (Phase 3) |
-| 5 | Split payments | Cumulative limits per actor and vendor (AP-CUM-03, `gate.commit`, ADR-006) | `tests/attacks/test_split_payments.py` | G1 | planned (Phase 3) |
+| 5 | Split payments | Cumulative limits per actor and vendor, and per person behind on_behalf_of and vendor (AP-CUM-03, `gate.commit`, ADR-006/016) | `tests/attacks/test_split_payments.py` | G1 | planned (Phase 3) |
 | 6 | Replay | One-use token and idempotency key enforced by DB UNIQUE constraints | `tests/attacks/test_replay.py`, `tests/usp/test_replay.py` | G2 | planned (Phase 3) |
 | 7 | Race (TOCTOU) | Version precondition checked under `FOR UPDATE` at commit | `tests/attacks/test_race.py` | G1 | planned (Phase 3) |
 
@@ -74,6 +74,7 @@ every assertion encodes the safe behavior (the tool is not reached).
 | vendor removed from scope between prepare and commit | G1 | fresh policy decision (ADR-014) | `test_rt_g1_authority.py::test_vendor_removed_from_scope_between_prepare_and_commit` |
 | PO total changed between prepare and commit | G1 | variance re-checked against the fresh SoR; fresh policy (ADR-013/014) | `test_rt_g1_authority.py::test_po_total_changed_between_prepare_and_commit` |
 | burned (unknown-outcome) commit, re-prepared with a new idempotency key | G2 | burn quarantines the record; prepare and commit refuse it, AP-REP-05 (ADR-014) | `tests/redteam/test_rt_g2_replay.py::test_burned_receipt_then_reprepare_with_new_key`, `test_receipt_prepared_before_burn_blocked_at_commit`, `test_release_quarantine_reconciles` |
+| split payments by actor rotation: agent-7 4900.00 then agent-8 (same person) 4900.00, sequential, concurrent, or via a second on_behalf_of login of the same person | G1 | second AP-CUM-03 cap per (person behind on_behalf_of, counterparty), at prepare and inside the commit tx (ADR-016) | `tests/redteam/test_rt_g1_rotation.py` |
 | `model_construct`-built request at commit (suspicion) | G2 | commit always re-parses the request | `tests/test_commit.py::test_model_construct_request_revalidated_at_commit` |
 
 | self-approval: the submitter's own second reviewer login (`rev-user123` = `p-user123`) mints | G2 | AP-SEP-12 compares `people.person_id`, at mint and inside the commit tx (ADR-008) | `tests/redteam/test_rt_sep.py::test_second_login_of_submitter_cannot_mint`, `test_second_login_token_denied_at_commit` |
@@ -97,8 +98,10 @@ every assertion encodes the safe behavior (the tool is not reached).
 | large refund without a second person | G2 | REVIEW AP-REF-13 needs a token (AP-REV-10) from a different person (AP-SEP-12) | `test_refund_gate.py::test_review_above_1000_needs_a_token_from_a_different_person` |
 | replay / burned refund / tool double-applies | G2 | same UNIQUE nonce + key, quarantine and post-check as invoices | `test_refund_gate.py::test_replay_denied`, `test_burned_refund_quarantines_the_payment`, `test_tool_double_call_detected` |
 
-Residuals: the refund cap is per transport actor (one human running several agents can spread refunds across
-actors; `# ponytail` upgrade: `people.person_id` key). Vendor and customer ids share the cap namespace in
+Residuals: actor rotation is closed by the per-person cap (ADR-016). The person key is read through `people` at
+decision time, so a directory edit re-keys history (an admin remapping a login moves its past commits with it;
+audited admin action, not agent-reachable). Distinct people acting for distinct principals still each get their own
+cap (collusion is out of scope). Vendor and customer ids share the cap namespace in
 `commits.vendor_id` (ADR-015): a collision merges two caps (stricter, not looser).
 
 Still open: the global commit lock can DENY legitimate commits under load (availability, not safety).

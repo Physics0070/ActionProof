@@ -139,7 +139,7 @@ def opa_url(tmp_path_factory):
         warm = {"tool": "payments.approve_invoice", "actor": "agent-7", "on_behalf_of": "user-123",
                 "verify": {"ok": True, "reasons": []},
                 "args": {"amount": "4800.00", "variance": "500.00", "vendor_id": "V-ACME"},
-                "scope": {"max_amount": "5000.00", "vendors": ["V-ACME"]}, "cumulative": {"committed": "0.00"}}
+                "scope": {"max_amount": "5000.00", "vendors": ["V-ACME"]}, "cumulative": {"committed": "0.00", "person_committed": "0.00"}}
         refund_warm = {**warm, "tool": "payments.refund_payment", "args": {"amount": "250.00", "customer_id": "CUST-311"},
                        "scope": {"max_amount": "5000.00", "customers": ["CUST-311"]}}
         for inp in (warm, refund_warm):

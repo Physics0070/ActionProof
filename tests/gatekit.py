@@ -214,12 +214,13 @@ class Kit:
         self.sql("UPDATE delegations SET customers = array_append(customers, %s) "
                  "WHERE on_behalf_of = 'user-123' AND NOT (%s = ANY(customers))", (customer, customer))
 
-    def prior_refunds(self, customer: str, amounts, actor: str = "agent-7") -> None:
-        """Refunds committed earlier for (actor, customer): rows in `commits`, counterparty in vendor_id (ADR-015)."""
+    def prior_refunds(self, customer: str, amounts, actor: str = "agent-7", on_behalf_of: str = "user-123") -> None:
+        """Refunds committed earlier for (actor, on_behalf_of, customer): rows in `commits`, counterparty in vendor_id
+        (ADR-015). Both AP-CUM-03 keys read them: actor and the person behind on_behalf_of (ADR-016)."""
         for i, amount in enumerate(amounts):
             self.sql("INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, "
-                     "amount, record_id, created_at) VALUES (%s, %s, 'prior', %s, 'user-123', %s, %s, %s, 1)",
-                     (f"prior-{actor}-{customer}-{i}", f"prior-{actor}-{customer}-{i}", actor, customer, amount,
+                     "amount, record_id, created_at) VALUES (%s, %s, 'prior', %s, %s, %s, %s, %s, 1)",
+                     (f"prior-{actor}-{customer}-{i}", f"prior-{actor}-{customer}-{i}", actor, on_behalf_of, customer, amount,
                       f"payment:PRIOR-{customer}-{i}"))
 
     def refund(self, doc_id: str = "refund/REF-512.pdf", idem: str = "idem-ref", **kw) -> tuple[ActionRequest, dict]:
