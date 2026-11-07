@@ -42,7 +42,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S6.6 | 6 | Replay — one-use token and idempotency key — reused token or key | gate.py DB constraints | tests/attacks/test_replay.py; eval in Phase 6 | partial |
 | S6.7 | 6 | Race (TOCTOU) — version precondition at commit — record mutated mid-flight | gate.commit | tests/attacks/test_race.py; eval in Phase 6 | partial |
 | S6.8 | 6 | "Measured against no gate, schema-only and an LLM judge, on 100+ benign cases." | eval/run.py | eval/results.json (benign n ≥ 100) | todo |
-| S6.9 | 6 | "About half the attacks come from a separate generator, so we don't grade our own exam." | .claude/agents/attack-generator.md, eval/ | results.json split handwritten/generated | todo |
+| S6.9 | 6 | "About half the attacks come from a separate generator, so we don't grade our own exam." | .claude/agents/attack-generator.md, eval/ | BLOCKED: the isolated attack-generator agent was stopped twice by a safety classifier after reading spec/ and wrote 0 cases (2026-11-07); handwritten set (93) exists; needs the user decision on how to source the generated half | blocked |
 | S7.1 | 7 | Gateway — Python, FastAPI, MCP SDK — proxy every tool call | server.py (mcp 2.x lowlevel Server; HTTP via the SDK streamable-HTTP app on uvicorn, not FastAPI) | tests/test_mcp_default_deny.py, tests/e2e/test_slide1_mcp_stdio.py, tests/e2e/test_mcp_http.py | done |
 | S7.2 | 7 | Contracts — Pydantic v2 strict, RFC 8785 | contracts.py | tests/test_contracts.py, tests/usp/test_no_floats.py (61 pass) | done |
 | S7.3 | 7 | Policy — OPA sidecar, Rego — default-deny decisions | policy/, docker-compose.yml | opa test 24/24; compose untested (Docker engine unavailable) | partial |
