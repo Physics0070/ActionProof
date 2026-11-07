@@ -195,7 +195,7 @@ class Gate:
             "scope": {"max_amount": scope[0], "vendors": list(scope[1])} if scope else {"max_amount": "0.00", "vendors": []},
             "cumulative": {"committed": committed},
         }
-        d = policy.decide(payload)
+        d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
         reasons = list(d.reasons) + ([r for r in v.reasons if r not in d.reasons] if not v.ok else [])
         if d.outcome not in ("ALLOW", "REVIEW"):
             return deny(*reasons, v=v)

@@ -16,6 +16,7 @@ import pytest
 from actionproof.policy import Decision, decide
 
 ROOT = Path(__file__).resolve().parents[1]
+TIMEOUT = 0.2  # Settings.opa_timeout_seconds default
 OPA_BIN = os.environ.get("OPA_BIN", "C:/Users/Soham/tools/opa/opa.exe")
 
 HERO = {
@@ -70,8 +71,8 @@ def opa_url(tmp_path_factory):
 
 
 @pytest.fixture
-def opa(opa_url, monkeypatch):
-    monkeypatch.setenv("OPA_URL", opa_url)
+def opa(opa_url):
+    return opa_url
 
 
 def patched(**sections) -> dict:
@@ -86,58 +87,56 @@ def rules(d: Decision) -> set[str]:
 
 
 def test_hero_review_inv04(opa):
-    d = decide(HERO)
+    d = decide(HERO, opa, TIMEOUT)
     assert d.outcome == "REVIEW"
     assert [(r.rule, r.guarantee) for r in d.reasons] == [("AP-INV-04", "G1")]
 
 
 def test_allow_when_variance_within_limit(opa):
-    assert decide(patched(args={"variance": "100.00"})) == Decision("ALLOW", [])
+    assert decide(patched(args={"variance": "100.00"}), opa, TIMEOUT) == Decision("ALLOW", [])
 
 
 def test_ver01_verification_failed(opa):
-    d = decide(patched(verify={"ok": False}))
+    d = decide(patched(verify={"ok": False}), opa, TIMEOUT)
     assert d.outcome == "DENY" and "AP-VER-01" in rules(d)
 
 
 def test_ver01_malformed_money(opa):
-    d = decide(patched(args={"amount": "4800"}))
+    d = decide(patched(args={"amount": "4800"}), opa, TIMEOUT)
     assert d.outcome == "DENY" and rules(d) == {"AP-VER-01"}
 
 
 def test_ver01_empty_input(opa):
-    assert decide({}).outcome == "DENY"
+    assert decide({}, opa, TIMEOUT).outcome == "DENY"
 
 
 def test_scope02_amount_over_max(opa):
-    d = decide(patched(args={"amount": "5000.01", "variance": "0.00"}))
+    d = decide(patched(args={"amount": "5000.01", "variance": "0.00"}), opa, TIMEOUT)
     assert d.outcome == "DENY" and "AP-SCOPE-02" in rules(d)
 
 
 def test_scope02_vendor_out_of_scope(opa):
-    d = decide(patched(args={"vendor_id": "V-EVIL"}))
+    d = decide(patched(args={"vendor_id": "V-EVIL"}), opa, TIMEOUT)
     assert d.outcome == "DENY" and rules(d) == {"AP-SCOPE-02"}
 
 
 def test_cum03_over_cap(opa):
-    d = decide(patched(args={"amount": "4900.00", "variance": "0.00"}, cumulative={"committed": "4900.00"}))
+    d = decide(patched(args={"amount": "4900.00", "variance": "0.00"}, cumulative={"committed": "4900.00"}), opa, TIMEOUT)
     assert d.outcome == "DENY" and rules(d) == {"AP-CUM-03"}
     assert all(r.guarantee == "G1" for r in d.reasons)
 
 
 def test_float_in_payload_denied_before_opa(opa):
-    d = decide(patched(args={"amount": 4800.0}))
+    d = decide(patched(args={"amount": 4800.0}), opa, TIMEOUT)
     assert d == Decision("DENY", [d.reasons[0]]) and rules(d) == {"AP-POL-FAIL"}
 
 
-def test_missing_opa_url_denied(monkeypatch):
-    monkeypatch.delenv("OPA_URL", raising=False)
-    assert rules(decide(HERO)) == {"AP-POL-FAIL"}
+def test_missing_opa_url_denied():
+    assert rules(decide(HERO, "", TIMEOUT)) == {"AP-POL-FAIL"}
 
 
-def test_closed_port_denied(monkeypatch):
-    monkeypatch.setenv("OPA_URL", f"http://127.0.0.1:{_free_port()}")
-    d = decide(HERO)
+def test_closed_port_denied():
+    d = decide(HERO, f"http://127.0.0.1:{_free_port()}", TIMEOUT)
     assert d.outcome == "DENY" and rules(d) == {"AP-POL-FAIL"}
 
 
@@ -167,7 +166,7 @@ def _reply(status: int, body: bytes):
     return write
 
 
-def test_slow_server_denied(monkeypatch):
+def test_slow_server_denied():
     ok = json.dumps({"result": {"outcome": "ALLOW", "reasons": []}}).encode()
 
     def slow(h):
@@ -176,16 +175,15 @@ def test_slow_server_denied(monkeypatch):
 
     srv, url = _stub(slow)
     try:
-        monkeypatch.setenv("OPA_URL", url)
         t0 = time.monotonic()
-        d = decide(HERO)
+        d = decide(HERO, url, TIMEOUT)
         assert d.outcome == "DENY" and rules(d) == {"AP-POL-FAIL"}
         assert time.monotonic() - t0 < 0.9
     finally:
         srv.shutdown()
 
 
-def test_trickling_server_denied(monkeypatch):
+def test_trickling_server_denied():
     def trickle(h):
         h.send_response(200)
         h.send_header("Content-Length", "100")
@@ -197,9 +195,8 @@ def test_trickling_server_denied(monkeypatch):
 
     srv, url = _stub(trickle)
     try:
-        monkeypatch.setenv("OPA_URL", url)
         t0 = time.monotonic()
-        assert rules(decide(HERO)) == {"AP-POL-FAIL"}
+        assert rules(decide(HERO, url, TIMEOUT)) == {"AP-POL-FAIL"}
         assert time.monotonic() - t0 < 0.9
     finally:
         srv.shutdown()
@@ -219,11 +216,10 @@ def test_trickling_server_denied(monkeypatch):
         (200, b'{"result": {"outcome": "REVIEW", "reasons": ["AP-INV-04"]}}'),
     ],
 )
-def test_malformed_opa_response_denied(monkeypatch, status, body):
+def test_malformed_opa_response_denied(status, body):
     srv, url = _stub(_reply(status, body))
     try:
-        monkeypatch.setenv("OPA_URL", url)
-        d = decide(HERO)
+        d = decide(HERO, url, TIMEOUT)
         assert d.outcome == "DENY" and rules(d) == {"AP-POL-FAIL"}
     finally:
         srv.shutdown()

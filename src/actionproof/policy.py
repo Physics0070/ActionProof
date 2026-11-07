@@ -1,11 +1,11 @@
-"""OPA client: decide(payload) -> Decision. Rules live in policy/actionproof.rego (docs/POLICY.md).
+"""OPA client: decide(payload, opa_url, timeout) -> Decision. Rules live in policy/actionproof.rego (docs/POLICY.md).
 
-decide never raises. Any failure (OPA_URL unset, connect error, timeout > 200 ms, non-200, missing or
-malformed result, float in the payload) is DENY AP-POL-FAIL / G1 (invariant 1, invariant 4).
+The caller passes the OPA URL and timeout from Settings (invariant 7); this module reads no environment.
+decide never raises. Any failure (empty OPA URL, connect error, timeout, non-200, missing or malformed
+result, float in the payload) is DENY AP-POL-FAIL / G1 (invariant 1, invariant 4).
 """
 
 import json
-import os
 import time
 from dataclasses import dataclass
 
@@ -13,11 +13,11 @@ import httpx
 
 from actionproof.verify import Reason
 
-TIMEOUT_S = 0.2
 OUTCOMES = ("DENY", "REVIEW", "ALLOW")
 # One client for the process: building one per call (SSL context, env proxy lookup) costs ~200 ms on Windows.
+# The timeout is passed per request, so the shared client carries none of its own.
 # trust_env=False: OPA is a local sidecar; never route the policy call through an env-configured proxy.
-_client = httpx.Client(timeout=TIMEOUT_S, trust_env=False)
+_client = httpx.Client(trust_env=False)
 
 
 @dataclass(frozen=True)
@@ -48,18 +48,18 @@ def _reason(r) -> Reason:
     return Reason(r["rule"], r["guarantee"], r["msg"])
 
 
-def decide(payload: dict) -> Decision:
+def decide(payload: dict, opa_url: str, timeout: float) -> Decision:
     try:
         if not isinstance(payload, dict) or _has_float(payload):
             return _fail("policy input must be a dict with no floats")
-        url = os.environ.get("OPA_URL")
-        if not url:
-            return _fail("OPA_URL not configured")
-        deadline = time.monotonic() + TIMEOUT_S
+        if not opa_url:
+            return _fail("OPA URL not configured")
+        deadline = time.monotonic() + timeout
         body = b""
-        # ponytail: per-chunk deadline check bounds a trickling server to ~2x TIMEOUT_S; a hard wall clock
+        # ponytail: per-chunk deadline check bounds a trickling server to ~2x timeout; a hard wall clock
         # needs a worker thread/async cancel.
-        with _client.stream("POST", f"{url.rstrip('/')}/v1/data/actionproof/decision", json={"input": payload}) as r:
+        with _client.stream("POST", f"{opa_url.rstrip('/')}/v1/data/actionproof/decision",
+                            json={"input": payload}, timeout=timeout) as r:
             if r.status_code != 200:
                 return _fail(f"OPA returned HTTP {r.status_code}")
             for chunk in r.iter_bytes():

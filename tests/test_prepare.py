@@ -67,7 +67,8 @@ def test_opa_down_denied(kit, monkeypatch):
     with __import__("socket").socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    monkeypatch.setenv("OPA_URL", f"http://127.0.0.1:{port}")
+    down = kit.settings.model_copy(update={"opa_url": f"http://127.0.0.1:{port}"})
+    monkeypatch.setattr(kit.gate, "_settings", down)
     r = kit.gate.prepare(*kit.hero())
     assert r.decision == "DENY" and r.receipt is None and rules(r) == ["AP-POL-FAIL"]
 
