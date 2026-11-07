@@ -20,3 +20,8 @@
 - USP: G1 — a write cannot execute unless the variance is exactly sub(invoice.total, po.total) over system-of-record-equal DIRECT claims, identity comes from the transport, and the policy decision is re-derived from fresh state at commit. G2 — a receipt/nonce/idempotency key/review token is single-use (DB UNIQUE), expires, binds request hash + record version; a burned receipt quarantines the record so it cannot be re-approved under a new key.
 - Open issues: PO total is read through a separate connection at commit and not row-locked (small window, ponytail); one global commit lane (throughput); burn-step failure leaves only the tool-side idempotency; `mint_review_token` caller authentication and reviewer != submitter wait for ADR-008 (Phase 4); the transport must build the Principal from the authenticated session (Phase 5); docker-compose still unexercised.
 - Next: Phase 4 (llm-council: ADR-008, ADR-009), then Phase 5.
+
+## Phase 4 — Decisions: done
+- Council (5 advisors, 5 anonymized peer reviews, Opus chairman): ADR-008 reviewer must be a different PERSON than the submitters, checked against directory person ids (people table), at token mint AND inside commit (rule AP-SEP-12, G2); admin cannot mint; break-glass and per-threshold config rejected. ADR-009 second connector = refund (payments.refund_payment), demo state seeded by scripts/demo_seed.py. Transcript: docs/council/.
+- USP: G2 — approvals cannot be self-granted: the human who unlocks a REVIEW is a different verified person, and the check repeats at commit so a minted token cannot be replayed into a context where the separation fails.
+- Open: nothing blocking; implementation is Phase 5 tasks.

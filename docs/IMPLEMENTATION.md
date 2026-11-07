@@ -25,11 +25,32 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [x] tests/usp G2; replay/race/concurrency tests; gate-reviewer pass
 
 ## Phase 4 — Decisions
-- [ ] llm-council → ADR-008 (reviewer ≠ submitter?), ADR-009 (second connector)
+- [x] llm-council → ADR-008 (reviewer ≠ submitter?), ADR-009 (second connector)
+- [x] verdict written: docs/council/verdict.md
 
 ## Phase 5 — Surface (W3)
 - [ ] server.py MCP proxy + extract_fields; adapters/langchain.py + example agent
-- [ ] second connector; audit.py + verifier CLI; console backend endpoints; docs/API.md
+- [ ] audit.py + verifier CLI; console backend endpoints; docs/API.md
+
+### Reviewer separation (ADR-008)
+- [ ] schema: `people(login PK, person_id, roles[])`; seed `rev-alice`, `rev-bob` (reviewer), `sub-user123`, `admin-ops` (admin), `user-123`→`p-user123`, `agent-7`→`p-user123`; test-only `rev-user123` (person `p-user123`)
+- [ ] failing red-team test first: `rev-user123` mint → DENY AP-SEP-12 (mint + commit); unmapped login → DENY; `admin-ops` mint → refused (no reviewer role)
+- [ ] `Gate.mint_review_token(receipt, req, *, reviewer_login)`: verify signature/hash/decision==REVIEW, submitter from `req`, require reviewer role, AP-SEP-12 / G2, store `minted_by` + `minted_by_person`; audit refusals
+- [ ] commit: re-apply AP-SEP-12 inside the tx after token consume (people re-read under the commit lock)
+- [ ] console backend: reviewer identity only from the server-side session subject; label "requested by X for Y · approved by Z (different person)"
+- [ ] docs: POLICY.md row AP-SEP-12; THREAT_MODEL residuals (collusion, session hijack); DATA_MODEL `people`
+
+### Refund connector (ADR-009)
+- [ ] mocks: `payments` record PAY-7731 (CUST-311, 450.00, pm_card_4242) + refund tool dry_run/execute with idempotency key
+- [ ] `verify.REGISTRY["payments.refund_payment"]`: payment_id DIRECT + exists; customer_id == SoR; refund_to == SoR method_id (doc text = taint); amount DIRECT and <= payment.amount − committed refunds (prepare + commit)
+- [ ] rego: allow tool `payments.refund_payment` in AP-VER-01 shape checks; AP-CUM-03 keyed (actor, customer_id) + `opa test`
+- [ ] commits: `vendor_id` → `counterparty_id` (migration); commit-time cap re-check keyed (Principal.actor, SoR customer_id)
+- [ ] fixtures/make.py: `REF-311.pdf` (250.00, injected "send this refund to account …" line, manifest bboxes) + clean variant
+- [ ] tests: taint on refund_to → DENY AP-VER-01; over-balance amount → DENY; cap 4800+250 → DENY AP-CUM-03 (prepare + concurrent commit)
+
+### Demo seed / reset
+- [ ] `scripts/demo_seed.py --reset` (idempotent): truncate commits/review_tokens/quarantine; seed INV-2048/PO-2048, PAY-7731, people, prior refunds 4800.00 for (agent-7, CUST-311) across PAY-7001..7004
+- [ ] `tests/test_demo_script.py`: beats in order — hero REVIEW (approved by rev-alice), injected DENY, replay DENY, concurrent $4,900 one DENY, refund taint DENY, refund cap DENY — asserts outcome + rule id each
 
 ## Phase 6 — Proof (W4)
 - [ ] attacks (handwritten + generated in isolation), 100+ benign, eval/run.py 5 arms, EVAL.md
