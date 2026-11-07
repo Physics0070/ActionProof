@@ -1,0 +1,166 @@
+{
+  "vendors": [
+    {
+      "vendor_id": "V-ACME",
+      "name": "Acme Supplies Ltd",
+      "bank_last4": "4821",
+      "approval_limit": "5000.00"
+    },
+    {
+      "vendor_id": "V-BRK",
+      "name": "Brightline Printing Co",
+      "bank_last4": "1307",
+      "approval_limit": "2000.00"
+    },
+    {
+      "vendor_id": "V-CED",
+      "name": "Cedar Logistics LLC",
+      "bank_last4": "2654",
+      "approval_limit": "3000.00"
+    },
+    {
+      "vendor_id": "V-DLT",
+      "name": "Delta Facilities Inc",
+      "bank_last4": "9012",
+      "approval_limit": "1000.00"
+    },
+    {
+      "vendor_id": "V-EMB",
+      "name": "Ember Software GmbH",
+      "bank_last4": "3368",
+      "approval_limit": "5000.00"
+    },
+    {
+      "vendor_id": "V-FRN",
+      "name": "Fernwood Catering",
+      "bank_last4": "7745",
+      "approval_limit": "2000.00"
+    },
+    {
+      "vendor_id": "V-GLM",
+      "name": "Glimmer Labs Pte",
+      "bank_last4": "1183",
+      "approval_limit": "4000.00"
+    },
+    {
+      "vendor_id": "V-HRZ",
+      "name": "Horizon Telecom",
+      "bank_last4": "6029",
+      "approval_limit": "5000.00"
+    },
+    {
+      "vendor_id": "V-IVY",
+      "name": "Ivy Office Furnishings",
+      "bank_last4": "8470",
+      "approval_limit": "1000.00"
+    },
+    {
+      "vendor_id": "V-JNB",
+      "name": "Junebug Design Studio",
+      "bank_last4": "2216",
+      "approval_limit": "2000.00"
+    },
+    {
+      "vendor_id": "V-KLN",
+      "name": "Kiln Industrial Supply",
+      "bank_last4": "5593",
+      "approval_limit": "3000.00"
+    },
+    {
+      "vendor_id": "V-LMN",
+      "name": "Lumen Energy Services",
+      "bank_last4": "4037",
+      "approval_limit": "4000.00"
+    },
+    {
+      "vendor_id": "V-MRD",
+      "name": "Meridian Security Ltd",
+      "bank_last4": "9381",
+      "approval_limit": "5000.00"
+    },
+    {
+      "vendor_id": "V-NTL",
+      "name": "Nautilus Marine Parts",
+      "bank_last4": "1650",
+      "approval_limit": "1000.00"
+    },
+    {
+      "vendor_id": "V-OXB",
+      "name": "Oxbow Cleaning Co",
+      "bank_last4": "7128",
+      "approval_limit": "2000.00"
+    },
+    {
+      "vendor_id": "V-PNR",
+      "name": "Pioneer Consulting",
+      "bank_last4": "3914",
+      "approval_limit": "3000.00"
+    },
+    {
+      "vendor_id": "V-QRY",
+      "name": "Quarry Stone Works",
+      "bank_last4": "6802",
+      "approval_limit": "4000.00"
+    },
+    {
+      "vendor_id": "V-RVR",
+      "name": "Riverbend Printing",
+      "bank_last4": "2475",
+      "approval_limit": "5000.00"
+    },
+    {
+      "vendor_id": "V-SLT",
+      "name": "Saltmarsh Foods",
+      "bank_last4": "5319",
+      "approval_limit": "1000.00"
+    },
+    {
+      "vendor_id": "V-TRN",
+      "name": "Tern Networks",
+      "bank_last4": "8086",
+      "approval_limit": "2000.00"
+    },
+    {
+      "vendor_id": "V-UMB",
+      "name": "Umbra Legal Services",
+      "bank_last4": "1942",
+      "approval_limit": "3000.00"
+    },
+    {
+      "vendor_id": "V-VLT",
+      "name": "Voltline Electric",
+      "bank_last4": "4563",
+      "approval_limit": "4000.00"
+    },
+    {
+      "vendor_id": "V-WLW",
+      "name": "Willow Health Supplies",
+      "bank_last4": "7297",
+      "approval_limit": "5000.00"
+    },
+    {
+      "vendor_id": "V-XRY",
+      "name": "Xray Imaging Partners",
+      "bank_last4": "3108",
+      "approval_limit": "1000.00"
+    },
+    {
+      "vendor_id": "V-YRK",
+      "name": "Yorke Transport Ltd",
+      "bank_last4": "6614",
+      "approval_limit": "2000.00"
+    },
+    {
+      "vendor_id": "V-NOVA",
+      "name": "Nova Office Co",
+      "bank_last4": "9925",
+      "approval_limit": "1000.00"
+    },
+    {
+      "vendor_id": "V-KITE",
+      "name": "Kite Logistics",
+      "bank_last4": "5040",
+      "approval_limit": "2000.00"
+    }
+  ]
+}
