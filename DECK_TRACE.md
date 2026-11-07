@@ -22,7 +22,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S4.1 | 4 | "DIRECT: a deterministic parser re-extracts the value at the cited page and box. Value and document hash must both match." | extract.py, verify.py | tests/test_verify_direct.py | todo |
 | S4.2 | 4 | "DERIVED: recomputed by an allowlisted pure function over verified claims. The model never does the arithmetic." | verify.py | tests/usp/test_derived_only_pure.py (500.00 passes, 501.00 fails) | todo |
 | S4.3 | 4 | "ASSERTED: model-only. Fine for low-risk fields, never enough to authorize a money-moving argument." | verify.py | tests/usp/test_taint.py (ASSERTED amount fails) | todo |
-| S4.4 | 4 | "SIMPLIFIED ACTIONREQUEST: tool payments.approve_invoice; amount 4800.00 DIRECT src invoice.pdf p1 box doc_sha256; variance 500.00 DERIVED fn sub inputs invoice.total, po.total; note ASSERTED taint doc" | contracts.py | tests/test_contracts.py | todo |
+| S4.4 | 4 | "SIMPLIFIED ACTIONREQUEST: tool payments.approve_invoice; amount 4800.00 DIRECT src invoice.pdf p1 box doc_sha256; variance 500.00 DERIVED fn sub inputs invoice.total, po.total; note ASSERTED taint doc" | contracts.py | tests/test_contracts.py, tests/usp/test_no_floats.py (61 pass) | done |
 | S4.5 | 4 | "Taint rule: text from documents can be shown to a reviewer, but it can't fill an authority field unless it is DIRECT-verified or matches a system of record." | verify.py, console | tests/usp/test_taint.py; console e2e (greyed "not evidence") | todo |
 | S5.1 | 5 | Table: Output filter or LLM judge — No/No/No/No/No | eval arm `llm_judge` | eval results.json measured | todo |
 | S5.2 | 5 | Table: Schema validation only — Types/No/No/No/No | eval arm `schema_only` | eval results.json | todo |
@@ -44,7 +44,7 @@ Paths are planned until the phase that builds them; `todo` rows are the contract
 | S6.8 | 6 | "Measured against no gate, schema-only and an LLM judge, on 100+ benign cases." | eval/run.py | eval/results.json (benign n ≥ 100) | todo |
 | S6.9 | 6 | "About half the attacks come from a separate generator, so we don't grade our own exam." | .claude/agents/attack-generator.md, eval/ | results.json split handwritten/generated | todo |
 | S7.1 | 7 | Gateway — Python, FastAPI, MCP SDK — proxy every tool call | server.py | tests/test_mcp_*.py | todo |
-| S7.2 | 7 | Contracts — Pydantic v2 strict, RFC 8785 | contracts.py | tests/test_contracts.py | todo |
+| S7.2 | 7 | Contracts — Pydantic v2 strict, RFC 8785 | contracts.py | tests/test_contracts.py, tests/usp/test_no_floats.py (61 pass) | done |
 | S7.3 | 7 | Policy — OPA sidecar, Rego — default-deny decisions | policy/, docker-compose.yml | opa test; docker compose ps | todo |
 | S7.4 | 7 | Evidence — pdfplumber plus a vision pass — dual extraction of claims | extract.py | tests/test_extract_dual.py | todo |
 | S7.5 | 7 | State — PostgreSQL — versions, tokens, audit chain | db schema | tests/test_db_*.py | todo |

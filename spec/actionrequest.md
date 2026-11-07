@@ -10,7 +10,7 @@ idempotency_key: "..."
 args:
   amount: "4800.00"
     claim: DIRECT
-    src: {doc: invoice.pdf, page: 1, bbox: [72, 410, 190, 428]}   # [x0, top, x1, bottom], pt, top-left
+    src: {doc: invoice.pdf, page: 1, bbox: ["72.00", "410.00", "190.00", "428.00"]}   # [x0, top, x1, bottom], pt, top-left; DECIMAL STRINGS (no floats)
     doc_sha256: ab12...
   variance: "500.00"
     claim: DERIVED
