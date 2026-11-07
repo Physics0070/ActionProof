@@ -117,7 +117,7 @@ def test_review_token_two_threads(kit):
     for n in range(ROUNDS):
         _reset(kit)
         req, receipt = _review(kit, f"INV-RTV{n}", idem=f"rv-{n}")
-        tok = kit.mint(req)
+        tok = kit.mint(receipt, req)
         out = race(lambda: kit.gate.commit(receipt, req, review_token=tok),
                    lambda: kit.gate.commit(receipt, req, review_token=tok))
         assert sorted(o.outcome for o in out) == ["DENY", "EXECUTED"], (n, out)
@@ -126,9 +126,9 @@ def test_review_token_two_threads(kit):
 
 def test_review_token_minted_for_other_request(kit):
     """Token for request A presented with REVIEW receipt B (HELD)."""
-    a, _ = _review(kit, "INV-RTR5", idem="tok-a")
+    a, ra = _review(kit, "INV-RTR5", idem="tok-a")
     b, rb = _review(kit, "INV-RTR6", idem="tok-b")
-    tok = kit.mint(a)
+    tok = kit.mint(ra, a)
     c = kit.gate.commit(rb, b, review_token=tok)
     assert c.outcome == "DENY" and rules(c) == ["AP-REV-10"] and kit.tool.calls == []
 
@@ -136,7 +136,7 @@ def test_review_token_minted_for_other_request(kit):
 def test_review_token_reused_after_success(kit):
     """A consumed token cannot authorize a re-prepared receipt of the same request (HELD)."""
     req, receipt = _review(kit, "INV-RTR7", idem="tok-reuse")
-    tok = kit.mint(req)
+    tok = kit.mint(receipt, req)
     assert kit.gate.commit(receipt, req, review_token=tok).outcome == "EXECUTED"
     kit.sql("UPDATE records SET data = data || '{\"status\": \"open\"}'::jsonb WHERE record_id = 'invoice:INV-RTR7'")
     p = kit.gate.prepare(req, kit.json_request("INV-RTR7", "1000.00", "500.00", seed=False)[1])

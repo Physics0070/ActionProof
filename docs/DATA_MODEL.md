@@ -48,7 +48,9 @@ Enforces: UNIQUE `nonce` / `idempotency_key` = a receipt or key can commit once;
 |---|---|---|
 | token | text | PRIMARY KEY |
 | request_hash | text | NOT NULL (token binds to exactly one request) |
-| submitter, minted_by | text | NOT NULL (ADR-008 decides whether they must differ) |
+| submitter | text | NOT NULL (`req.actor` of the receipt's request) |
+| minted_by | text | NOT NULL (reviewer login = console session subject, ADR-008) |
+| minted_by_person | text | NOT NULL (`people.person_id` of `minted_by` at mint; added by `ALTER ... IF NOT EXISTS` on older DBs) |
 | minted_at | bigint | nullable |
 | exp | bigint | NOT NULL |
 | used_at, used_nonce | bigint, text | NULL until consumed; CHECK both NULL or both set |
@@ -56,6 +58,21 @@ Enforces: UNIQUE `nonce` / `idempotency_key` = a receipt or key can commit once;
 Enforces: consumed atomically by `UPDATE ... WHERE token AND request_hash AND used_at IS NULL AND exp > now RETURNING`;
 a second use or a token for another request returns no row → **AP-REV-10 / AP-REP-05 (G2)**.
 `# ponytail: tokens stored as-is for the prototype; upgrade path is storing sha256(token).`
+
+## people — directory for reviewer separation (ADR-008)
+| Column | Type | Constraint |
+|---|---|---|
+| login | text | PRIMARY KEY (console logins, on_behalf_of ids and agent ids share one namespace) |
+| person_id | text | NOT NULL (two logins of one human share it; an agent maps to its operator) |
+| roles | text[] | NOT NULL (`reviewer` may mint; `admin` may not; `team` = not a single person) |
+
+Enforces **AP-SEP-12 (G2)**: the reviewer login needs `reviewer`, and its person must differ from the persons of
+`Principal.actor` and `Principal.on_behalf_of`; a missing row or a `team` submitter fails closed. Read at mint and
+again inside the commit tx `FOR SHARE` (a concurrent edit waits, or aborts the tx before the tool). Seeded by
+`db.seed_hero` (`db.PEOPLE`): `rev-alice`/`p-alice`, `rev-bob`/`p-bob` (reviewer), `sub-user123`/`p-user123`,
+`admin-ops`/`p-ops` (admin), `user-123` and `agent-7` → `p-user123`. Test-only `rev-user123` (`p-user123`, reviewer)
+is inserted by `tests/redteam/test_rt_sep.py`, never seeded. Included in `db.reset` (tests).
+`# ponytail: admin edits to people are audited with audit.py (Phase 5); team expansion is a non-goal.`
 
 ## quarantine — records with an unknown outcome (ADR-014)
 | Column | Type | Constraint |

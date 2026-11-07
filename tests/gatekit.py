@@ -192,6 +192,6 @@ class Kit:
         except ValueError:  # e.g. a non-canonical actor: hand the raw dict to the gate, which must DENY it
             return d, {doc_id: blob}
 
-    def mint(self, req: ActionRequest, submitter: str = "agent-7", reviewer: str = "alice") -> str:
-        from actionproof.contracts import request_hash
-        return self.gate.mint_review_token(request_hash(req), submitter, reviewer)
+    def mint(self, receipt: dict, req: ActionRequest, reviewer_login: str = "rev-alice") -> str:
+        """The console's call: the reviewer is the session subject; rev-alice is a different person (ADR-008)."""
+        return self.gate.mint_review_token(receipt, req, reviewer_login=reviewer_login)

@@ -9,7 +9,7 @@ from psycopg.types.json import Jsonb, set_json_dumps
 from actionproof.config import load_settings
 
 SCHEMA = Path(__file__).with_name("schema.sql")
-TABLES = ("records", "delegations", "commits", "review_tokens", "quarantine")
+TABLES = ("records", "delegations", "commits", "review_tokens", "quarantine", "people")
 
 
 class _NoFloatDumper(Dumper):
@@ -49,8 +49,20 @@ HERO_RECORDS = (
 )
 
 
+# ADR-008 directory. agent-7 maps to its operator, the same human as user-123. Test-only logins (rev-user123, a
+# second reviewer login of p-user123) are inserted by the tests, never seeded.
+PEOPLE = (
+    ("rev-alice", "p-alice", ("reviewer",)),
+    ("rev-bob", "p-bob", ("reviewer",)),
+    ("sub-user123", "p-user123", ("submitter",)),
+    ("admin-ops", "p-ops", ("admin",)),
+    ("user-123", "p-user123", ()),
+    ("agent-7", "p-user123", ("agent",)),
+)
+
+
 def seed_hero(conn: psycopg.Connection) -> None:
-    """Idempotent upsert of the hero scenario (records at version 1, delegation for user-123)."""
+    """Idempotent upsert of the hero scenario (records at version 1, delegation for user-123, people)."""
     for record_id, kind, data in HERO_RECORDS:
         conn.execute(
             "INSERT INTO records (record_id, kind, data, version) VALUES (%s, %s, %s, 1) "
@@ -62,6 +74,11 @@ def seed_hero(conn: psycopg.Connection) -> None:
         "ON CONFLICT (on_behalf_of) DO UPDATE SET max_amount = EXCLUDED.max_amount, vendors = EXCLUDED.vendors",
         ("user-123", "5000.00", ["V-ACME"]),
     )
+    for login, person, roles in PEOPLE:
+        conn.execute(
+            "INSERT INTO people (login, person_id, roles) VALUES (%s, %s, %s) "
+            "ON CONFLICT (login) DO UPDATE SET person_id = EXCLUDED.person_id, roles = EXCLUDED.roles",
+            (login, person, list(roles)))
     conn.commit()
 
 

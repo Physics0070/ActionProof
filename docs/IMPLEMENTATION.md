@@ -33,12 +33,12 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [ ] audit.py + verifier CLI; console backend endpoints; docs/API.md
 
 ### Reviewer separation (ADR-008)
-- [ ] schema: `people(login PK, person_id, roles[])`; seed `rev-alice`, `rev-bob` (reviewer), `sub-user123`, `admin-ops` (admin), `user-123`→`p-user123`, `agent-7`→`p-user123`; test-only `rev-user123` (person `p-user123`)
-- [ ] failing red-team test first: `rev-user123` mint → DENY AP-SEP-12 (mint + commit); unmapped login → DENY; `admin-ops` mint → refused (no reviewer role)
-- [ ] `Gate.mint_review_token(receipt, req, *, reviewer_login)`: verify signature/hash/decision==REVIEW, submitter from `req`, require reviewer role, AP-SEP-12 / G2, store `minted_by` + `minted_by_person`; audit refusals
-- [ ] commit: re-apply AP-SEP-12 inside the tx after token consume (people re-read under the commit lock)
-- [ ] console backend: reviewer identity only from the server-side session subject; label "requested by X for Y · approved by Z (different person)"
-- [ ] docs: POLICY.md row AP-SEP-12; THREAT_MODEL residuals (collusion, session hijack); DATA_MODEL `people`
+- [x] schema: `people(login PK, person_id, roles[])`; seed `rev-alice`, `rev-bob` (reviewer), `sub-user123`, `admin-ops` (admin), `user-123`→`p-user123`, `agent-7`→`p-user123`; test-only `rev-user123` (person `p-user123`)
+- [x] failing red-team test first: `rev-user123` mint → DENY AP-SEP-12 (mint + commit); unmapped login → DENY; `admin-ops` mint → refused (no reviewer role)
+- [x] `Gate.mint_review_token(receipt, req, *, reviewer_login)`: verify signature/hash/decision==REVIEW, submitter from `req`, require reviewer role, AP-SEP-12 / G2, store `minted_by` + `minted_by_person`; audit refusals (logger `actionproof.audit` until audit.py)
+- [x] commit: re-apply AP-SEP-12 inside the tx after token consume (people re-read under the commit lock)
+- [ ] console backend: reviewer identity only from the server-side session subject; label "requested by X for Y · approved by Z (different person)" (rule documented in ARCHITECTURE.md; lands with the console backend)
+- [x] docs: POLICY.md row AP-SEP-12; THREAT_MODEL residuals (collusion, session hijack); DATA_MODEL `people`
 
 ### Refund connector (ADR-009)
 - [ ] mocks: `payments` record PAY-7731 (CUST-311, 450.00, pm_card_4242) + refund tool dry_run/execute with idempotency key

@@ -30,6 +30,7 @@ Run: `C:/Users/Soham/tools/opa/opa.exe test policy -v` and `python -m uv run pyt
 | AP-STALE-07 | gate.commit | record version != receipt.version, or diff changed | DENY | G2 | Phase 3 gate tests |
 | (fresh policy) | gate.commit (ADR-014) | policy re-decided from CURRENT state inside the commit tx: fresh DENY = DENY with OPA's rule ids (G1); fresh REVIEW on an ALLOW receipt = AP-STALE-07 (G2) | DENY | G1/G2 | `tests/redteam/test_rt_g1_authority.py`, `tests/test_commit.py::test_fresh_policy_*` |
 | AP-REV-10 | gate.commit | REVIEW without a valid unused human-minted token bound to the request hash | DENY | G2 | Phase 3 gate tests |
+| AP-SEP-12 | gate.mint_review_token + gate.commit (ADR-008) | reviewer login missing from `people`, lacks the `reviewer` role (`admin` cannot mint), submitter is a `team`, or reviewer `person_id` ∈ {person(Principal.actor), person(Principal.on_behalf_of)}; any submitter lookup missing; re-read inside the commit tx after the token is consumed (rollback, token stays unused) | refuse mint (`ReviewRefused`, audited) / DENY | G2 | `tests/redteam/test_rt_sep.py` |
 | AP-ERR-11 | gate | any exception, serialization failure after retries, tool error | DENY | G1 | Phase 3 gate tests |
 
 ## Precedence

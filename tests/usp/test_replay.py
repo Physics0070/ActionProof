@@ -48,7 +48,7 @@ def test_review_token_bound_to_request_hash(kit):
     b, db = kit.json_request("INV-6006", "4800.00", "4300.00")
     ra, rb = _prep(kit, a, da), _prep(kit, b, db)
     assert ra["payload"]["decision"] == rb["payload"]["decision"] == "REVIEW"
-    token = kit.mint(a)
+    token = kit.mint(ra, a)
     c = kit.gate.commit(rb, b, review_token=token)
     assert [(x.rule, x.guarantee) for x in c.reasons] == [("AP-REV-10", "G2")]
     assert kit.tool.calls == []
@@ -59,7 +59,7 @@ def test_review_token_single_use(kit):
     """USP G2: a used review token cannot approve the same request again (AP-REP-05)."""
     req, docs = kit.json_request("INV-6007", "4800.00", "4300.00")
     first, second = _prep(kit, req, docs), _prep(kit, req, docs)
-    token = kit.mint(req)
+    token = kit.mint(first, req)
     assert kit.gate.commit(first, req, review_token=token).outcome == "EXECUTED"
     c = kit.gate.commit(second, req, review_token=token)
     assert [(x.rule, x.guarantee) for x in c.reasons] == [("AP-REP-05", "G2")]
@@ -70,7 +70,7 @@ def test_expired_review_token_denied(kit):
     """USP G2: an expired review token is AP-EXP-06 and stays unused."""
     req, docs = kit.json_request("INV-6008", "4800.00", "4300.00")
     receipt = _prep(kit, req, docs)
-    token = kit.mint(req)
+    token = kit.mint(receipt, req)
     kit.sql("UPDATE review_tokens SET exp = minted_at - 1")
     c = kit.gate.commit(receipt, req, review_token=token)
     assert [(x.rule, x.guarantee) for x in c.reasons] == [("AP-EXP-06", "G2")]
@@ -82,7 +82,7 @@ def test_denied_commit_does_not_burn_token(kit):
     """USP G2: a token is consumed only by a commit that executes (atomic with the write)."""
     req, docs = kit.json_request("INV-6009", "4800.00", "4300.00")
     receipt = _prep(kit, req, docs)
-    token = kit.mint(req)
+    token = kit.mint(receipt, req)
     kit.sql("UPDATE records SET version = version + 1 WHERE record_id = 'invoice:INV-6009'")
     assert rules(kit.gate.commit(receipt, req, review_token=token)) == ["AP-STALE-07"]
     assert kit.sql("SELECT used_at FROM review_tokens") == [(None,)]

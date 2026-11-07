@@ -9,11 +9,12 @@ Protocol, rule ids and order: .superpowers/sdd/phase3/design.md and docs/ARCHITE
 - commit re-derives the policy decision from fresh state under the commit lock (ADR-014); a commit that reached the
   tool and rolled back quarantines its record until Gate.release_quarantine (ADR-014).
 - mint_review_token and release_quarantine are Gate methods for the human/admin side only: no tool-facing path
-  (MCP, adapter) may expose them.
+  (MCP, adapter) may expose them. The reviewer must be a different directory PERSON from the submitter
+  (AP-SEP-12 / G2, ADR-008), checked at mint and again inside the commit tx.
 """
 
 import hashlib
-import re
+import logging
 import secrets
 import time
 from dataclasses import asdict, dataclass, field
@@ -36,7 +37,8 @@ MAX_RETRIES = 3
 LOCK_TIMEOUT = "5s"
 PAYLOAD_KEYS = {"request_hash", "decision", "reasons", "diff_hash", "record_id", "version", "nonce", "exp",
                 "tool", "actor", "on_behalf_of", "idempotency_key"}
-_HASH = re.compile(r"^[0-9a-f]{64}$")
+# ponytail: mint refusals go to this logger; they move to the audit chain table with audit.py (Phase 5).
+_audit = logging.getLogger("actionproof.audit")
 
 
 def _now() -> int:
@@ -96,6 +98,39 @@ class Principal:
 
 def _bound(req: ActionRequest, principal) -> bool:
     return isinstance(principal, Principal) and req.actor == principal.actor and req.on_behalf_of == principal.on_behalf_of
+
+
+def _sep(msg: str) -> Reason:
+    return _r("AP-SEP-12", "G2", msg)
+
+
+def _separation(conn, reviewer_login: str, actor: str, on_behalf_of: str) -> tuple[Reason | None, str | None]:
+    """ADR-008 / AP-SEP-12: the reviewer login must hold 'reviewer' and resolve to a person who is neither the
+    actor's person (an agent maps to its operator) nor the on_behalf_of person. A missing lookup or a team
+    on_behalf_of fails closed. FOR SHARE: a concurrent directory edit waits for this tx (or aborts it, retried
+    before the tool). Returns (deny reason, reviewer person_id)."""
+    ids = (reviewer_login, actor, on_behalf_of)
+    rows = {login: (person, roles) for login, person, roles in conn.execute(
+        "SELECT login, person_id, roles FROM people WHERE login = ANY(%s) FOR SHARE", (list(ids),)).fetchall()}
+    if not all(x in rows for x in ids):
+        return _sep("identity not in the people directory (fail closed)"), None
+    person, roles = rows[reviewer_login]
+    if "reviewer" not in roles:
+        return _sep("reviewer login lacks the reviewer role"), None
+    # ponytail: a team on_behalf_of is DENY; upgrade path is a team_members expansion.
+    if any("team" in rows[x][1] for x in (actor, on_behalf_of)):
+        return _sep("submitter is a team, not a single person"), None
+    if person in (rows[actor][0], rows[on_behalf_of][0]):
+        return _sep("reviewer is the same person as the submitter (separation of duties)"), None
+    return None, person
+
+
+class ReviewRefused(Exception):
+    """mint_review_token refused; `.reason` names the rule and guarantee (ADR-008)."""
+
+    def __init__(self, reason: Reason):
+        super().__init__(f"{reason.rule} [{reason.guarantee}] {reason.msg}")
+        self.reason = reason
 
 
 _UNBOUND = Reason("AP-SCOPE-02", "G1", "identity not bound to caller")
@@ -278,22 +313,56 @@ class Gate:
 
     # ------------------------------------------------------------------ review tokens
 
-    def mint_review_token(self, request_hash: str, submitter: str, reviewer: str) -> str:
-        """A one-use human approval bound to one request hash (AP-REV-10). Raises on bad input."""
-        if not isinstance(request_hash, str) or not _HASH.match(request_hash):
-            raise ValueError("request_hash must be a sha256 hex digest")
-        if not all(isinstance(x, str) and x.strip() for x in (submitter, reviewer)):
-            raise ValueError("submitter and reviewer are required")
+    def mint_review_token(self, receipt, req, *, reviewer_login: str) -> str:
+        """A one-use human approval for one REVIEW receipt (AP-REV-10), refused unless the reviewer is a different
+        person from the submitter (AP-SEP-12 / G2, ADR-008). Raises ReviewRefused (audited) on any refusal.
+
+        `reviewer_login` MUST be the authenticated server-side console session subject, never a request body, form
+        or query field. The submitter is read from the gate-signed receipt's request, never passed in."""
+        def refuse(reason: Reason):
+            _audit.warning("review token refused: %s [%s] %s; reviewer_login=%r", reason.rule, reason.guarantee,
+                           reason.msg, reviewer_login)
+            raise ReviewRefused(reason)
+
+        if not isinstance(reviewer_login, str) or not reviewer_login:
+            refuse(_sep("reviewer login is required"))
+        reason, p, req = self._open(receipt, req)
+        if reason:
+            refuse(reason)
+        if p["decision"] != "REVIEW":
+            refuse(_r("AP-REV-10", "G2", "receipt does not call for a human review"))
         # ponytail: token stored as-is; store sha256(token) and compare digests once tokens leave the demo.
-        # ADR-008 (Phase 4) decides whether reviewer must differ from submitter; both are kept.
         token = secrets.token_urlsafe(32)
         now = _now()
         with self._conn_factory() as conn:
+            sep, person = _separation(conn, reviewer_login, req.actor, req.on_behalf_of)
+            if sep:
+                refuse(sep)
             conn.execute(
-                "INSERT INTO review_tokens (token, request_hash, submitter, minted_by, minted_at, exp) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (token, request_hash, submitter, reviewer, now, now + self._settings.review_token_ttl_seconds))
+                "INSERT INTO review_tokens (token, request_hash, submitter, minted_by, minted_by_person, minted_at, "
+                "exp) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (token, p["request_hash"], req.actor, reviewer_login, person, now,
+                 now + self._settings.review_token_ttl_seconds))
         return token
+
+    def _open(self, receipt, req):
+        """Signature, shape, expiry and request hash of a receipt. Returns (deny reason, payload, strict request)."""
+        if not signing.verify(receipt, self._verify_key):
+            return _r("AP-SIG-09", "G2", "receipt signature invalid"), None, None
+        p = receipt["payload"]
+        if set(p) != PAYLOAD_KEYS:
+            return _r("AP-SIG-09", "G2", "receipt payload malformed"), None, None
+        if not isinstance(p["exp"], int) or _now() >= p["exp"]:
+            return _r("AP-EXP-06", "G2", "receipt expired"), None, None
+        # Always re-validate, even an ActionRequest instance: model_construct/model_copy skip validation, and the
+        # hash and the tool must see the same strictly-typed data.
+        try:
+            req = parse_request(req.model_dump(mode="json") if isinstance(req, ActionRequest) else req)
+        except Exception:
+            return _r("AP-HASH-08", "G2", "request does not match the receipt"), None, None
+        if request_hash(req) != p["request_hash"]:
+            return _r("AP-HASH-08", "G2", "request changed after prepare"), None, None
+        return None, p, req
 
     # ------------------------------------------------------------------ commit
 
@@ -305,21 +374,9 @@ class Gate:
             return _deny(_err(f"commit failed: {type(e).__name__}"))
 
     def _commit(self, receipt, req, review_token, principal) -> CommitResult:
-        if not signing.verify(receipt, self._verify_key):
-            return _deny(_r("AP-SIG-09", "G2", "receipt signature invalid"))
-        p = receipt["payload"]
-        if set(p) != PAYLOAD_KEYS:
-            return _deny(_r("AP-SIG-09", "G2", "receipt payload malformed"))
-        if not isinstance(p["exp"], int) or _now() >= p["exp"]:
-            return _deny(_r("AP-EXP-06", "G2", "receipt expired"))
-        # Always re-validate, even an ActionRequest instance: model_construct/model_copy skip validation, and the
-        # hash and the tool must see the same strictly-typed data.
-        try:
-            req = parse_request(req.model_dump(mode="json") if isinstance(req, ActionRequest) else req)
-        except Exception:
-            return _deny(_r("AP-HASH-08", "G2", "request does not match the receipt"))
-        if request_hash(req) != p["request_hash"]:
-            return _deny(_r("AP-HASH-08", "G2", "request changed after prepare"))
+        reason, p, req = self._open(receipt, req)
+        if reason:
+            return _deny(reason)
         if not _bound(req, principal):
             return _deny(_UNBOUND)
         if p["decision"] not in ("ALLOW", "REVIEW"):
@@ -367,10 +424,15 @@ class Gate:
         if p["decision"] == "REVIEW":
             row = conn.execute(
                 "UPDATE review_tokens SET used_at = %s, used_nonce = %s "
-                "WHERE token = %s AND request_hash = %s AND used_at IS NULL AND exp > %s RETURNING token",
+                "WHERE token = %s AND request_hash = %s AND used_at IS NULL AND exp > %s RETURNING minted_by",
                 (now, p["nonce"], review_token, p["request_hash"], now)).fetchone()
             if row is None:
                 return deny(self._token_reason(conn, review_token, p["request_hash"], now))
+            # ADR-008: re-read the directory now, so an edit after the mint, or a token minted outside the console,
+            # cannot approve. A violation rolls back, so the token stays unused.
+            sep, _ = _separation(conn, row[0], req.actor, req.on_behalf_of)
+            if sep:
+                return deny(sep)
 
         rec = conn.execute("SELECT data, version FROM records WHERE record_id = %s FOR UPDATE",
                            (p["record_id"],)).fetchone()

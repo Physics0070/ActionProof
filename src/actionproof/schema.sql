@@ -34,13 +34,26 @@ CREATE TABLE IF NOT EXISTS review_tokens (
     token        text PRIMARY KEY,
     request_hash text NOT NULL,
     submitter    text NOT NULL,
-    minted_by    text NOT NULL,
+    minted_by    text NOT NULL,                                 -- reviewer login (console session subject)
+    minted_by_person text NOT NULL,                             -- people.person_id at mint (ADR-008)
     minted_at    bigint,
     exp          bigint NOT NULL,
     used_at      bigint NULL,
     used_nonce   text NULL,
     -- one-use (G2 / AP-REV-10): consumed atomically, and both fields set together or not at all
     CONSTRAINT review_tokens_used_pair CHECK ((used_at IS NULL) = (used_nonce IS NULL))
+);
+
+-- Databases created before ADR-008 (the gate always writes it; new tables have it NOT NULL).
+ALTER TABLE review_tokens ADD COLUMN IF NOT EXISTS minted_by_person text;
+
+-- Directory (ADR-008, AP-SEP-12): console logins, on_behalf_of ids and agent ids (mapped to their operator) in
+-- one namespace. Two logins of one human share a person_id. Separation of duties compares person_id, never logins.
+-- roles: 'reviewer' may mint review tokens; 'admin' may not; 'team' marks an id that is not a single person.
+CREATE TABLE IF NOT EXISTS people (
+    login     text PRIMARY KEY,
+    person_id text   NOT NULL,
+    roles     text[] NOT NULL
 );
 
 -- A record whose last commit reached the tool but rolled back (unknown outcome). prepare and commit refuse the

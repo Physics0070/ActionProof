@@ -84,6 +84,7 @@ request's `actor`/`on_behalf_of` must equal it exactly, else AP-SCOPE-02 / G1. I
 | — | open one connection, SERIALIZABLE; `LOCK TABLE commits IN SHARE ROW EXCLUSIVE MODE` before any snapshot | |
 | 4b | record not in `quarantine` (ADR-014) | AP-REP-05 G2 |
 | 5 | REVIEW: atomic `UPDATE review_tokens ... used_at IS NULL AND exp > now RETURNING` | AP-REV-10 (other hash / unknown), AP-REP-05 (used), AP-EXP-06 (expired) |
+| 5b | REVIEW: re-read `people` `FOR SHARE` for the token's `minted_by` and the bound Principal; reviewer role + different person (ADR-008) | AP-SEP-12 G2 (rollback, token unused) |
 | 6 | `INSERT INTO commits` (UNIQUE nonce, idempotency_key) | AP-REP-05 G2 |
 | 7 | `SUM(amount)` actor+vendor incl. this row `<= 5000.00` | AP-CUM-03 G1 |
 | 8 | `SELECT ... FOR UPDATE` version == payload.version, and diff hash recomputed == payload.diff_hash | AP-STALE-07 G2 |
@@ -98,6 +99,18 @@ committed until `release_quarantine(record_id, reviewer)`. If a burn write fails
 AP-ERR-11 reason.
 The commit lock makes concurrent split payments deterministic: exactly one executes, the other is AP-CUM-03
 (`tests/attacks/test_split_payments.py`, 20 rounds).
+
+**`mint_review_token(receipt, req, *, reviewer_login) -> token`** (ADR-008), human side only. It checks the
+receipt like commit steps 1-3 (AP-SIG-09 / AP-EXP-06 / AP-HASH-08), requires `decision == REVIEW` (AP-REV-10), reads
+the submitter from `req` (actor, on_behalf_of), then applies AP-SEP-12 against `people`: the login needs the
+`reviewer` role (`admin` cannot mint), and its `person_id` must differ from both submitter persons; any missing row
+or a `team` on_behalf_of refuses. A refusal raises `ReviewRefused(reason)` and is logged to `actionproof.audit`
+(the audit table arrives with audit.py). The token row stores `minted_by` and `minted_by_person`.
+
+**Rule for the Phase 5 console backend:** `reviewer_login` is the authenticated server-side session subject and
+nothing else. It is never read from a request body, form field, query string or header the browser controls, and
+no MCP/adapter path may call `mint_review_token`. The approval label reads "requested by <actor> for
+<on_behalf_of> · approved by <reviewer> (different person)".
 
 ## Stack (slide 7) and reasons
 | Layer | Choice | Reason |

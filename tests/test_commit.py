@@ -71,12 +71,12 @@ def test_review_with_unknown_token_denied(kit):
 
 def test_review_with_token_executes_once(kit):
     req, receipt = _review(kit)
-    token = kit.mint(req)
+    token = kit.mint(receipt, req)
     c = kit.gate.commit(receipt, req, review_token=token)
     assert c.outcome == "EXECUTED", c.reasons
     assert len(kit.tool.calls) == 1 and kit.version() == 2
     used = kit.sql("SELECT used_at IS NOT NULL, used_nonce, minted_by, submitter FROM review_tokens")
-    assert used == [(True, receipt["payload"]["nonce"], "alice", "agent-7")]
+    assert used == [(True, receipt["payload"]["nonce"], "rev-alice", "agent-7")]
 
 
 def test_expired_receipt_denied(kit, monkeypatch):

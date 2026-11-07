@@ -53,7 +53,7 @@ def test_review_token_raced(kit):
         reset_round(kit)
         req, docs = kit.json_request(f"INV-84{n:02d}", "4800.00", "4300.00", idem=f"tok-{n}")
         r1, r2 = kit.gate.prepare(req, docs).receipt, kit.gate.prepare(req, docs).receipt
-        token = kit.mint(req)
+        token = kit.mint(r1, req)
         results = race(lambda: kit.gate.commit(r1, req, token), lambda: kit.gate.commit(r2, req, token))
         assert sorted(r.outcome for r in results) == ["DENY", "EXECUTED"], n
         assert rules(next(r for r in results if r.outcome == "DENY")) == ["AP-REP-05"], n

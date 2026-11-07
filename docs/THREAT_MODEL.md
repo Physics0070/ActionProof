@@ -76,9 +76,14 @@ every assertion encodes the safe behavior (the tool is not reached).
 | burned (unknown-outcome) commit, re-prepared with a new idempotency key | G2 | burn quarantines the record; prepare and commit refuse it, AP-REP-05 (ADR-014) | `tests/redteam/test_rt_g2_replay.py::test_burned_receipt_then_reprepare_with_new_key`, `test_receipt_prepared_before_burn_blocked_at_commit`, `test_release_quarantine_reconciles` |
 | `model_construct`-built request at commit (suspicion) | G2 | commit always re-parses the request | `tests/test_commit.py::test_model_construct_request_revalidated_at_commit` |
 
-Still open from the report: `mint_review_token` reviewer == submitter (ADR-008, Phase 4; the method is admin-side
-only and must not be exposed through MCP/adapters); the global commit lock can DENY legitimate commits under load
-(availability, not safety).
+| self-approval: the submitter's own second reviewer login (`rev-user123` = `p-user123`) mints | G2 | AP-SEP-12 compares `people.person_id`, at mint and inside the commit tx (ADR-008) | `tests/redteam/test_rt_sep.py::test_second_login_of_submitter_cannot_mint`, `test_second_login_token_denied_at_commit` |
+| unmapped reviewer or submitter login | G2 | missing directory row fails closed, AP-SEP-12 | `test_rt_sep.py::test_unmapped_reviewer_login_refused`, `test_unmapped_submitter_refused` |
+| admin mints a review token | G2 | only the `reviewer` role mints, AP-SEP-12 | `test_rt_sep.py::test_admin_cannot_mint` |
+| directory edited after a legitimate mint (reviewer now = submitter person, or role revoked) | G2 | `people` re-read `FOR SHARE` inside the commit tx after the token is consumed; rollback | `test_rt_sep.py::test_directory_edit_after_mint_denied_at_commit`, `test_reviewer_role_revoked_after_mint_denied_at_commit` |
+| `on_behalf_of` is a team with no single person | G2 | `team` role fails closed, AP-SEP-12 | `test_rt_sep.py::test_team_on_behalf_of_denied` |
+
+Still open: the global commit lock can DENY legitimate commits under load (availability, not safety).
+`mint_review_token` stays human/admin-side only and must not be exposed through MCP/adapters.
 
 ## 5. Out of scope
 
@@ -94,4 +99,6 @@ Quoted from deck slide 10:
 | Risk | Effect | Mitigation | Status |
 |---|---|---|---|
 | OCR misreads cause false blocks | A correct document fails verification, so a legitimate write is denied | Two independent readers must agree (pdfplumber and raster/OCR, ADR-002); disagreement fails closed. This costs availability, not safety | planned (Phase 2) |
-| Reviewer collusion | A colluding reviewer mints a review token and approves a bad write | Accepted until ADR-008. ADR-008 is not yet in `docs/DECISIONS.md`, which ends at ADR-007 | open |
+| Reviewer collusion | Two DIFFERENT people (e.g. the user-123 operator and rev-bob) agree to approve each other's bad write | ADR-008 stops one person approving their own request (AP-SEP-12), not two people colluding. Every token records `minted_by` + `minted_by_person` for the audit trail | accepted (prototype) |
+| Reviewer session hijack | An attacker who holds a reviewer's console session mints as that reviewer | The reviewer identity is only the server-side session subject, never a request field (ADR-008); session security is the console's (Phase 5/7). Separation is only as strong as console authentication and the `people` data | accepted (prototype) |
+| `people` directory tampering | An admin maps a reviewer login to a different person to pass AP-SEP-12 | Commit re-reads `people` inside the tx, so edits after a mint are caught; the edit itself is trusted until admin edits are audited (audit.py, Phase 5) | open (Phase 5) |
