@@ -81,3 +81,10 @@ python scripts/record_demo.py --speed 12      # 15 s smoke render
 1. `bash demo.sh` once to check it prints PASS, then `DEMO_PAUSE=1 bash demo.sh` while screen-recording the terminal, or just use the rendered WebM.
 2. Console and web on the demo database: `python scripts/demo_seed.py --reset && python scripts/seed_console.py`, `python -m actionproof.console`, `cd web && npm run dev`; record `http://localhost:5173`, then `/console`.
 3. Join the clips in any editor following the shot list.
+
+## Voiced version
+`video-out/actionproof-demo-voiced.mp4` = the 3:25.06 video (video stream copied, not re-encoded) plus the voice-over (script: `docs/VOICEOVER.md`; recording: `video/audio/vo.mp3`, git-ignored so the voice is not published).
+
+How it is built: `python video/scripts/mix-voiceover.py [vo.mp3] [video.mp4] [out.mp4]`. The voice file is one continuous take, so chapter boundaries (`video/data/vo-bounds.json`) were found by aligning the script's words to the detected speech segments (dynamic programming on pause positions), not by listening. Each chapter is cut at its boundary and placed at its video slot start + 0.3 s with exact silences between, then loudness-normalised (-16 LUFS target, -1.5 dB true peak) and encoded AAC 48 kHz mono. The script asserts every chapter's voice fits its slot (tightest: chapter 3, 46.7 s in a 50 s slot).
+
+Verified from the output file: duration 3:25.06; chapter speech onsets at 12.3, 35.3, 85.3, 105.3, 130.3, 150.3, 170.3, 195.3 s (the planned slot starts). Not verified: that each boundary lands exactly between the right two sentences (inferred from words and pauses; no transcript was made), and numeric loudness of the final file.
