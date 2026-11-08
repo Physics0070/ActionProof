@@ -385,6 +385,8 @@ export interface components {
             reasons: components["schemas"]["ReasonOut"][];
             /** Record Id */
             record_id: string;
+            /** Replay Attempts */
+            replay_attempts: components["schemas"]["ReplayAttempt"][];
             /** Request Hash */
             request_hash: string;
             /** Reviewer */
@@ -434,6 +436,22 @@ export interface components {
             msg: string;
             /** Rule */
             rule: string;
+        };
+        /**
+         * ReplayAttempt
+         * @description One recorded G2 bounce against a request, from the audit log (rule ids and seq only: no detail, no secrets).
+         */
+        ReplayAttempt: {
+            /** Decision */
+            decision: string;
+            /** Kind */
+            kind: string;
+            /** Reasons */
+            reasons: components["schemas"]["ReasonOut"][];
+            /** Seq */
+            seq: number;
+            /** Ts */
+            ts: number;
         };
         /** RequestDetail */
         RequestDetail: {

@@ -503,6 +503,13 @@
             "title": "Record Id",
             "type": "string"
           },
+          "replay_attempts": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayAttempt"
+            },
+            "title": "Replay Attempts",
+            "type": "array"
+          },
           "request_hash": {
             "title": "Request Hash",
             "type": "string"
@@ -540,7 +547,8 @@
           "claims",
           "reasons",
           "outcome_reasons",
-          "audit"
+          "audit",
+          "replay_attempts"
         ],
         "title": "PublicReplay",
         "type": "object"
@@ -688,6 +696,43 @@
           "msg"
         ],
         "title": "ReasonOut",
+        "type": "object"
+      },
+      "ReplayAttempt": {
+        "description": "One recorded G2 bounce against a request, from the audit log (rule ids and seq only: no detail, no secrets).",
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "$ref": "#/components/schemas/ReasonOut"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "ts",
+          "kind",
+          "decision",
+          "reasons"
+        ],
+        "title": "ReplayAttempt",
         "type": "object"
       },
       "RequestDetail": {

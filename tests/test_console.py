@@ -402,3 +402,29 @@ def test_console_bind_host_setting():
         with pytest.raises(ConfigError, match="CONSOLE_BIND_HOST"):
             con.load_console_settings({**env, "CONSOLE_BIND_HOST": bad})
     assert "host=\"127.0.0.1\"" not in Path(con.__file__).read_text(encoding="utf-8")
+
+
+def test_public_replay_exposes_recorded_replay_attempts(app, kit):
+    """The G2 bounce is read from the audit log: an executed hero, then its spent receipt replayed at the gate."""
+    from actionproof.gate import Principal
+
+    h = park_hero(kit)
+    c, csrf = login(app, "rev-alice")
+    pub0 = client(app).get("/api/public/replay/inv-2048").json()
+    assert pub0["replay_attempts"] == []  # honest empty state before any replay
+    assert decide(c, csrf, h).json()["outcome"] == "EXECUTED"
+    assert client(app).get("/api/public/replay/inv-2048").json()["replay_attempts"] == []  # the approval is no bounce
+    req_json, receipt = kit.sql("SELECT request, receipt FROM pending_reviews WHERE request_hash = %s", (h,))[0]
+    req = hero.hero_request("idem-1")
+    token = kit.gate.mint_review_token(receipt, req, reviewer_login="rev-alice")
+    r = kit.gate.commit(receipt, req, token, principal=Principal("agent-7", "user-123"))
+    assert r.outcome == "DENY"
+    pub = client(app).get("/api/public/replay/inv-2048").json()
+    seq, kind = kit.sql("SELECT max(seq), 'commit' FROM audit_log WHERE request_hash = %s AND kind = 'commit' "
+                        "AND decision = 'DENY'", (h,))[0]
+    att = pub["replay_attempts"]
+    assert len(att) == 1 and att[0]["seq"] == seq and att[0]["kind"] == "commit" and att[0]["decision"] == "DENY"
+    assert [(x["rule"], x["guarantee"]) for x in att[0]["reasons"]] == [("AP-REP-05", "G2")]
+    assert isinstance(att[0]["ts"], int)
+    for word in ('"sig"', '"nonce"', '"receipt"', "review_token"):
+        assert word not in json.dumps(att)

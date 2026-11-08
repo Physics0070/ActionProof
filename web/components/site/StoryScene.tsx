@@ -7,7 +7,6 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import gsap from "gsap";
 import { Component, useEffect, useMemo, useRef, type ReactNode } from "react";
 import * as THREE from "three";
-import { isReplayBounce } from "@/lib/site-data";
 import { useStory } from "@/lib/site-story";
 
 type Decision = "ALLOW" | "REVIEW" | "DENY";
@@ -111,7 +110,7 @@ function Lamp({ shape, y, color }: { shape: Decision; y: number; color: THREE.Co
     let target = 0.18 + 0.05 * Math.sin(state.clock.elapsedTime * 1.4);
     if (rep && s.chapter === 3) {
       if (s.step >= 2 && rep.decision === shape) target = 1;
-      if (s.step >= 3 && shape === "DENY" && rep.outcome_reasons.some(isReplayBounce)) target = 1;
+      if (s.step >= 3 && shape === "DENY" && rep.replay_attempts.length > 0) target = 1;
     }
     level.current += THREE.MathUtils.clamp(target - level.current, -dt * 6, dt * 6);
     body.current?.color.copy(dim).lerp(color, level.current);

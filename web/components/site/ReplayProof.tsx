@@ -4,7 +4,7 @@
 // Nothing here is scripted: every value, rule id and reason is from the payload. All four steps are always in the DOM
 // (readable without motion, in order for screen readers); the scroll step only decides which one is lit.
 import { useStory } from "@/lib/site-story";
-import { OPERATORS, derivations, isReplayBounce, moneyStr, utc, type Claim, type Reason, type Replay } from "@/lib/site-data";
+import { OPERATORS, derivations, moneyStr, utc, type Claim, type Reason, type Replay } from "@/lib/site-data";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Signal, type Decision } from "@/components/ui/Signal";
 
@@ -49,7 +49,7 @@ function StepBox({ n, step, title, children }: { n: number; step: number; title:
 export function ReplayBody({ data, step }: { data: Replay; step: number }) {
   const ders = derivations(data.claims);
   const decision = asDecision(data.decision);
-  const bounces = data.outcome_reasons.filter(isReplayBounce);
+  const bounces = data.replay_attempts; // audited G2 DENYs for this request_hash, from the audit log
   return (
     <div className="proof-grid">
       <MonoLabel as="p" muted>
@@ -143,7 +143,15 @@ export function ReplayBody({ data, step }: { data: Replay; step: number }) {
             <p>
               <Signal state="DENY" solid />
             </p>
-            <Reasons reasons={bounces} />
+            {bounces.map((a) => (
+              <div key={a.seq}>
+                <MonoLabel as="p" muted>
+                  audit entry {a.seq} / {a.kind} / {a.decision}
+                  {utc(a.ts) ? ` / ${utc(a.ts)}` : ""}
+                </MonoLabel>
+                <Reasons reasons={a.reasons} />
+              </div>
+            ))}
           </>
         ) : (
           <p className="t-muted">No replay attempt is recorded against this request yet, so there is no bounce to show.</p>

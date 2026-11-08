@@ -323,6 +323,15 @@ class SeqRange(BaseModel):
     last_seq: int | None
 
 
+class ReplayAttempt(BaseModel):
+    """One recorded G2 bounce against a request, from the audit log (rule ids and seq only: no detail, no secrets)."""
+    seq: int
+    ts: int
+    kind: str
+    decision: str
+    reasons: list[ReasonOut]
+
+
 class PublicReplay(BaseModel):
     request_hash: str
     record_id: str
@@ -337,6 +346,7 @@ class PublicReplay(BaseModel):
     reasons: list[ReasonOut]
     outcome_reasons: list[ReasonOut]
     audit: SeqRange
+    replay_attempts: list[ReplayAttempt]  # audited DENYs with a G2 reason (AP-REP-05, AP-STALE-07, ...)
 
 
 class EvalOut(BaseModel):
@@ -661,10 +671,16 @@ def create_app(gate, docs, conn_factory, settings: ConsoleSettings) -> FastAPI:
             h, req, dec, status, rev, decided_at, card, verified, reasons, outcome, actor, obo = row
             lo, hi = conn.execute("SELECT min(seq), max(seq) FROM audit_log WHERE request_hash = %s",
                                   (h,)).fetchone()
+            attempts = [ReplayAttempt(seq=q, ts=t, kind=k, decision=d, reasons=[x for x in rs if x["guarantee"] == "G2"])
+                        for q, t, k, d, rs in conn.execute(
+                            "SELECT seq, ts, kind, decision, rules FROM audit_log WHERE request_hash = %s "
+                            "AND kind IN ('commit', 'refuse', 'review') AND decision = 'DENY' "
+                            "AND rules @> '[{\"guarantee\": \"G2\"}]' ORDER BY seq", (h,))]
         return PublicReplay(request_hash=h, record_id=_record_id(req), tool=req["tool"],
                             label=f"requested by {actor} for {obo}", decision=dec, status=status, reviewer=rev,
                             decided_at=decided_at, card=card, claims=_claims(req, verified), reasons=reasons,
-                            outcome_reasons=outcome, audit=SeqRange(first_seq=lo, last_seq=hi))
+                            outcome_reasons=outcome, audit=SeqRange(first_seq=lo, last_seq=hi),
+                            replay_attempts=attempts)
 
     @router.get("/api/public/eval", response_model=EvalOut, response_model_exclude_none=True, tags=["public"],
                 dependencies=[Depends(public_rate)])

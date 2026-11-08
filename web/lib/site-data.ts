@@ -71,10 +71,6 @@ export function derivations(claims: Claim[]): Derivation[] {
 
 export const OPERATORS: Record<string, string> = { sub: "−", add: "+", sum: "+" };
 
-export function isReplayBounce(r: Reason): boolean {
-  return /G2/.test(r.guarantee);
-}
-
 // ---------------------------------------------------------------------------------------------- eval payload
 
 export type SetCount = { n: number; success: number };
