@@ -739,3 +739,204 @@
     padding-inline: 0;
   }
 }
+
+/* ------------------------------------------------------------ v3: stable gate stage, rail hit area, gap cards, closing, footer */
+.gate[data-live="true"] .stations {
+  position: relative;
+  padding-bottom: 280px;
+}
+.gate[data-live="true"] .stations li[data-active="true"] .st-body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 260px;
+  align-content: start;
+  padding: var(--s-4) 0 0 0;
+  border-top: 2px solid var(--c-accent);
+}
+.gate[data-live="true"] .st-copy {
+  display: contents;
+}
+.gate[data-live="true"] .stations li[data-active="true"] .st-body > p:first-child {
+  font-size: 1.1875rem;
+}
+@media (max-width: 720px) {
+  .gate[data-live="true"] .stations {
+    min-height: 340px;
+    padding-bottom: 0;
+  }
+  .gate[data-live="true"] .stations li[data-active="true"] .st-body {
+    position: static;
+    height: auto;
+    border-top: 0;
+    padding: var(--s-2) 0 0 calc(1.5ch + var(--s-4));
+  }
+}
+/* static (reduced motion, no WebGL): each step is a row with its own door poster */
+.gate[data-live="false"] .stations {
+  gap: var(--s-8);
+}
+.gate[data-live="false"] .stations li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-5);
+  padding-top: var(--s-5);
+  border-top: 2px solid var(--c-line);
+}
+.gate[data-live="false"] .gate-poster {
+  padding: 0;
+  max-width: 560px;
+}
+@media (min-width: 901px) {
+  .gate[data-live="false"] .stations li {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--s-7);
+  }
+  .gate[data-live="false"] .gate-stage {
+    display: block;
+    padding-block: var(--s-9);
+  }
+  .gate[data-live="false"] .gate-inner {
+    display: block;
+  }
+  .gate[data-live="false"] .gate-copy {
+    max-width: none;
+  }
+}
+.rail a {
+  min-width: 32px;
+  min-height: 32px;
+  padding-right: 10px;
+}
+.rail a:focus-visible {
+  outline-color: #fff;
+}
+
+/* gap cards: staged reveal, each tied to the step that answers it; the card latches on hover and focus */
+.gaps li {
+  position: relative;
+  overflow: hidden;
+  padding: var(--s-5);
+  border-top: 0;
+  background: var(--c-paper);
+  border: 2px solid var(--c-ink);
+  align-content: start;
+}
+.gaps li::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 8px;
+  background: var(--c-accent);
+  transform: scaleX(0.18);
+  transform-origin: left;
+  transition: transform var(--t-latch) var(--ease-latch);
+}
+.gaps li:hover::before,
+.gaps li:focus-within::before {
+  transform: scaleX(1);
+}
+.gaps li {
+  transition: translate var(--t-latch) var(--ease-latch);
+}
+.gaps li:hover,
+.gaps li:focus-within {
+  translate: 0 -6px;
+}
+.gap-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 44px;
+  margin-top: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  text-decoration: none;
+  border-top: 1px solid var(--c-line);
+  padding-top: var(--s-3);
+}
+.gap-n {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--c-ink);
+  color: var(--c-ground);
+  font-weight: 500;
+}
+.gap-link:hover span:last-child,
+.gap-link:focus-visible span:last-child {
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+.gaps[data-stage="armed"] li {
+  opacity: 0;
+  translate: 0 28px;
+}
+.gaps[data-stage="in"] li {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity 520ms var(--ease-latch),
+    translate 520ms var(--ease-latch);
+}
+.gaps[data-stage="in"] li:nth-child(2) {
+  transition-delay: 140ms;
+}
+.gaps[data-stage="in"] li:nth-child(3) {
+  transition-delay: 280ms;
+}
+.gaps[data-stage="in"] li:hover,
+.gaps[data-stage="in"] li:focus-within {
+  translate: 0 -6px;
+  transition-delay: 0ms;
+  transition-duration: var(--t-latch);
+}
+@media (prefers-reduced-motion: reduce) {
+  .gaps[data-stage] li {
+    opacity: 1;
+    translate: none;
+  }
+}
+
+/* closing band and footer */
+.ch-closing {
+  background: var(--carbon);
+  padding-block: var(--s-10);
+  color: var(--carbon-text);
+  --c-ink: var(--carbon-text);
+  --c-muted: var(--carbon-muted);
+  --c-line: var(--carbon-line);
+  --c-focus: var(--c-accent);
+  border-top: 2px solid var(--carbon-line);
+}
+.ch-closing .closing {
+  margin-top: 0;
+  max-width: 16ch;
+  font-size: clamp(2.75rem, 1rem + 6.4vw, 8rem);
+}
+.site-foot {
+  border-top: 2px solid var(--carbon-line);
+}
+.foot-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-6);
+}
+.foot-brand {
+  margin-right: auto;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.03em;
+}
+.foot-inner a:not(.foot-brand) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+}

@@ -302,14 +302,14 @@ function Rig({ children }: { children: ReactNode }) {
     if (group.current) {
       const tx = wide ? (live ? 2.4 : 3.8) : 0;
       group.current.position.x += (tx - group.current.position.x) * 0.08;
-      group.current.position.y = wide ? 0 : live ? 1.15 : 2.2;
+      group.current.position.y = wide ? 0 : live ? 3.4 : 2.2;
     }
     if (!ready.current) {
       ready.current = true;
       window.dispatchEvent(new Event("gate-ready"));
     }
   });
-  return <group ref={group} position={wide ? [3.8, 0, 0] : [0, 1.15, 0]}>{children}</group>;
+  return <group ref={group} position={wide ? [3.8, 0, 0] : [0, 3.4, 0]}>{children}</group>;
 }
 
 function TickerBridge({ active }: { active: React.RefObject<boolean> }) {
@@ -364,6 +364,21 @@ function Inner({ active, light }: { active: React.RefObject<boolean>; light: boo
     </>
   );
 }
+
+// r3f 9.8.2 (the latest) still builds a THREE.Clock internally, which three 0.187 flags as deprecated. We cannot pass
+// our own clock, so that single warning is dropped while the canvas is created, then console.warn is restored.
+function quietClockWarning() {
+  const warn = console.warn;
+  console.warn = (...a: unknown[]) => {
+    if (typeof a[0] === "string" && a[0].includes("THREE.Clock")) return;
+    warn(...a);
+  };
+  window.setTimeout(() => {
+    console.warn = warn;
+  }, 3000);
+}
+
+if (typeof window !== "undefined") quietClockWarning();
 
 export default function GateScene({ active, light }: { active: React.RefObject<boolean>; light: boolean }) {
   return (

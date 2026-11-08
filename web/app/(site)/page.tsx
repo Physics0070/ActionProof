@@ -6,6 +6,7 @@ import { HERO } from "@/lib/site-copy";
 export const metadata: Metadata = {
   title: { absolute: "ActionProof: before an AI agent acts, prove it should" },
   description: HERO.sub,
+  alternates: { canonical: "/" },
 };
 
 // Chapter 1. Server-rendered text is the LCP element; the 3D scene (in <Story>) loads after hydration, ssr:false.

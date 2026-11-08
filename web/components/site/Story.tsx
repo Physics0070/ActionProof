@@ -26,7 +26,7 @@ function Rail() {
       <ul>
         {CHAPTERS.map((c, i) => (
           <li key={c}>
-            <a href={`#${IDS[i]}`} aria-current={chapter === i ? "step" : undefined} data-on={chapter === i}>
+            <a href={`#${IDS[i]}`} aria-label={`Go to chapter ${i + 1}: ${c}`} aria-current={chapter === i ? "step" : undefined} data-on={chapter === i}>
               <span className="rail-dot" aria-hidden="true" />
               <span className="rail-label">{c}</span>
             </a>
@@ -44,8 +44,28 @@ function Pending({ what }: { what: string }) {
   return <p className="t-muted">Fetching the recorded INV-2048 decision from the gate...</p>;
 }
 
+/** Which step answers which gap (deck slide 2 to slide 3): evidence -> Verify, policy -> Authorize, execution -> Receipt and commit. */
+const GAP_STEP: Record<string, number> = { evidence: 1, policy: 2, execution: 3 };
+
 function Problem() {
   const replay = useStory((s) => s.replay);
+  const gapsRef = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    const el = gapsRef.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    el.dataset.stage = "armed";
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e?.isIntersecting) {
+          el.dataset.stage = "in";
+          io.disconnect();
+        }
+      },
+      { threshold: 0.25 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   const f = replay.kind === "ok" ? invoiceFacts(replay.data.claims) : null;
   return (
     <section id="problem" data-chapter="1" className="ch ch-problem band-mist" aria-labelledby="problem-h">
@@ -69,14 +89,25 @@ function Problem() {
         </div>
         <p className="t-lede ch-lede">A filter that reads the agent&apos;s reply sees nothing wrong, so the write could execute.</p>
         {replay.kind === "none" || replay.kind === "error" ? <Pending what="the amounts" /> : null}
-        <ul className="gaps">
-          {GAPS.map((g) => (
-            <li key={g.id}>
-              <MonoLabel muted>{g.gap}</MonoLabel>
-              <h3 className="t-h3">{g.head}</h3>
-              <p>{g.body}</p>
-            </li>
-          ))}
+        <ul className="gaps" ref={gapsRef}>
+          {GAPS.map((g) => {
+            const st = GAP_STEP[g.id] ?? 0;
+            return (
+              <li key={g.id}>
+                <MonoLabel muted>{g.gap}</MonoLabel>
+                <h3 className="t-h3">{g.head}</h3>
+                <p>{g.body}</p>
+                <a className="gap-link" href="#gate">
+                  <span className="gap-n" aria-hidden="true">
+                    {st + 1}
+                  </span>
+                  <span>
+                    Answered at step {st + 1}: {STEPS[st]?.head}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>
@@ -162,6 +193,10 @@ function Gate({ live }: { live: boolean }) {
   const replay = useStory((s) => s.replay);
   const active = useStory((s) => (live ? Math.min(4, Math.floor(s.gate * 5)) : -1));
   const data = replay.kind === "ok" ? replay.data : null;
+  const dec = data ? asDecision(data.decision) : null;
+  const fin = data ? asDecision(data.status === "executed" ? "ALLOW" : data.status === "rejected" ? "DENY" : data.decision) : null;
+  const chain = data && data.audit.first_seq !== null && data.audit.last_seq !== null ? data.audit.last_seq - data.audit.first_seq + 1 : 0;
+  const denyIndex = data && data.audit.first_seq !== null && data.replay_attempts[0] ? data.replay_attempts[0].seq - data.audit.first_seq : -1;
   return (
     <section id="gate" data-chapter="2" className="gate band-carbon-clear" data-live={live} aria-labelledby="gate-h">
       <div className="gate-stage">
@@ -173,14 +208,17 @@ function Gate({ live }: { live: boolean }) {
             <ol className="stations">
               {STEPS.map((s, i) => (
                 <li key={s.head} data-active={!live || active === i} data-done={live && active > i} aria-current={live && active === i ? "step" : undefined}>
-                  <div className="st-head">
-                    <span className="st-n" aria-hidden="true">{i + 1}</span>
-                    <h3>{s.head}</h3>
+                  <div className="st-copy">
+                    <div className="st-head">
+                      <span className="st-n" aria-hidden="true">{i + 1}</span>
+                      <h3>{s.head}</h3>
+                    </div>
+                    <div className="st-body">
+                      <p>{s.body}</p>
+                      {data ? <Readout i={i} data={data} /> : i === 1 || i === 4 ? <Pending what="this step" /> : null}
+                    </div>
                   </div>
-                  <div className="st-body">
-                    <p>{s.body}</p>
-                    {data ? <Readout i={i} data={data} /> : i === 1 || i === 4 ? <Pending what="this step" /> : null}
-                  </div>
+                  {!live ? <StaticGate step={i} decision={dec ?? "REVIEW"} final={fin ?? "REVIEW"} chain={chain} denyIndex={denyIndex} /> : null}
                 </li>
               ))}
             </ol>
@@ -189,7 +227,6 @@ function Gate({ live }: { live: boolean }) {
             <p className="mono-label">{OUTCOMES}</p>
           </div>
         </div>
-        {!live ? <StaticGate className="gate-poster" /> : null}
       </div>
     </section>
   );
@@ -226,14 +263,6 @@ function Proof() {
           Proof before permission.
         </h2>
         <p className="t-lede proof-body">{USP_BODY}</p>
-        <p className="cta-row">
-          <Link className="button button-primary" href="/console">
-            See a real decision
-          </Link>
-          <Link className="quiet-link" href="/evaluation">
-            How it is measured
-          </Link>
-        </p>
 
         <div className="proof-block">
           <h3 className="t-h3">Who benefits</h3>
@@ -256,7 +285,7 @@ function Proof() {
             ))}
           </ul>
         </div>
-        <div className="proof-block">
+        <div className="proof-block" id="limits">
           <h3 className="t-h3">What ActionProof does not claim</h3>
           <ul className="rows">
             {LIMITS.map((l) => (
@@ -267,7 +296,26 @@ function Proof() {
             ))}
           </ul>
         </div>
-        <p className="t-h2 closing">{CLOSING}</p>
+      </div>
+    </section>
+  );
+}
+
+function Closing() {
+  return (
+    <section className="ch ch-closing" aria-labelledby="closing-h">
+      <div className="container">
+        <h2 id="closing-h" className="t-h2 closing">
+          {CLOSING}
+        </h2>
+        <p className="cta-row">
+          <Link className="button button-primary" href="/console">
+            See a real decision
+          </Link>
+          <Link className="quiet-link" href="/evaluation">
+            How it is measured
+          </Link>
+        </p>
       </div>
     </section>
   );
@@ -289,8 +337,22 @@ export function Story() {
   // The scene is not needed for first paint: mount it when the browser is idle.
   useEffect(() => {
     if (!live) return;
-    const id = window.setTimeout(() => setMount(true), 400);
-    return () => window.clearTimeout(id);
+    // After load, when the browser is idle: the server-rendered h1 has painted by then.
+    type Idle = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (n: number) => void };
+    const w = window as Idle;
+    let id = 0;
+    let idle = 0;
+    const go = () => {
+      if (w.requestIdleCallback) idle = w.requestIdleCallback(() => setMount(true), { timeout: 1500 });
+      else id = window.setTimeout(() => setMount(true), 600);
+    };
+    if (document.readyState === "complete") go();
+    else window.addEventListener("load", go, { once: true });
+    return () => {
+      window.removeEventListener("load", go);
+      window.clearTimeout(id);
+      w.cancelIdleCallback?.(idle);
+    };
   }, [live]);
 
   useEffect(() => {
@@ -338,6 +400,7 @@ export function Story() {
       <Gate live={live} />
       <Claims />
       <Proof />
+      <Closing />
     </div>
   );
 }

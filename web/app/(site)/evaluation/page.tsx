@@ -3,6 +3,7 @@ import { EvalView } from "@/components/site/EvalView";
 
 export const metadata: Metadata = {
   title: "Evaluation",
+  alternates: { canonical: "/evaluation" },
   description: "How the gate is measured: attacks that executed, false blocks and added latency, against baselines. Every number is read from the evaluation results.",
 };
 

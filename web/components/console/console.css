@@ -656,3 +656,58 @@
     white-space: nowrap;
   }
 }
+
+/* Login: the home palette with the corridor and door motif (CSS and SVG only) */
+.c-main:has(.login-stage) {
+  max-width: none;
+  padding: 0;
+}
+.login-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: calc(100vh - 56px);
+  display: grid;
+  place-items: center;
+  padding: var(--s-8) var(--grid-margin);
+  background: var(--carbon);
+}
+.login-motif {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  opacity: 0.8;
+}
+.login-stage .c-login {
+  width: min(460px, 100%);
+  max-width: none;
+  gap: var(--s-4);
+}
+.login-title {
+  font-size: clamp(2.5rem, 1.2rem + 4vw, 4.5rem);
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+.login-lede {
+  color: var(--c-muted);
+  font-size: 1.1875rem;
+}
+.login-stage .card {
+  border: 2px solid var(--c-line);
+  border-top: 8px solid var(--c-accent);
+  padding: var(--s-6);
+}
+.login-stage .c-field input {
+  background: var(--carbon);
+  border-color: var(--carbon-muted);
+}
+.login-stage .c-field input:focus-visible {
+  border-color: var(--c-accent);
+}
+.login-stage .c-login {
+  background: color-mix(in srgb, var(--carbon) 90%, transparent);
+  padding: var(--s-5);
+  outline: 1px solid var(--carbon-line);
+}
