@@ -199,3 +199,31 @@ Deviations: (1) `PAGE_ZOOM = 2` and the reason limits 8/500 are mirrored constan
 does not publish the page size in points or the limits in a field the UI can read); (2) the PNG the server returns
 already has its own red rectangles drawn, the UI adds interactive overlays on top; (3) relative ages use the browser
 clock against the API's `created_at`; (4) the tool filter options are the enum from the generated query type.
+
+## Site (public pages, task 7.2)
+Built: `/` (hero, four-chapter 3D scroll story, who benefits, expected impact, "What ActionProof does not claim",
+closing line) and `/evaluation`. Files: `app/(site)/**`, `components/site/**`, `lib/site-{story,data,copy}.ts`.
+
+- **One driver**: `lib/site-story.ts`. A zustand store holds `progress`, `chapter`, `step`, the capability flags and the
+  fetched INV-2048 replay. Lenis is stepped by `gsap.ticker`; ScrollTrigger writes the store; the R3F `<Canvas
+  frameloop="never">` is advanced from the same ticker (`TickerBridge`) and reads the store with `getState()` in
+  `useFrame` (no React subscription). Rendering pauses off screen and in hidden tabs.
+- **Scene** (`StoryScene.tsx`, `next/dynamic` ssr:false): procedural points sphere (2600, 900 on mobile) drifting into a
+  gate bar; three lamps = circle / triangle / square, lit from token colours. The lamp for the recorded decision lights
+  and the gate bolt travels only at step 3 (after the G1 re-derivation); the DENY lamp lights only if the payload holds a
+  G2 reason. The DOM legend carries the words.
+- **Signature**: chapter 4 sticky panel (`ReplayProof.tsx`) shows claims, the G1 re-derivation (operands resolved from the
+  record's own claims, recomputed with BigInt cents), the decision with rule ids, and the G2 bounce. All from
+  `GET /api/public/replay/inv-2048`. States: loading, error with retry, 404 -> "No recorded decision yet". The slide-2
+  example amounts are filled from the same record.
+- **Fallbacks**: `prefers-reduced-motion`, no WebGL, or a scene crash -> static chapters + `StaticSignals` SVG, no Lenis, no
+  scrub; every proof step is open. Touch: Lenis off, fewer particles, dpr 1. Skip link is the root layout's.
+- **/evaluation** (`EvalView.tsx`): all content from `GET /api/public/eval`; `available:false` -> "Evaluation not run yet".
+  The CaMeL-style row is labelled "typical design, not measured". Generated set empty -> "absent: the independent
+  generator was blocked". Targets, met/missed, commit and run time come from the payload.
+
+Deviations: (1) the OpenAPI type of `results` is a free dict, so `lib/site-data.ts` declares its assumed shape (eval/run.py) once
+and validates the top level at runtime; (2) hero text is server-rendered but the story starts after it (the canvas is not
+behind the hero); (3) no screenshots, e2e or Lighthouse were run (build/typecheck/lint only); (4) the deck's `$` amounts
+are not in source: they are formatted from the fetched claims; (5) `npm run lint` at the web root fails on the
+untracked `security-headers.d.mts` (not mine); my paths lint clean.

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import "./site.css";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
