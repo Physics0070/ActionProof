@@ -25,3 +25,46 @@
 - Council (5 advisors, 5 anonymized peer reviews, Opus chairman): ADR-008 reviewer must be a different PERSON than the submitters, checked against directory person ids (people table), at token mint AND inside commit (rule AP-SEP-12, G2); admin cannot mint; break-glass and per-threshold config rejected. ADR-009 second connector = refund (payments.refund_payment), demo state seeded by scripts/demo_seed.py. Transcript: docs/council/.
 - USP: G2 — approvals cannot be self-granted: the human who unlocks a REVIEW is a different verified person, and the check repeats at commit so a minted token cannot be replayed into a context where the separation fails.
 - Open: nothing blocking; implementation is Phase 5 tasks.
+
+## Phase 5 — Surface (W3): done
+- Built: MCP server (stdio + HTTP bearer, default deny, refuse audit, rate limit), proxy mode `--proxy`, LangChain adapter + offline example agent, hash-chained audit with signed checkpoints and verifier CLI, console backend (argon2 sessions, CSRF, queue/detail/page PNG with the cited box, decisions, public replay and eval), review parking, `web/openapi.json`, refund connector (ADR-009), `scripts/demo_seed.py`, `demo.sh`.
+- Check (HEAD): `pytest` 742 passed; `opa test policy` 46/46. Slide-1 card reproduced byte for byte over MCP stdio and LangChain (tests/e2e/).
+- USP: G1 — the front door denies by default (unknown tool, malformed, unmapped upstream tool all refused and audited with 0 tool calls) and no secret (seed, signature, nonce, token) is reachable from any listing; G2 — a reviewer decision comes only from the server-side session and the audit chain detects edit, delete and reorder.
+- Open issues: the console UI half of S9.2/S9.6/S7.8 rests on e2e specs that have not run.
+- Next: Phase 6.
+
+## Phase 6 — Proof (W4): done, with one blocked row
+- Built: eval harness `eval/` (5 arms: no_gate, schema_only, llm_judge, policy_gateway, actionproof), 211 attacks over 7 classes (handwritten 93 + handwritten2 118), 120 benign cases, probe-derived capability table, report to docs/EVAL.md, extract perf work (ADR-018), per-person cumulative cap (ADR-016), 127.0.0.1 for OPA and Postgres (localhost cost about 2 s on Windows).
+- Check (eval/results.json, commit 3eb62f3, clean): attacks executed no_gate 190/211, schema_only 182/211, llm_judge 114/211, policy_gateway 97/211, actionproof 0/211 (0/93 handwritten, 0/118 handwritten2). False blocks of 120 benign: no_gate 0, schema_only 0, llm_judge 43 (35.8%), policy_gateway 31 (25.8%; 30 are OPA REVIEW mapped to deny), actionproof 1 (0.83%). Added p95: actionproof 140 ms, llm_judge 2631 ms, policy_gateway 47 ms. targets_met.all = true on handwritten2.
+- USP: G1/G2 measured, not asserted: across seven attack classes no attack executed through the real gate, where the no-gate arm executed 90%.
+- Open issues: the independent attack generator was blocked (stopped twice by a safety classifier), so DECK_TRACE S6.9 stays blocked and the "held-out" set is handwritten2, held-out-ish and NOT independent; benign-ref-var-05 is a genuine false block under the per-person refund cap; baselines are simplified implementations, not products.
+- Next: decide how to source the generated half, if at all.
+
+## Phase 7 — Product UI: built, e2e unrun
+- Built: Next.js 16 site and console (design system "Interlock", typed API client generated from OpenAPI, validated env), public site, /evaluation from /api/public/eval, review console with source-span overlays, security headers, Playwright specs (login, review, replay) and Lighthouse budgets.
+- Check: Playwright specs have NOT been run; axe 0 violations (reported by the final redesign check; no committed artifact).
+- USP: G1 — a reviewer decides from per-claim verification and the cited span, and ASSERTED text is flagged `evidence: false`; G2 — decisions go through the single-use token path.
+- Open issues: e2e specs unrun; Lighthouse budgets unrun; mobile LCP not measured on a real device; the COOP header slows first paint in headless Chromium.
+- Next: install `@playwright/test` and `@axe-core/playwright`, run `playwright test` against the full stack.
+
+## Phase 8 — Ship: authored, not exercised
+- Built: Dockerfiles, full-stack `docker-compose.yml`, `.github/workflows/ci.yml` (first job "USP: proof before permission") and `eval.yml`, RUNBOOK, DEMO, README (USP first line, five steps, honest disclosures, slide-10 limits).
+- Check: slide-10 limit wording verified verbatim in README.md, docs/RUNBOOK.md and web/lib/site-copy.ts (grep). Compose and CI were never run.
+- USP: G1 — the design keeps the signing key out of the agent's reach (tests/usp/test_key_isolation.py); the compose mount layout is authored, untested.
+- Open issues: `docker compose up` from a fresh clone never run (no Docker engine on the build machine); no green CI run yet.
+- Next: first fresh-clone compose up, first CI run.
+
+## Redesign and video
+- Built: Airlock redesign of the site (5 chapters, scroll-into-the-gate scene), simplified /evaluation and console, critic fixes (meta and og image, closing band, footer, stable gate stage, static step posters, login motif, gap cards, rail a11y); Remotion explainer (video/, output video-out/actionproof-demo.mp4).
+- Check: blind critic score 7.2 before fixes (not re-scored after); axe 0 violations; video 3:25.06, 1080p, 30 fps, silent with captions, real demo log and site/console footage (docs/VIDEO.md).
+- USP: the video and site show only measured numbers (fetched from the backend or eval/results.json) and the demo log is the real run.
+- Open issues: video has minor flaws; the COOP header slows first paint in headless Chromium.
+- Next: a final pass on the video flaws if time allows.
+
+## Open issues (honest list)
+- Independent attack generator blocked; held-out set is handwritten2 (NOT independent).
+- Docker compose never run here; no green CI run exists yet.
+- Playwright e2e specs written, never run; Lighthouse and real-device mobile LCP not measured.
+- COOP header slows first paint in headless Chromium.
+- benign-ref-var-05: genuine false block under the per-person cap (1/120).
+- Video minor flaws; the blind critic 7.2 was before fixes.

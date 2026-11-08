@@ -57,14 +57,19 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [x] `scripts/demo.py` (run by `demo.sh`, asserts each beat; ran green once, not a pytest): beats in order — hero REVIEW (approved by rev-alice), injected DENY, replay DENY, concurrent $4,900 one DENY, refund taint DENY, refund cap DENY — asserts outcome + rule id each
 
 ## Phase 6 — Proof (W4)
-- [ ] attacks (handwritten + generated in isolation), 100+ benign, eval/run.py 5 arms, EVAL.md
+- [x] handwritten attacks (93) + second handwritten set (118, held-out-ish, NOT independent), 120 benign, eval/run.py 5 arms, docs/EVAL.md, eval/results.json (all three targets met on handwritten2)
+- [ ] generated half in isolation (independent attack generator): BLOCKED, stopped twice by a safety classifier; 0 cases written. Needs a user decision (DECK_TRACE S6.9)
 
 ## Phase 7 — Product UI
 - [x] 7.1 design system + scaffold: web/DESIGN.md (3 concepts, chosen "Interlock", palette by role, signals, computed contrast `npm run contrast`), web/reference/ (attributed notes), Next.js 16 App Router + Turbopack scaffold (`(site)` `/`, `/evaluation`; `(console)/console`), `components/ui` (Signal, Hairline, MonoLabel, Band, Card), `lib/config.ts` (validated env, build fails loudly), `lib/api.ts` typed over `npm run gen:api` types, `/api/*` rewrite; .env.example web section
-- [ ] 7.2 public site: hero scene, sections, /evaluation from /api/public/eval
-- [ ] 7.3 console: login, queue, detail with cited spans, decision; Playwright + axe e2e
+- [x] 7.2 public site: hero scene, sections, /evaluation from /api/public/eval (Airlock redesign; axe 0 violations reported, no committed artifact)
+- [x] 7.3a console: login, queue, detail with cited spans, decision (built, simplified)
+- [ ] 7.3b Playwright + axe e2e: specs written (web/e2e/), NEVER run; `@playwright/test` and `@axe-core/playwright` are not in package.json
 
 ## Phase 8 — Ship
 - [x] CSP/headers (`web/security-headers.mjs`, wired in next.config.ts), compose full stack (`docker-compose.yml`, `Dockerfile.api`, `web/Dockerfile`; authored, NOT run: no Docker engine), GitHub Actions (`ci.yml`, `eval.yml`), Playwright specs + Lighthouse budgets (authored, not run), RUNBOOK
 - [x] demo.sh, docs/DEMO.md
-- [ ] video, README, first `docker compose up` from a fresh clone, first green CI run
+- [x] video (video-out/actionproof-demo.mp4, 3:25.06, 1080p, silent, captions), README (USP first line, slide-10 limits verified)
+- [ ] first `docker compose up` from a fresh clone: not done, no Docker engine on the build machine
+- [ ] first green CI run: workflows authored, never run
+- [ ] Playwright e2e run, Lighthouse budgets run, real-device mobile LCP: not done
