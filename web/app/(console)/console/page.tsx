@@ -1,5 +1,10 @@
-// Scaffold only (task 7.1). Login, queue, request detail with cited spans and the decision form land in task 7.3,
-// all over lib/api.ts (types generated from web/openapi.json).
+import { Suspense } from "react";
+import { QueueView } from "@/components/console/QueueView";
+
 export default function ConsoleHome() {
-  return <h1 className="t-h2">Review queue</h1>;
+  return (
+    <Suspense fallback={null}>
+      <QueueView />
+    </Suspense>
+  );
 }

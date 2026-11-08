@@ -170,3 +170,32 @@ CLAUDE.md invariant 7: every number on screen is fetched from the backend (`lib/
 - `web/reference/industrial-catalogue.md`: https://styles.refero.design/style/aecf9dda-5cba-4dc7-9e73-59b65d895cdf
 - `web/reference/cinematic-hero.md`: https://styles.refero.design/style/21cfe0c1-778d-4613-9f47-a5718eb929b3
 - The CodeQuest 2026 deck (ink `#15141f`, amber `#f5a524`, slide-1 intercept card mono labels).
+
+## Console
+Built in task 7.3 (S7.8, S9.2, S9.6, S4.5). Routes: `/console` (queue), `/console/login`, `/console/requests/[hash]`,
+`/console/audit`. Code: `app/(console)/console/**`, `components/console/**`, `lib/console-{auth,async,format,now}`.
+No WebGL; the same tokens, 0px radius, hairlines and `<Signal>` marks as the site (carbon nav band, mist content).
+
+- **Auth**: `AuthProvider` bootstraps from `GET /api/auth/me`; 401 sends the user to the login page. The session cookie is
+  httpOnly and never read by JS; the CSRF token is read from the `ap_csrf` cookie and sent as `X-CSRF-Token` by `apiPost`
+  on every POST. Bad credentials show one generic message; the form is `method="post"` so a pre-hydration submit cannot
+  put the password in the URL. Navigation is role-aware (Queue/Audit only for reviewer/admin); roles that cannot read or
+  decide get an explicit permission-denied state. The server remains the authority (403s are shown, not pre-empted).
+- **Queue**: filters (status, tool, actor) and the opaque cursor live in the URL; arrow keys / Home / End move between
+  rows, Enter opens. Under 720px the table stacks into labelled rows.
+- **Request**: label line `requested by <actor> for <on_behalf_of> · approved by <reviewer> (different person)` built
+  from API fields (the "approved by" tail only after a decision by a reviewer). Each argument shows claim badge
+  (DIRECT/DERIVED/ASSERTED), source (doc, page, bbox or pointer / derivation), verification (method, rule id + G1/G2).
+  ASSERTED and tainted values are struck-through grey and labelled "not evidence". Source pages are `<img>` of the
+  server PNG; the overlay rectangles are positioned in percent (`bbox * zoom / natural size`), so they follow any rendered
+  size or resize with no JS. Hover or focus on a claim row highlights its rectangle and vice versa.
+- **Decision**: reason (min 8, max 500, client and server) then an explicit confirm step; double-submit is disabled;
+  no optimistic UI, the outcome (EXECUTED / REJECTED / DENY with rule id + guarantee) is rendered from the response in an
+  `aria-live` region and the request is then refetched.
+- **Audit**: recent entries plus "Verify chain", which shows exactly `entries`/`checkpoints` or the `error` string from
+  `GET /api/audit/verify`; a transport failure is shown as an error, never as a result.
+
+Deviations: (1) `PAGE_ZOOM = 2` and the reason limits 8/500 are mirrored constants in `lib/console-format.ts` (the API
+does not publish the page size in points or the limits in a field the UI can read); (2) the PNG the server returns
+already has its own red rectangles drawn, the UI adds interactive overlays on top; (3) relative ages use the browser
+clock against the API's `created_at`; (4) the tool filter options are the enum from the generated query type.
