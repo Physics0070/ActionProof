@@ -4,13 +4,13 @@
 
 ## Headline
 
-- **actionproof: 0 of 211 attacks executed** (0.0%), 1 of 120 benign cases falsely blocked (0.8%), p95 added latency 806 ms.
+- **actionproof: 0 of 211 attacks executed** (0.0%), 1 of 120 benign cases falsely blocked (0.8%), p95 added latency 140 ms.
 - no_gate: 190/211 (90.0%) attacks executed, false blocks 0.0%
 - schema_only: 182/211 (86.3%) attacks executed, false blocks 0.0%
 - llm_judge: 114/211 (54.0%) attacks executed, false blocks 35.8%
 - policy_gateway: 97/211 (46.0%) attacks executed, false blocks 25.8%
 
-Commit `0328a26e717cf79b34b075f4473d925707278012` (dirty tree), generated 2026-11-08 02:07 UTC. Numbers are from `eval/results.json`, written by `python -m eval.run`; nothing here is hand-edited.
+Commit `3eb62f3c6e6b34309c3da32f3c5e4a00ac50d312`, generated 2026-11-08 03:15 UTC. Numbers are from `eval/results.json`, written by `python -m eval.run`; nothing here is hand-edited.
 
 > **No independent attack set.** The separate attack generator was blocked, so the `generated` set is **absent** (`absent: independent generator blocked`). In its place a second handwritten set, `handwritten2`, was written by the same team; it is **held-out-ish, NOT independent**: it was not used to tune the gate, but its authors know the gate. The held-out target below is evaluated on it and must be read that way.
 
@@ -60,11 +60,11 @@ Each cell: attacks that executed beyond the allowed maximum / attacks run.
 
 | arm | benign n | false blocks | p50 ms | p95 ms | added p50 ms | added p95 ms |
 |---|---|---|---|---|---|---|
-| no_gate | 120 | 0 (0.0%) | 5 | 7 | 0 | 0 |
-| schema_only | 120 | 0 (0.0%) | 5 | 7 | 0 | 1 |
-| llm_judge | 120 | 43 (35.8%) | 2387 | 2635 | 2380 | 2626 |
-| policy_gateway | 120 | 31 (25.8%) | 29 | 37 | 24 | 32 |
-| actionproof | 120 | 1 (0.8%) | 707 | 811 | 702 | 806 |
+| no_gate | 120 | 0 (0.0%) | 4 | 7 | 0 | 0 |
+| schema_only | 120 | 0 (0.0%) | 4 | 11 | 1 | 7 |
+| llm_judge | 120 | 43 (35.8%) | 2383 | 2633 | 2381 | 2631 |
+| policy_gateway | 120 | 31 (25.8%) | 28 | 51 | 23 | 47 |
+| actionproof | 120 | 1 (0.8%) | 107 | 145 | 102 | 140 |
 
 policy_gateway false blocks caused only by mapping OPA REVIEW to deny: 30 of 31.
 
@@ -75,9 +75,9 @@ Each column is derived from probe cases (existing handwritten attacks, listed in
 | arm | Checks args | Evidence per arg | Taint flow | Commit-time check | Signed receipt |
 |---|---|---|---|---|---|
 | no_gate | No | No | No | No | No |
-| schema_only | No | No | No | No | No |
+| schema_only | Partial | No | No | No | No |
 | llm_judge | No | Partial | Partial | No | No |
-| policy_gateway | Yes | No | Partial | Partial | No |
+| policy_gateway | Partial | No | Partial | Partial | No |
 | actionproof | Yes | Yes | Yes | Yes | Yes |
 | CaMeL-style designs (typical design, not measured) | Yes | Partial | Yes | No | No |
 
@@ -89,7 +89,7 @@ The CaMeL-style row is descriptive only: it is a typical design from the literat
 |---|---|---|---|
 | successful attacks on handwritten2 (held-out-ish, NOT independent; generated set absent) | <= 0 | 0 | MET |
 | false-block rate | <= 5.0% | 0.8% | MET |
-| p95 added latency | < 250 ms | 806 ms | MISSED |
+| p95 added latency | < 250 ms | 140 ms | MET |
 
 ## Honest limits
 

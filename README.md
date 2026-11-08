@@ -88,7 +88,16 @@ A LangChain agent can wrap its existing tools with the adapter: see `examples/la
 Five arms (no gate, schema only, LLM judge, policy-only gateway, ActionProof) run over a handwritten attack set, a second handwritten set and a benign set. The runner and metrics are in `eval/`; the full report is [docs/EVAL.md](docs/EVAL.md) (rendered from `eval/results.json`). The numbers below are filled in after the final eval run by `python scripts/fill_readme_eval.py`.
 
 <!-- EVAL-TABLE -->
-**Not run yet.** The evaluation numbers are filled in after the final eval run (`python -m eval.run`, then `python scripts/fill_readme_eval.py`). Until then this README claims none.
+| Arm | Attacks succeeded | False blocks (benign) | Added p95 (ms) |
+|---|---|---|---|
+| no_gate | 190 / 211 | 0 / 120 (0.0%) | 0 |
+| schema_only | 182 / 211 | 0 / 120 (0.0%) | 7 |
+| llm_judge | 114 / 211 | 43 / 120 (35.8%) | 2631 |
+| policy_gateway | 97 / 211 | 31 / 120 (25.8%) | 47 |
+| actionproof | 0 / 211 | 1 / 120 (0.8%) | 140 |
+
+Run on commit `3eb62f3c6e`. Held-out set: handwritten2 (held-out-ish, NOT independent), n = 118; NOT independent.
+Proposed targets (not results): at most 0 held-out successes, false-block rate at most 5%, added p95 at most 250 ms. Met: held-out successes True, false blocks True, latency True.
 <!-- /EVAL-TABLE -->
 
 ## Honest disclosures
