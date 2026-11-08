@@ -16,6 +16,13 @@ from hero import hero_request, hero_sor, load_docs, pdf_claim  # noqa: E402
 
 from actionproof import extract  # noqa: E402
 from actionproof.contracts import ActionRequest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _pool_off_unless_the_test_enables_it(monkeypatch):
+    """The warm OCR pool is a process-wide env switch that eval.executor turns on at import (as deployed); these
+    tests state their own precondition: off, except the pool tests below which set OCR_POOL_SIZE themselves."""
+    monkeypatch.setenv("OCR_POOL_SIZE", "0")
 from actionproof.verify import verify_request  # noqa: E402
 
 OUT = ROOT / "fixtures" / "out"
