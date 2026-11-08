@@ -1,6 +1,6 @@
 """Review-console backend (FastAPI; deck slide 3 step 4 "a human approves with a one-use token"; S9.2, S9.6, S7.8).
 
-    python -m actionproof.console [--proxy "<upstream cmd>"]     # 127.0.0.1:CONSOLE_PORT; OpenAPI at /openapi.json
+    python -m actionproof.console [--proxy "<upstream cmd>"]     # CONSOLE_BIND_HOST (default 127.0.0.1):CONSOLE_PORT; OpenAPI at /openapi.json
 
 The human side of a REVIEW. JSON API for the Phase 7 UI (types are generated from web/openapi.json, invariant 7).
 - Server-side sessions: the cookie holds a random id, the database only sha256(id) (console_sessions); httpOnly,
@@ -78,6 +78,7 @@ class ConsoleSettings(BaseModel):
     console_cookie_secure: Literal["auto", "true", "false"] = "auto"
     rate_limit_per_minute: int = 60
     console_port: int = 8766
+    console_bind_host: str = "127.0.0.1"  # loopback unless the operator says otherwise (compose sets 0.0.0.0)
 
     @field_validator("web_origin")
     @classmethod
@@ -91,6 +92,18 @@ class ConsoleSettings(BaseModel):
     def _positive(cls, v: int) -> int:
         if v < 1:
             raise ValueError("must be >= 1")
+        return v
+
+    @field_validator("console_bind_host")
+    @classmethod
+    def _bind(cls, v: str) -> str:
+        import ipaddress
+
+        try:
+            ipaddress.ip_address(v)
+        except ValueError:
+            if not re.fullmatch(r"[A-Za-z0-9.-]{1,253}", v):
+                raise ValueError("must be an IP address or hostname") from None
         return v
 
     @field_validator("console_port")
@@ -695,7 +708,7 @@ def main(argv=None) -> int:
         return 2
     import uvicorn
 
-    uvicorn.run(create_app(wired.gate, wired.docs, wired._conn_factory, cs), host="127.0.0.1", port=cs.console_port,
+    uvicorn.run(create_app(wired.gate, wired.docs, wired._conn_factory, cs), host=cs.console_bind_host, port=cs.console_port,
                 log_level="warning")
     return 0
 

@@ -2,7 +2,7 @@
 # ActionProof gateway image: the review-console API (default CMD) and the MCP server (documented command below).
 #
 #   docker build -f Dockerfile.api -t actionproof-api .
-#   Console (default):  docker run ... actionproof-api                      -> python scripts/serve_console.py
+#   Console (default):  docker run ... actionproof-api                      -> python -m actionproof.console
 #   MCP server (stdio): docker run -i --rm ... actionproof-api python -m actionproof.server --stdio
 #   MCP server (http):  docker run ... actionproof-api python -m actionproof.server --http   (binds 127.0.0.1 in the
 #                       container: reachable only from inside it; put a TLS proxy in the same netns if you need it)
@@ -39,4 +39,4 @@ USER 10001:10001
 EXPOSE 8766
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 CMD ["python", "docker/healthcheck.py"]
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
-CMD ["python", "scripts/serve_console.py"]
+CMD ["python", "-m", "actionproof.console"]

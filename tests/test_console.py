@@ -389,3 +389,16 @@ def test_openapi_generated_and_current():
         assert path in spec["paths"], path
     decision = spec["components"]["schemas"]["DecisionBody"]
     assert set(decision["properties"]) == {"decision", "reason"} and decision.get("additionalProperties") is False
+
+
+def test_console_bind_host_setting():
+    """CONSOLE_BIND_HOST: validated, loopback by default; main() hands it to uvicorn (no hard-coded host)."""
+    from actionproof.config import ConfigError
+
+    env = {"WEB_ORIGIN": ORIGIN}
+    assert con.load_console_settings(env).console_bind_host == "127.0.0.1"
+    assert con.load_console_settings({**env, "CONSOLE_BIND_HOST": "0.0.0.0"}).console_bind_host == "0.0.0.0"
+    for bad in ("", "not a host!", "1.2.3.4:80", "0.0.0.0/0"):
+        with pytest.raises(ConfigError, match="CONSOLE_BIND_HOST"):
+            con.load_console_settings({**env, "CONSOLE_BIND_HOST": bad})
+    assert "host=\"127.0.0.1\"" not in Path(con.__file__).read_text(encoding="utf-8")
