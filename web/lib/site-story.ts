@@ -1,11 +1,11 @@
-// The ONE driver module of the home story: one progress value in zustand, one GSAP clock.
-//  - Lenis is driven by gsap.ticker (no own rAF); the R3F scene is advanced from the same ticker (StoryScene).
-//  - ScrollTrigger writes `progress` (0..1 over the story) and the active chapter/step into the store.
+// The ONE driver module of the home story: scroll progress in zustand, one GSAP clock.
+//  - Lenis is stepped by gsap.ticker (no own rAF); the R3F scene is advanced from the same ticker (GateScene).
+//  - ScrollTrigger writes `hero` / `gate` (0..1) and the active chapter into the store.
 //  - The scene reads the store with getState() inside useFrame (no React subscription, no re-render per frame).
 //  - The real INV-2048 decision lives here too, fetched once from /api/public/replay/inv-2048.
 import { create } from "zustand";
 import { ApiError, apiGet } from "./api";
-import type { Replay } from "./site-data";
+import { derivations, type Replay } from "./site-data";
 
 export type ReplayState =
   | { kind: "idle" }
@@ -17,32 +17,33 @@ export type ReplayState =
 export type Caps = { ready: boolean; webgl: boolean; reducedMotion: boolean; touch: boolean; narrow: boolean };
 
 type Story = {
-  /** 0..1 over the whole story band. Read in useFrame via getState(). */
-  progress: number;
-  /** 0..1 inside the active chapter. */
-  chapterP: number;
+  hero: number;
+  /** 0..1 over the pinned gate sequence. Read in useFrame via getState(). */
+  gate: number;
   chapter: number;
-  step: number;
   caps: Caps;
   replay: ReplayState;
+  /** True only when the browser re-derived every DERIVED value from the fetched claims and all matched (G1). The door obeys it. */
+  verified: boolean;
   setCaps: (c: Caps) => void;
   loadReplay: () => Promise<void>;
 };
 
 export const useStory = create<Story>()((set, get) => ({
-  progress: 0,
-  chapterP: 0,
+  hero: 0,
+  gate: 0,
   chapter: 0,
-  step: 0,
   caps: { ready: false, webgl: false, reducedMotion: false, touch: false, narrow: false },
   replay: { kind: "idle" },
+  verified: false,
   setCaps: (caps) => set({ caps }),
   loadReplay: async () => {
     if (get().replay.kind === "loading" || get().replay.kind === "ok") return;
     set({ replay: { kind: "loading" } });
     try {
       const data = await apiGet("/api/public/replay/inv-2048");
-      set({ replay: { kind: "ok", data } });
+      const d = derivations(data.claims);
+      set({ replay: { kind: "ok", data }, verified: d.length > 0 && d.every((x) => x.matches === true) });
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) set({ replay: { kind: "none" } });
       else set({ replay: { kind: "error", message: e instanceof Error ? e.message : "request failed" } });
@@ -67,7 +68,7 @@ export function detectCaps(): Caps {
   };
 }
 
-/** Starts Lenis + ScrollTrigger for `root`. Returns the cleanup. Call only when the story is live (motion allowed). */
+/** Starts Lenis + ScrollTrigger for `root`. Returns the cleanup. Call only when motion is allowed. */
 export async function startDriver(root: HTMLElement): Promise<() => void> {
   const [{ default: gsap }, { ScrollTrigger }, { default: Lenis }] = await Promise.all([
     import("gsap"),
@@ -81,7 +82,7 @@ export async function startDriver(root: HTMLElement): Promise<() => void> {
   let lenis: InstanceType<typeof Lenis> | null = null;
   let tick: ((t: number) => void) | null = null;
   if (!touch) {
-    lenis = new Lenis({ lerp: 0.12 });
+    lenis = new Lenis({ lerp: 0.14 });
     lenis.on("scroll", ScrollTrigger.update);
     tick = (t: number) => lenis?.raf(t * 1000);
     gsap.ticker.add(tick);
@@ -89,25 +90,22 @@ export async function startDriver(root: HTMLElement): Promise<() => void> {
   }
 
   const ctx = gsap.context(() => {
-    ScrollTrigger.create({
-      trigger: root,
-      start: "top bottom",
-      end: "bottom top",
-      onUpdate: (s) => useStory.setState({ progress: s.progress }),
-    });
-    root.querySelectorAll<HTMLElement>("[data-chapter]").forEach((el, i) => {
-      const steps = Number(el.dataset.steps ?? 1);
+    const hero = document.getElementById("hero");
+    if (hero) {
+      ScrollTrigger.create({ trigger: hero, start: "top top", end: "bottom top", onUpdate: (s) => useStory.setState({ hero: s.progress }) });
+    }
+    const gate = document.getElementById("gate");
+    if (gate) {
+      ScrollTrigger.create({ trigger: gate, start: "top top", end: "bottom bottom", onUpdate: (s) => useStory.setState({ gate: s.progress }) });
+    }
+    document.querySelectorAll<HTMLElement>("[data-chapter]").forEach((el) => {
+      const i = Number(el.dataset.chapter);
       ScrollTrigger.create({
         trigger: el,
-        start: "top 55%",
-        end: "bottom 55%",
+        start: "top 50%",
+        end: "bottom 50%",
         onToggle: (s) => {
           if (s.isActive) useStory.setState({ chapter: i });
-        },
-        onUpdate: (s) => {
-          if (useStory.getState().chapter !== i) return;
-          const step = Math.min(steps - 1, Math.floor(s.progress * steps));
-          useStory.setState({ chapterP: s.progress, step });
         },
       });
     });

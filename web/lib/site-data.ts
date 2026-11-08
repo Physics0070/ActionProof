@@ -113,3 +113,13 @@ export function pct(part: number, whole: number): string {
 export function ms(v: number): string {
   return v >= 1000 ? `${(v / 1000).toFixed(2)} s` : `${v.toFixed(1)} ms`;
 }
+
+/** The slide-2 example, read from the recorded request: invoice, purchase order and the unexplained difference, in cents. */
+export function invoiceFacts(claims: Claim[]): { inv: bigint; po: bigint; gap: bigint } | null {
+  const by = new Map(claims.map((c) => [c.name, c.value]));
+  const inv = cents(by.get("invoice.total") ?? by.get("amount"));
+  const gap = cents(by.get("variance"));
+  const poRaw = cents(by.get("po.total"));
+  const po = poRaw ?? (inv !== null && gap !== null ? inv - gap : null);
+  return inv !== null && gap !== null && po !== null ? { inv, po, gap } : null;
+}

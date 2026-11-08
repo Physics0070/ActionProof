@@ -1,229 +1,153 @@
-# ActionProof web: design system
+# ActionProof web: design system ("Airlock")
 
 Product: a gate in front of an AI agent's writes. **Proof before permission**: no value authorizes a write unless its
 derivation re-checks (G1), and no approval can be replayed (G2). Audiences: developers shipping agents, finance and
-ops reviewers, security and compliance (deck slide 9). The site has three jobs: say the idea in 3 seconds (hero,
-S1.2), show the evidence (`/evaluation`, every number fetched from `/api/public/eval`), and run the review
-console (`/console`, S7.8, S9.2, S9.6).
+ops reviewers, security and compliance. Three jobs: say the idea in 3 seconds (hero), show the evidence
+(`/evaluation`, every number fetched from `/api/public/eval`), run the review console (`/console`).
 
-Stack: Next.js 16 App Router + React 19 + TypeScript, Turbopack; `three` / `@react-three/fiber` / `drei` for the one
-3D scene, `gsap` (ScrollTrigger) + `lenis` for scroll, `zustand` for console state. Plain CSS tokens in
+Stack: Next.js 16 App Router, React 19, TypeScript, Turbopack. `three` + `@react-three/fiber` for the one scene,
+`gsap` (ScrollTrigger) + `lenis` for scroll, `zustand` for the story driver and console state. Plain CSS tokens in
 `app/globals.css`; no UI library.
 
-## Three concepts (design-manual / awwwards Phase 1)
+## What changed and why
+The first site (navy and amber "Interlock") read as dense: eight chapters of small grey text, tables as the main
+content, a small particle sphere, a decision buried at the bottom of the console. The rebuild keeps every claim
+exactly as worded in `lib/site-copy.ts` and changes layout, type, colour, motion and order only: 5 chapters instead
+of 8, one scroll-driven 3D moment that IS the five steps, big type (display up to 9.5rem, body 18px), one call to
+action. `/evaluation` is one headline, a three-number strip, five comparison rows and `<details>`. The console leads
+with a plain verdict and a sticky decision bar; ids, hashes and diffs moved into expandable sections.
+Kept from the old system because they are about correctness: signals = colour + shape + word, AA contrast,
+reduced-motion and no-WebGL fallbacks, 0 hardcoded numbers (invariant 7).
 
-| | A. Interlock (chosen) | B. Chain of custody | C. Night shift |
+## Three concepts (awwwards Phase 1)
+| | A. Airlock (chosen) | B. Customs desk | C. Patch bay |
 |---|---|---|---|
-| Idea | The gate is a machine interlock: a request cannot pass until every value latches against its source. | The audit hash chain is the page spine; every section is an entry stamped onto a ledger. | A full-dark control room; decisions scroll by as traces on an oscilloscope. |
-| Territory | the product's own mechanism (interlock, latch, signal lamp) | the profession's material (evidence, ledgers, stamps) | place (an ops floor at night) |
-| Signature | Hero: a slowly rotating sphere of request particles drifts into a gate plane; each one lights ALLOW / REVIEW / DENY as it crosses. | Scroll stamps each section onto the chain; the hash of the previous entry prints into the next. | A sweep line crosses a live trace; spikes are DENYs. |
-| Emotion (3 s) | calm machine, loud lights | bureaucratic certainty | vigilance |
-| Motion verb | latch | stamp | sweep |
-| Anchor | the gate really returns exactly one of three decisions with a rule id | the audit chain really is hash-linked with signed checkpoints | reviewers really watch a queue |
-| Originality / fit / feasibility / portability (1-5; portability lower is better) | 4 / 5 / 4 / 2 | 4 / 3 / 4 / 2 | 2 / 3 / 5 / 4 |
+| Idea | The gate is a bulkhead door in a corridor; a request packet must re-derive its numbers before the door moves. | Every action is a passport: stamped, refused or sent to a booth. | The audit chain is a switchboard; calls plug in and out. |
+| Territory | the product's mechanism (door, latch, one-use token) | the profession's material (stamps, queues) | place and metaphor (telephone exchange) |
+| Signature | Scroll INTO the gate: packet, re-derivation at the door, door opens to the decision light, a replayed receipt bounces. | A stamp slams onto a document at scroll. | Cables snap into sockets as sections arrive. |
+| Emotion | calm pressure, then release | bureaucratic certainty | tactile order |
+| Originality / fit / feasibility / portability (lower better) | 4 / 5 / 4 / 2 | 3 / 3 / 5 / 3 | 4 / 3 / 3 / 3 |
+| Anchor | the gate really has one door, one-use receipts, and an audit entry for the bounce | reviewers really approve or reject | the audit log really is hash-linked |
 
-**Chosen: A, Interlock.** It is the only concept where the signature moment is the product's actual output (three
-decisions, each with a reason), and it keeps the deck's look: ink, amber, mono labels like the slide-1 intercept card.
-B is kept as a secondary device: the audit section of the console uses ledger rows. C was cut: dark-only reads as
-the generic "AI terminal" default.
+**Chosen: A.** It is the only concept where the signature moment is the product's real behaviour (G1 before the door
+moves, G2 on the replay), and it can be driven by data fetched from the gate.
 
 ### Concept card
 ```
-Idea:        Nothing an agent writes passes until it latches against its source.
-Metaphor:    an industrial interlock on an instrument chassis, with signal lamps
-Signature:   hero particle sphere -> gate plane; particles take a lamp colour only when decided (7.2, R3F scene)
-Emotion:     a quiet machine with loud lights
-Motion verb: latch (short travel, then a hard stop; nothing floats, nothing bounces)
-Screenshot:  carbon band, display headline left, the sphere right with one red square-lit particle held at the plane
+Idea:        Nothing an agent writes passes the door until its numbers re-derive on screen.
+Metaphor:    an industrial airlock: a corridor, station rings, a bulkhead door, signal light behind it
+Signature:   scroll into the gate (home chapter 3): packet -> re-derive $4,800 - $4,300 = $500 -> door opens ->
+             a copy of the receipt returns and bounces off the closed door in the DENY colour
+Emotion:     pressure that releases; a quiet machine with loud light
+Motion verb: latch (a bolt slides, then stops hard; nothing floats or bounces)
+Screenshot:  spruce corridor, a hot pink packet at a shut door, the equation large on the left
 ```
 
-## What came from each reference, and what changed
-Notes and sources: `web/reference/README.md`.
-
-| Reference | Taken | Changed |
-|---|---|---|
-| Industrial catalogue (Refero style aecf9dda) | 0px radius, no shadows, no gradients; 1px hairlines as structure; mist `#f6f8f7` canvas with near-black bands; colour rationed to states; left alignment | band is the deck's ink `#15141f` (not `#0f0e12`); weight-100 body rejected for readability (17px / 400); one warning colour became a 3-signal system with shapes and words; 4px spacing base |
-| Cinematic hero (Refero style 21cfe0c1) | rotating particle sphere as the hero; display type at weight 500, -0.04em, line-height under 1; one kinetic size | teal palette and both gradients rejected; radii rejected (0px); centered stack rejected (left-aligned on the grid); particles carry data (each is a request, colour = its decision); no uppercase tracked eyebrows |
-
-Clichés deliberately avoided: the purple-blue AI gradient, and the rounded SaaS card kit with soft shadows. Also not
-used: uppercase eyebrows above every heading, decorative 01/02/03 (the only numbered list is the real five-beat
-demo sequence).
-
 ## Palette by role
-All values are CSS custom properties in `app/globals.css`. `.band-carbon` re-points the same role names, so
-components never branch on theme.
+Colours are CSS custom properties in `app/globals.css`. `.band-carbon` (spruce) re-points the role names for the dark
+public site; `.band-mist` and `:root` are the light set (console, problem chapter). Components never branch on theme.
 
-| Role | Token | Mist (default) | Carbon band |
+| Role | Token | Light (mint) | Spruce (dark) |
 |---|---|---|---|
-| ground | `--c-ground` | `#f6f8f7` mist | `#15141f` ink (deck) |
-| raised surface | `--c-paper` | `#ffffff` | `#211f2d` |
-| text | `--c-ink` | `#15141f` | `#f6f8f7` |
-| muted text | `--c-muted` | `#55535f` | `#a9a7b4` |
-| hairline | `--c-line` | `#c9ccd0` | `#3a3846` |
-| primary action fill | `--c-accent` | `#f5a524` amber (deck), ink text | same |
-| focus ring | `--c-focus` | `#15141f` | `#f5a524` |
-| ALLOW | `--sig-allow` | `#0b6b35` (ink) | `#3ddc84` (lamp) |
-| REVIEW | `--sig-review` | `#7f4d00` (ink) | `#f5a524` (lamp) |
-| DENY | `--sig-deny` | `#b3261e` (ink) | `#ff5a4a` (lamp) |
+| ground | `--c-ground` | `#e7f2ec` mint | `#0a2b26` spruce |
+| raised surface | `--c-paper` | `#ffffff` | `#11403a` pine |
+| ink | `--c-ink` | `#0a2b26` | `#eef8f3` frost |
+| muted | `--c-muted` | `#416257` | `#a4c9be` sage |
+| line | `--c-line` | `#b7d0c5` | `#2d6157` moss |
+| accent ("packet pink") | `--c-accent` | `#ff3d9a`, ink text `#0a2b26` | same |
+| ALLOW | `--sig-allow` | `#00604d` (ink) | `#34f0c2` (lamp) |
+| REVIEW | `--sig-review` | `#6b4f00` (ink) | `#ffd11a` (lamp) |
+| DENY | `--sig-deny` | `#b3260a` (ink) | `#ff7d52` (lamp) |
 
-Amber is both the deck accent and the REVIEW lamp on purpose: REVIEW is the hero beat (INV-2048 pauses for a human).
-The primary CTA is amber because the next action on the site is always "look at the evidence"; a CTA is never shaped
-like a signal (no circle/triangle/square), so it cannot be misread as a decision.
+Why these: spruce is industrial safety-wall green, a colour nobody photographs; pink is the one hue no plant uses, so
+the request (the packet, the CTA, the unexplained $500) is unmistakable; the three signals are aqua, sun yellow and
+flare orange so they stay apart from the pink and from each other. Not the purple-blue AI gradient, not cream and
+terracotta, not acid green on black (the ground is a rich green and ALLOW is an aqua light). Pink is never shaped like
+a signal; a CTA is a rectangle with a word.
 
 ## Signal system
-One colour per decision, and **never colour alone**: `<Signal state>` always renders colour + shape + word.
-
-| Decision | Shape | Word | Meaning | In 3D (7.2) | In the console (7.3) |
-|---|---|---|---|---|---|
-| ALLOW | circle | ALLOW | executed once | emissive `#3ddc84` | `--sig-allow` mark + word |
-| REVIEW | triangle | REVIEW | paused for a different person | emissive `#f5a524` | `--sig-review` mark + word |
-| DENY | square | DENY | blocked, with rule id and G1/G2 | emissive `#ff5a4a` | `--sig-deny` mark + word |
-
-Lamp colours are only for light on carbon (or as a solid plate with ink text: `<Signal solid>`); ink colours are for
-marks and words on mist. Every DENY/REVIEW shown carries its rule id and guarantee (CLAUDE.md working rules), passed
-as `label`.
-
-## Contrast (WCAG 2.x, computed)
-`npm run contrast` (`scripts/contrast.mjs`) recomputes these and exits 1 on any failure. Output, 2026-11-07:
-
-| Pairing | Colours | Ratio | Required | Result |
-|---|---|---|---|---|
-| ink on mist | `#15141f` on `#f6f8f7` | 17.09 | 4.5 | pass |
-| muted on mist | `#55535f` on `#f6f8f7` | 7.06 | 4.5 | pass |
-| ink on paper | `#15141f` on `#ffffff` | 18.23 | 4.5 | pass |
-| carbon text on carbon | `#f6f8f7` on `#15141f` | 17.09 | 4.5 | pass |
-| carbon muted on carbon | `#a9a7b4` on `#15141f` | 7.70 | 4.5 | pass |
-| carbon muted on carbon raised | `#a9a7b4` on `#211f2d` | 6.83 | 4.5 | pass |
-| amber on carbon | `#f5a524` on `#15141f` | 8.93 | 4.5 | pass |
-| ink on amber (CTA) | `#15141f` on `#f5a524` | 8.93 | 4.5 | pass |
-| ALLOW ink on mist | `#0b6b35` on `#f6f8f7` | 6.21 | 4.5 | pass |
-| REVIEW ink on mist | `#7f4d00` on `#f6f8f7` | 6.64 | 4.5 | pass |
-| DENY ink on mist | `#b3261e` on `#f6f8f7` | 6.13 | 4.5 | pass |
-| ALLOW lamp on carbon | `#3ddc84` on `#15141f` | 10.22 | 4.5 | pass |
-| REVIEW lamp on carbon | `#f5a524` on `#15141f` | 8.93 | 4.5 | pass |
-| DENY lamp on carbon | `#ff5a4a` on `#15141f` | 5.92 | 4.5 | pass |
-| ink on ALLOW / REVIEW / DENY lamp plate | `#15141f` on lamps | 10.22 / 8.93 / 5.92 | 4.5 | pass |
-
-Hairlines (`#c9ccd0` on mist, 1.51) are decorative structure, not the only boundary of any control: every control
-also has a 1px ink border or a text label. DENY vs ALLOW lamps differ by only 1.73 between themselves, which is why
-the shape and the word are mandatory.
+One colour per decision, never colour alone: `<Signal state>` renders colour + shape + word.
+ALLOW = circle, REVIEW = triangle, DENY = square. In 3D the same three light up behind the door (REVIEW, then ALLOW
+when the recorded request executed; DENY on the bounce). Every DENY or REVIEW shown carries its rule id and guarantee.
+On `/evaluation` the same marks read Yes or Met (circle), Partial or Not measured (triangle), No or Missed (square).
 
 ## Type
-Two families via `next/font/google` (self-hosted at build, no runtime request): **Archivo** (400, 500) for display and
-body, **IBM Plex Mono** (400, 500) for labels, rule ids, hashes, amounts in cards. Tabular numerals on.
+next/font, self-hosted at build. **Bricolage Grotesque** 700/800 for display and headings, **Archivo** 400/500/600 for
+body (18px, 1.55), **IBM Plex Mono** 400/500 for labels, rule ids, hashes.
 
-| Role | Token | Size | Weight | Tracking | Leading |
-|---|---|---|---|---|---|
-| kinetic marker (one per page max) | `--fs-kinetic` | 80 -> 280px fluid | 500 | -0.04em | 0.85 |
-| display (hero h1) | `--fs-display` | 52 -> 152px fluid | 500 | -0.04em | 0.92 |
-| h2 | `--fs-h2` | 36 -> 64px | 500 | -0.03em | 1.05 |
-| h3 | `--fs-h3` | 24 -> 32px | 500 | -0.015em | 1.05 |
-| lede | `--fs-lede` | 19 -> 24px | 400 | 0 | 1.4 |
-| body | `--fs-body` | 17px | 400 | 0 | 1.55, max 68ch |
-| small | `--fs-small` | 14px | 400 | 0 | 1.5 |
-| mono label | `--fs-mono` | 13px | 400/500 | +0.02em | 1.4, sentence case |
+| Role | Size | Tracking | Leading |
+|---|---|---|---|
+| display (hero h1) | clamp 52px to 152px (9vw) | -0.045em | 0.9 |
+| h2 | clamp 40px to 96px | -0.035em | 0.95 |
+| h3 | clamp 24px to 36px | -0.02em | 1 |
+| lede | clamp 20px to 28px | 0 | 1.35 |
+| body | 18px | 0 | 1.55, max 62ch |
+| mono label | 13px | +0.02em | 1.4 |
 
-## Grid and spacing
-- 12 columns, 24px gutter, max 1320px, margins `clamp(16px, 4vw, 64px)`; under 720px: 4 columns, 16px gutter, 16px
-  side margin.
-- Spacing scale (4px base): 4, 8, 12, 16, 24, 32, 48, 64, 96, 144 (`--s-1`..`--s-10`). Band padding 96px (64px mobile).
-- Alignment: everything left-aligned to the grid; display type hangs on column 1; no centered paragraphs.
-- Section rhythm alternates mist and carbon bands with a hard cut, never a gradient.
+## Layout and chapters (home)
+1. **Start**: server-rendered hero (USP, title, sub, one CTA). The scene shows through on the right.
+2. **The problem**: three slips (invoice, purchase order, the pink unexplained slip), then the three gaps. Amounts come from the fetched claims.
+3. **The gate**: a 560vh pinned (CSS sticky) stage. Five stations = the five deck steps; each shows its deck line and a readout from the real INV-2048 record. Step 2 re-derives the amount in the browser (BigInt cents) and the door only opens if every DERIVED value matched (`verified` in the store).
+4. **Claims**: pink full-bleed chapter, DIRECT / DERIVED / ASSERTED as three cards, then the taint rule.
+5. **Proof**: USP line, one CTA ("See a real decision", /console), a quiet link to /evaluation, who benefits, impact, the four limits, the closing line.
 
-## Shape and surface
-0px radius everywhere (enforced globally in CSS). 1px hairlines. No shadows, no gradients, no glass. Elevation is
-only the jump from mist to carbon, or paper inside a hairline frame (`<Card>`).
+A slim chapter rail on the right (labels on hover or focus); the skip link is first in tab order.
 
 ## Motion
-- Verb: **latch**. Short travel, then a hard stop. One easing family: `--ease-latch` `cubic-bezier(0.2, 0, 0, 1)`
-  (release: `cubic-bezier(0.4, 0, 1, 1)`). Durations: snap 120ms (hover colour), latch 240ms (state change), travel
-  480ms (reveal), scene 900ms (hero intro). Stagger 40ms.
-- Hover on primary targets: ink fill floods the button (a treatment, not a colour swap on text). Press: 1px drop.
-- Idle state: the hero sphere rotates slowly while nothing happens (one clock, GSAP ticker; paused off screen).
-- Animate transform / opacity / clip-path / shader uniforms only. One ticker; no own `requestAnimationFrame` loops.
-- `prefers-reduced-motion: reduce`: no smooth scroll (Lenis off), no 3D animation (static poster frame), no scrub;
-  all content visible.
+- Verb: **latch**. One easing family `--ease-latch` cubic-bezier(0.2,0,0,1); snap 120ms, latch 220ms, travel 480ms.
+- Buttons: a fill bolt slides in from the left and stops (transform only); press drops 2px; links get a sliding underline bar; cards step 6 to 8px. Every target has hover, focus-visible (3px ring) and active states.
+- One driver: `lib/site-story.ts` (zustand `hero`, `gate`, `chapter`, `verified`) plus `lib/gate-timeline.ts` (a pure map from `gate` 0..1 to camera, packet, door, light, bounce). Lenis is stepped by `gsap.ticker`; the R3F loop (`frameloop="never"`) is advanced from the same ticker, only while the hero or the gate is on screen. No own rAF, no scroll listeners.
+- Idle: the packet bobs and loops in the hero, rings and the door seam breathe, trail points drift (same clock).
+- Procedural only: lines, boxes, one halo shader. No textures or models. The scene mounts 400ms after hydration (dynamic import, ssr:false); the hero text never waits for it.
 
-## Components (only what 7.2 / 7.3 need)
-| Component | File | Notes |
-|---|---|---|
-| `<Signal state solid? label?>` | `components/ui/Signal.tsx` | colour + shape + word; `label` carries rule id + G1/G2 |
-| `<Hairline strong?>` | `components/ui/Hairline.tsx` | 1px rule, `--c-line` or ink |
-| `<MonoLabel as? muted?>` | `components/ui/MonoLabel.tsx` | instrument label; real information only |
-| `<Band tone="mist" or "carbon">` | `components/ui/Band.tsx` | full-bleed section; carbon re-points all tokens |
-| `<Card as?>` | `components/ui/Card.tsx` | paper + hairline frame |
-| `.button`, `.button-primary` | `app/globals.css` | 44px min target, ink flood on hover |
+## Fallbacks (designed on purpose)
+- **prefers-reduced-motion**: no Lenis, no scrub, no canvas. All five stations are shown expanded with their readouts next to a still SVG poster of the same story (`StaticGate`). Checked at 1440 and 390.
+- **No WebGL or WebGL failure**: identical to reduced motion (the scene boundary flips `caps.webgl`).
+- **390px phone**: single column; the gate stage keeps the door in the top half and the active station card at the bottom (only the active station is shown); the 3D uses 1x DPR, a wider lens and a shorter corridor; no horizontal overflow on any page.
 
-21st-ui primitives: **none used**. The five primitives above are each a few lines over the tokens; importing a
-registry component would add markup and styles to restyle and gives nothing 7.2/7.3 need yet. The two-primitive
-allowance stays unspent (revisit for the console's combobox filter in 7.3 if a native `<select>` is not enough).
+## Contrast (WCAG 2.x, computed by `npm run contrast`)
+| Pairing | Colours | Ratio | Required | Result |
+|---|---|---|---|---|
+| ink on mint ground | `#0a2b26` on `#e7f2ec` | 13.21 | 4.5 | pass |
+| muted on mint ground | `#416257` on `#e7f2ec` | 5.89 | 4.5 | pass |
+| ink on white paper | `#0a2b26` on `#ffffff` | 15.15 | 4.5 | pass |
+| muted on white paper | `#416257` on `#ffffff` | 6.75 | 4.5 | pass |
+| ALLOW ink word on mint | `#00604d` on `#e7f2ec` | 6.59 | 4.5 | pass |
+| REVIEW ink word on mint | `#6b4f00` on `#e7f2ec` | 6.67 | 4.5 | pass |
+| DENY ink word on mint | `#b3260a` on `#e7f2ec` | 5.72 | 4.5 | pass |
+| ALLOW ink word on white | `#00604d` on `#ffffff` | 7.55 | 4.5 | pass |
+| REVIEW ink word on white | `#6b4f00` on `#ffffff` | 7.65 | 4.5 | pass |
+| DENY ink word on white | `#b3260a` on `#ffffff` | 6.57 | 4.5 | pass |
+| frost text on spruce | `#eef8f3` on `#0a2b26` | 13.96 | 4.5 | pass |
+| sage muted on spruce | `#a4c9be` on `#0a2b26` | 8.42 | 4.5 | pass |
+| sage muted on pine | `#a4c9be` on `#11403a` | 6.42 | 4.5 | pass |
+| frost on pine | `#eef8f3` on `#11403a` | 10.65 | 4.5 | pass |
+| pink on spruce (USP line, closing line) | `#ff3d9a` on `#0a2b26` | 4.61 | 4.5 | pass |
+| spruce ink on pink (CTA, claims chapter, $500 slip) | `#0a2b26` on `#ff3d9a` | 4.61 | 4.5 | pass |
+| frost on spruce card (claims cards on pink) | `#eef8f3` on `#0a2b26` | 13.96 | 4.5 | pass |
+| ALLOW lamp word on spruce | `#34f0c2` on `#0a2b26` | 10.38 | 4.5 | pass |
+| REVIEW lamp word on spruce | `#ffd11a` on `#0a2b26` | 10.38 | 4.5 | pass |
+| DENY lamp word on spruce | `#ff7d52` on `#0a2b26` | 5.99 | 4.5 | pass |
+| ALLOW lamp word on pine | `#34f0c2` on `#11403a` | 7.91 | 4.5 | pass |
+| REVIEW lamp word on pine | `#ffd11a` on `#11403a` | 7.91 | 4.5 | pass |
+| DENY lamp word on pine | `#ff7d52` on `#11403a` | 4.57 | 4.5 | pass |
+| spruce word on ALLOW lamp plate | `#0a2b26` on `#34f0c2` | 10.38 | 4.5 | pass |
+| spruce word on REVIEW lamp plate | `#0a2b26` on `#ffd11a` | 10.38 | 4.5 | pass |
+| spruce word on DENY lamp plate | `#0a2b26` on `#ff7d52` | 5.99 | 4.5 | pass |
+| pink focus ring on spruce (non-text) | `#ff3d9a` on `#0a2b26` | 4.61 | 3 | pass |
+| ink focus ring on mint (non-text) | `#0a2b26` on `#e7f2ec` | 13.21 | 3 | pass |
+| spruce focus ring on pink (non-text) | `#0a2b26` on `#ff3d9a` | 4.61 | 3 | pass |
+| moss hairline on spruce (decorative) | `#2d6157` on `#0a2b26` | 2.13 | 1 | pass |
 
-## Mobile
-4-column grid, display type scales down to 52px, the hero sphere moves under the headline at reduced particle count,
-nav stays one row of three links (44px targets), console tables become stacked rows.
+Hairlines (moss on spruce 2.13) are decorative; every control also has a border or a word.
+
+## Console (presentation only; every function and guard kept)
+- **Queue**: a short list of cards. Plain headline per request ("Approve invoice for $4,800.00", "Refund $250.00 to a customer card"; the queue payload has no invoice id, so the id appears on the request page), a signal chip, who asked and how long ago, the first policy reason in plain words, one primary action. Filters sit behind a "Filter" disclosure. Arrow keys still move between the actions.
+- **Request**: leads with a plain 3-line verdict (why it paused, recomputed from the claims: "the invoice is $500.00 above the purchase order"; how many cited values re-verified; what Approve and Reject do), then the 2 or 3 values that matter next to the highlighted source page. A sticky decision bar holds the typed reason, Approve or Reject, a confirm step and the real outcome (no optimistic UI). The label line is unchanged: "requested by X for Y · approved by Z (different person)". Evidence (every claim, ASSERTED "not evidence", methods), Policy reasons and Technical details (hash, diff, before, card) are native `<details>`.
+- **Audit**: one large "Verify chain" button and one result sentence; entries below.
+- Auth, CSRF, role gating, the 8 to 500 character reason, the confirm step, double-submit lock and the aria-live outcome are untouched.
 
 ## Data rule
-CLAUDE.md invariant 7: every number on screen is fetched from the backend (`lib/api.ts`, types generated from
-`web/openapi.json` by `npm run gen:api`). The site never embeds an eval result, a latency or an amount in source.
-
-## References
-- `web/reference/industrial-catalogue.md`: https://styles.refero.design/style/aecf9dda-5cba-4dc7-9e73-59b65d895cdf
-- `web/reference/cinematic-hero.md`: https://styles.refero.design/style/21cfe0c1-778d-4613-9f47-a5718eb929b3
-- The CodeQuest 2026 deck (ink `#15141f`, amber `#f5a524`, slide-1 intercept card mono labels).
-
-## Console
-Built in task 7.3 (S7.8, S9.2, S9.6, S4.5). Routes: `/console` (queue), `/console/login`, `/console/requests/[hash]`,
-`/console/audit`. Code: `app/(console)/console/**`, `components/console/**`, `lib/console-{auth,async,format,now}`.
-No WebGL; the same tokens, 0px radius, hairlines and `<Signal>` marks as the site (carbon nav band, mist content).
-
-- **Auth**: `AuthProvider` bootstraps from `GET /api/auth/me`; 401 sends the user to the login page. The session cookie is
-  httpOnly and never read by JS; the CSRF token is read from the `ap_csrf` cookie and sent as `X-CSRF-Token` by `apiPost`
-  on every POST. Bad credentials show one generic message; the form is `method="post"` so a pre-hydration submit cannot
-  put the password in the URL. Navigation is role-aware (Queue/Audit only for reviewer/admin); roles that cannot read or
-  decide get an explicit permission-denied state. The server remains the authority (403s are shown, not pre-empted).
-- **Queue**: filters (status, tool, actor) and the opaque cursor live in the URL; arrow keys / Home / End move between
-  rows, Enter opens. Under 720px the table stacks into labelled rows.
-- **Request**: label line `requested by <actor> for <on_behalf_of> · approved by <reviewer> (different person)` built
-  from API fields (the "approved by" tail only after a decision by a reviewer). Each argument shows claim badge
-  (DIRECT/DERIVED/ASSERTED), source (doc, page, bbox or pointer / derivation), verification (method, rule id + G1/G2).
-  ASSERTED and tainted values are struck-through grey and labelled "not evidence". Source pages are `<img>` of the
-  server PNG; the overlay rectangles are positioned in percent (`bbox * zoom / natural size`), so they follow any rendered
-  size or resize with no JS. Hover or focus on a claim row highlights its rectangle and vice versa.
-- **Decision**: reason (min 8, max 500, client and server) then an explicit confirm step; double-submit is disabled;
-  no optimistic UI, the outcome (EXECUTED / REJECTED / DENY with rule id + guarantee) is rendered from the response in an
-  `aria-live` region and the request is then refetched.
-- **Audit**: recent entries plus "Verify chain", which shows exactly `entries`/`checkpoints` or the `error` string from
-  `GET /api/audit/verify`; a transport failure is shown as an error, never as a result.
-
-Deviations: (1) `PAGE_ZOOM = 2` and the reason limits 8/500 are mirrored constants in `lib/console-format.ts` (the API
-does not publish the page size in points or the limits in a field the UI can read); (2) the PNG the server returns
-already has its own red rectangles drawn, the UI adds interactive overlays on top; (3) relative ages use the browser
-clock against the API's `created_at`; (4) the tool filter options are the enum from the generated query type.
-
-## Site (public pages, task 7.2)
-Built: `/` (hero, four-chapter 3D scroll story, who benefits, expected impact, "What ActionProof does not claim",
-closing line) and `/evaluation`. Files: `app/(site)/**`, `components/site/**`, `lib/site-{story,data,copy}.ts`.
-
-- **One driver**: `lib/site-story.ts`. A zustand store holds `progress`, `chapter`, `step`, the capability flags and the
-  fetched INV-2048 replay. Lenis is stepped by `gsap.ticker`; ScrollTrigger writes the store; the R3F `<Canvas
-  frameloop="never">` is advanced from the same ticker (`TickerBridge`) and reads the store with `getState()` in
-  `useFrame` (no React subscription). Rendering pauses off screen and in hidden tabs.
-- **Scene** (`StoryScene.tsx`, `next/dynamic` ssr:false): procedural points sphere (2600, 900 on mobile) drifting into a
-  gate bar; three lamps = circle / triangle / square, lit from token colours. The lamp for the recorded decision lights
-  and the gate bolt travels only at step 3 (after the G1 re-derivation); the DENY lamp lights only if the payload holds a
-  G2 reason. The DOM legend carries the words.
-- **Signature**: chapter 4 sticky panel (`ReplayProof.tsx`) shows claims, the G1 re-derivation (operands resolved from the
-  record's own claims, recomputed with BigInt cents), the decision with rule ids, and the G2 bounce. All from
-  `GET /api/public/replay/inv-2048`. States: loading, error with retry, 404 -> "No recorded decision yet". The slide-2
-  example amounts are filled from the same record.
-- **Fallbacks**: `prefers-reduced-motion`, no WebGL, or a scene crash -> static chapters + `StaticSignals` SVG, no Lenis, no
-  scrub; every proof step is open. Touch: Lenis off, fewer particles, dpr 1. Skip link is the root layout's.
-- **/evaluation** (`EvalView.tsx`): all content from `GET /api/public/eval`; `available:false` -> "Evaluation not run yet".
-  The CaMeL-style row is labelled "typical design, not measured". Generated set empty -> "absent: the independent
-  generator was blocked". Targets, met/missed, commit and run time come from the payload.
-
-Deviations: (1) the OpenAPI type of `results` is a free dict, so `lib/site-data.ts` declares its assumed shape (eval/run.py) once
-and validates the top level at runtime; (2) hero text is server-rendered but the story starts after it (the canvas is not
-behind the hero); (3) no screenshots, e2e or Lighthouse were run (build/typecheck/lint only); (4) the deck's `$` amounts
-are not in source: they are formatted from the fetched claims; (5) `npm run lint` at the web root fails on the
-untracked `security-headers.d.mts` (not mine); my paths lint clean.
+CLAUDE.md invariant 7: every number on screen is fetched (`lib/api.ts`, types generated from `web/openapi.json`).
+The site embeds no eval result, latency or amount in source; the home story replays `GET /api/public/replay/inv-2048`
+and `/evaluation` reads `GET /api/public/eval`, both with honest empty and error states.

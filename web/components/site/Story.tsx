@@ -1,70 +1,297 @@
 "use client";
-// The home story: four chapters over one fixed 3D stage inside carbon bands.
-// Live (WebGL + motion allowed): sticky canvas behind the chapters, Lenis + ScrollTrigger from lib/site-story.ts.
-// Otherwise (reduced motion, no WebGL, WebGL failure): the same chapters, static, with the SVG signal diagram.
+// Chapters 2 to 5 of the home page, plus the fixed 3D stage that shows behind the hero and the gate sequence.
+// Live (WebGL + motion allowed): Lenis + ScrollTrigger from lib/site-story.ts drive the scene.
+// Otherwise (reduced motion, no WebGL, WebGL failure): the same chapters, static, with the SVG poster of the same story.
 import dynamic from "next/dynamic";
-import { useEffect, useRef } from "react";
-import { Signal } from "@/components/ui/Signal";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { MonoLabel } from "@/components/ui/MonoLabel";
-import { CLAIMS, GAPS, OUTCOMES, STEPS, TAINT, USP_BODY } from "@/lib/site-copy";
-import { cents, money } from "@/lib/site-data";
+import { Signal, type Decision } from "@/components/ui/Signal";
+import { BENEFITS, CLAIMS, CLOSING, GAPS, IMPACT, LIMITS, OUTCOMES, STEPS, TAINT, USP_BODY } from "@/lib/site-copy";
+import { OPERATORS, derivations, invoiceFacts, money, moneyStr, utc, type Replay } from "@/lib/site-data";
 import { detectCaps, startDriver, useStory } from "@/lib/site-story";
-import { ReplayProof } from "./ReplayProof";
-import { StaticSignals } from "./StaticSignals";
+import { StaticGate } from "./StaticGate";
 
-const StoryScene = dynamic(() => import("./StoryScene"), { ssr: false });
+const GateScene = dynamic(() => import("./GateScene"), { ssr: false });
+const DECISIONS: readonly string[] = ["ALLOW", "REVIEW", "DENY"];
+const asDecision = (s: string): Decision | null => (DECISIONS.includes(s) ? (s as Decision) : null);
 
-/** The slide-2 example, filled from the real recorded request (no number is typed in source). */
-function GapExample() {
-  const replay = useStory((s) => s.replay);
-  let line = "invoice, purchase order and an unexplained difference";
-  if (replay.kind === "ok") {
-    const by = new Map(replay.data.claims.map((c) => [c.name, c.value]));
-    const inv = cents(by.get("invoice.total") ?? by.get("amount"));
-    const gap = cents(by.get("variance"));
-    const poRaw = cents(by.get("po.total"));
-    const po = poRaw ?? (inv !== null && gap !== null ? inv - gap : null);
-    if (inv !== null && gap !== null && po !== null) line = `Invoice ${money(inv)}, Purchase order ${money(po)}, Unexplained ${money(gap)}`;
-  }
+export const CHAPTERS = ["Start", "The problem", "The gate", "Claims", "Proof"] as const;
+const IDS = ["hero", "problem", "gate", "claims", "proof"] as const;
+
+function Rail() {
+  const chapter = useStory((s) => s.chapter);
   return (
-    <div className="card example">
-      <h3 className="t-h3">Approve INV-2048</h3>
-      <p>{line}.</p>
-      <p className="t-muted">A filter that reads the agent&apos;s reply sees nothing wrong, so the write could execute.</p>
-      {replay.kind === "none" ? <MonoLabel muted>No recorded decision yet, so the amounts are not shown.</MonoLabel> : null}
+    <nav className="rail" aria-label="Chapters">
+      <ul>
+        {CHAPTERS.map((c, i) => (
+          <li key={c}>
+            <a href={`#${IDS[i]}`} aria-current={chapter === i ? "step" : undefined} data-on={chapter === i}>
+              <span className="rail-dot" aria-hidden="true" />
+              <span className="rail-label">{c}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+function Pending({ what }: { what: string }) {
+  const replay = useStory((s) => s.replay);
+  if (replay.kind === "none") return <p className="t-muted">No recorded decision yet, so {what} is not shown. Nothing is simulated in its place.</p>;
+  if (replay.kind === "error") return <p role="alert">The recorded decision could not be loaded ({replay.message}).</p>;
+  return <p className="t-muted">Fetching the recorded INV-2048 decision from the gate...</p>;
+}
+
+function Problem() {
+  const replay = useStory((s) => s.replay);
+  const f = replay.kind === "ok" ? invoiceFacts(replay.data.claims) : null;
+  return (
+    <section id="problem" data-chapter="1" className="ch ch-problem band-mist" aria-labelledby="problem-h">
+      <div className="container">
+        <h2 id="problem-h" className="t-h2 ch-title">
+          Approve INV-2048?
+        </h2>
+        <div className="slips">
+          <div className="slip">
+            <MonoLabel>Invoice</MonoLabel>
+            <p className="slip-n" aria-label={f ? money(f.inv) : "amount loading"}>{f ? money(f.inv) : "..."}</p>
+          </div>
+          <div className="slip">
+            <MonoLabel>Purchase order</MonoLabel>
+            <p className="slip-n">{f ? money(f.po) : "..."}</p>
+          </div>
+          <div className="slip slip-gap">
+            <MonoLabel>Unexplained</MonoLabel>
+            <p className="slip-n">{f ? money(f.gap) : "..."}</p>
+          </div>
+        </div>
+        <p className="t-lede ch-lede">A filter that reads the agent&apos;s reply sees nothing wrong, so the write could execute.</p>
+        {replay.kind === "none" || replay.kind === "error" ? <Pending what="the amounts" /> : null}
+        <ul className="gaps">
+          {GAPS.map((g) => (
+            <li key={g.id}>
+              <MonoLabel muted>{g.gap}</MonoLabel>
+              <h3 className="t-h3">{g.head}</h3>
+              <p>{g.body}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function Readout({ i, data }: { i: number; data: Replay }) {
+  const ders = derivations(data.claims);
+  const dec = asDecision(data.decision);
+  const fin = asDecision(data.status === "executed" ? "ALLOW" : data.status === "rejected" ? "DENY" : data.decision);
+  const bounce = data.replay_attempts[0];
+  if (i === 0)
+    return (
+      <p className="readout mono-label">
+        {data.tool} · {data.label} · {data.claims.length} claims · request {data.request_hash.slice(0, 12)}
+      </p>
+    );
+  if (i === 1)
+    return (
+      <div className="readout">
+        {ders.length === 0 ? <p className="t-muted">This request has no DERIVED value to re-check.</p> : null}
+        {ders.map((d) => (
+          <div key={d.claim.name}>
+            <p className="derive">
+              {d.operands.map((o, k) => (
+                <span key={o.name}>
+                  {k > 0 ? ` ${OPERATORS[d.fn] ?? d.fn} ` : ""}
+                  {moneyStr(o.value) ?? "?"}
+                </span>
+              ))}
+              {d.recomputed ? <strong> = {d.recomputed}</strong> : null}
+            </p>
+            <p className="mono-label">
+              {d.claim.name} claimed {moneyStr(d.claim.value) ?? d.claim.value}. {d.matches === null ? "Not recomputed here." : d.matches ? "Recomputed here: it matches." : "Recomputed here: it does not match."}
+              {d.claim.verification ? ` Gate check ${d.claim.verification.ok ? "passed" : "failed"}${d.claim.verification.method ? ` (${d.claim.verification.method})` : ""}.` : ""}
+            </p>
+          </div>
+        ))}
+        <p className="mono-label">The door stays shut until this matches.</p>
+      </div>
+    );
+  if (i === 2)
+    return (
+      <div className="readout">
+        {dec ? <Signal state={dec} solid /> : <MonoLabel>{data.decision}</MonoLabel>}
+        {data.reasons.map((r, k) => (
+          <p key={k} className="mono-label">
+            {r.rule} / {r.guarantee}: {r.msg}
+          </p>
+        ))}
+      </div>
+    );
+  if (i === 3)
+    return (
+      <div className="readout">
+        {fin ? <Signal state={fin} solid label={data.status} /> : <MonoLabel>{data.status}</MonoLabel>}
+        <p className="mono-label">
+          {data.reviewer ? `reviewer ${data.reviewer}` : "no reviewer yet"}
+          {utc(data.decided_at) ? ` · decided ${utc(data.decided_at)}` : ""}
+        </p>
+      </div>
+    );
+  return (
+    <div className="readout">
+      {bounce ? (
+        <>
+          <Signal state="DENY" solid label="replayed receipt" />
+          {bounce.reasons.map((r, k) => (
+            <p key={k} className="mono-label">
+              {r.rule} / {r.guarantee}: {r.msg} (audit entry {bounce.seq})
+            </p>
+          ))}
+        </>
+      ) : (
+        <p className="t-muted">No replay attempt is recorded against this request yet, so there is no bounce to show.</p>
+      )}
+      {data.audit.first_seq !== null ? <p className="mono-label">audit entries {data.audit.first_seq} to {data.audit.last_seq}</p> : null}
     </div>
   );
 }
 
-function Legend() {
-  const chapter = useStory((s) => s.chapter);
-  const step = useStory((s) => s.step);
+function Gate({ live }: { live: boolean }) {
   const replay = useStory((s) => s.replay);
-  const decided = chapter === 3 && step >= 2 && replay.kind === "ok" ? replay.data.decision : "";
+  const active = useStory((s) => (live ? Math.min(4, Math.floor(s.gate * 5)) : -1));
+  const data = replay.kind === "ok" ? replay.data : null;
   return (
-    <ul className="stage-legend" aria-hidden="true">
-      {(["ALLOW", "REVIEW", "DENY"] as const).map((d) => (
-        <li key={d} data-lit={decided === d}>
-          <Signal state={d} />
-        </li>
-      ))}
-    </ul>
+    <section id="gate" data-chapter="2" className="gate band-carbon-clear" data-live={live} aria-labelledby="gate-h">
+      <div className="gate-stage">
+        <div className="container gate-inner">
+          <div className="gate-copy">
+            <h2 id="gate-h" className="t-h3 gate-title">
+              Five steps between the agent and the tool
+            </h2>
+            <ol className="stations">
+              {STEPS.map((s, i) => (
+                <li key={s.head} data-active={!live || active === i} data-done={live && active > i} aria-current={live && active === i ? "step" : undefined}>
+                  <div className="st-head">
+                    <span className="st-n" aria-hidden="true">{i + 1}</span>
+                    <h3>{s.head}</h3>
+                  </div>
+                  <div className="st-body">
+                    <p>{s.body}</p>
+                    {data ? <Readout i={i} data={data} /> : i === 1 || i === 4 ? <Pending what="this step" /> : null}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div className="gate-foot">
+            <p className="mono-label">{OUTCOMES}</p>
+          </div>
+        </div>
+        {!live ? <StaticGate className="gate-poster" /> : null}
+      </div>
+    </section>
+  );
+}
+
+function Claims() {
+  return (
+    <section id="claims" data-chapter="3" className="ch ch-claims" aria-labelledby="claims-h">
+      <div className="container">
+        <h2 id="claims-h" className="t-h2 ch-title">
+          Three kinds of claim
+        </h2>
+        <dl className="claim-cards">
+          {CLAIMS.map((c) => (
+            <div key={c.kind} className="claim-card" data-kind={c.kind}>
+              <dt className="claim-kind">{c.kind}</dt>
+              <dd>{c.body}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="taint t-lede">
+          <strong>Taint rule.</strong> {TAINT}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function Proof() {
+  return (
+    <section id="proof" data-chapter="4" className="ch ch-proof band-carbon" aria-labelledby="proof-h">
+      <div className="container">
+        <h2 id="proof-h" className="t-display proof-usp">
+          Proof before permission.
+        </h2>
+        <p className="t-lede proof-body">{USP_BODY}</p>
+        <p className="cta-row">
+          <Link className="button button-primary" href="/console">
+            See a real decision
+          </Link>
+          <Link className="quiet-link" href="/evaluation">
+            How it is measured
+          </Link>
+        </p>
+
+        <div className="proof-block">
+          <h3 className="t-h3">Who benefits</h3>
+          <ul className="rows">
+            {BENEFITS.map((b) => (
+              <li key={b.who}>
+                <strong>{b.who}</strong>
+                <span>{b.body}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="proof-block">
+          <h3 className="t-h3">Expected impact</h3>
+          <ul className="rows rows-one">
+            {IMPACT.map((i) => (
+              <li key={i}>
+                <span className="t-lede">{i}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="proof-block">
+          <h3 className="t-h3">What ActionProof does not claim</h3>
+          <ul className="rows">
+            {LIMITS.map((l) => (
+              <li key={l.head}>
+                <strong>{l.head}</strong>
+                <span>{l.body}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className="t-h2 closing">{CLOSING}</p>
+      </div>
+    </section>
   );
 }
 
 export function Story() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef(false);
   const caps = useStory((s) => s.caps);
-  const step = useStory((s) => s.step);
-  const chapter = useStory((s) => s.chapter);
   const live = caps.ready && caps.webgl && !caps.reducedMotion;
+  const [mount, setMount] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     useStory.getState().setCaps(detectCaps());
     void useStory.getState().loadReplay();
   }, []);
+
+  // The scene is not needed for first paint: mount it when the browser is idle.
+  useEffect(() => {
+    if (!live) return;
+    const id = window.setTimeout(() => setMount(true), 400);
+    return () => window.clearTimeout(id);
+  }, [live]);
 
   useEffect(() => {
     if (!live || !rootRef.current) return;
@@ -80,107 +307,37 @@ export function Story() {
     };
   }, [live]);
 
-  // Render the scene only while the stage is on screen (the ticker bridge checks this ref every frame).
+  // Render the scene only while the hero or the gate is on screen (the ticker bridge reads this ref every frame).
   useEffect(() => {
-    const el = stageRef.current;
-    if (!live || !el) return;
-    const io = new IntersectionObserver(([e]) => {
-      activeRef.current = e?.isIntersecting ?? false;
+    if (!live) return;
+    const els = ["hero", "gate"].map((id) => document.getElementById(id)).filter((e): e is HTMLElement => !!e);
+    const seen = new Set<Element>();
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) (e.isIntersecting ? seen.add(e.target) : seen.delete(e.target));
+      activeRef.current = seen.size > 0;
     });
-    io.observe(el);
+    els.forEach((e) => io.observe(e));
     return () => io.disconnect();
   }, [live]);
 
-  const stepsOn = live && chapter === 1 ? step : -1;
+  useEffect(() => {
+    const on = () => setReady(true);
+    window.addEventListener("gate-ready", on);
+    return () => window.removeEventListener("gate-ready", on);
+  }, []);
 
   return (
-    <div ref={rootRef} className="story band-carbon" data-live={live}>
+    <div ref={rootRef} className="story" data-live={live}>
       {live ? (
-        <div ref={stageRef} className="story-stage">
-          <StoryScene active={activeRef} light={caps.narrow || caps.touch} />
-          <Legend />
+        <div className="canvas-wrap" data-ready={ready} aria-hidden="true">
+          {mount ? <GateScene active={activeRef} light={caps.narrow || caps.touch} /> : null}
         </div>
-      ) : (
-        <div className="container static-wrap">
-          <StaticSignals />
-        </div>
-      )}
-
-      <div className="story-chapters container">
-        <section className="chapter" data-chapter data-steps="3" aria-labelledby="ch-gaps">
-          <div className="card chapter-panel">
-            <h2 id="ch-gaps" className="t-h2">
-              Three gaps between a tool call and a safe write
-            </h2>
-            <ul className="plain-list gaps">
-              {GAPS.map((g) => (
-                <li key={g.id}>
-                  <MonoLabel muted>{g.gap}</MonoLabel>
-                  <h3 className="t-h3">{g.head}</h3>
-                  <p>{g.body}</p>
-                </li>
-              ))}
-            </ul>
-            <GapExample />
-          </div>
-        </section>
-
-        <section className="chapter" data-chapter data-steps="5" aria-labelledby="ch-steps">
-          <div className="card chapter-panel">
-            <h2 id="ch-steps" className="t-h2">
-              Five steps between the agent and the tool
-            </h2>
-            <ol className="plain-list steps">
-              {STEPS.map((s, i) => (
-                <li key={s.head} data-on={stepsOn < 0 || stepsOn === i} aria-current={stepsOn === i ? "step" : undefined}>
-                  <h3 className="t-h3">{s.head}</h3>
-                  <p>{s.body}</p>
-                </li>
-              ))}
-            </ol>
-            <p>{OUTCOMES}</p>
-            <ul className="signal-row" aria-label="Outcomes">
-              {(["ALLOW", "REVIEW", "DENY"] as const).map((d) => (
-                <li key={d}>
-                  <Signal state={d} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        <section className="chapter" data-chapter data-steps="3" aria-labelledby="ch-claims">
-          <div className="card chapter-panel">
-            <h2 id="ch-claims" className="t-h2">
-              Three kinds of claim
-            </h2>
-            <dl className="claims">
-              {CLAIMS.map((c) => (
-                <div key={c.kind}>
-                  <dt>
-                    <MonoLabel>{c.kind}</MonoLabel>
-                  </dt>
-                  <dd>{c.body}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="taint">
-              <MonoLabel>Taint rule</MonoLabel> {TAINT}
-            </p>
-          </div>
-        </section>
-
-        <section className="chapter chapter-proof" data-chapter data-steps="4" aria-labelledby="ch-proof">
-          <div className="card chapter-panel proof-panel">
-            <h2 id="ch-proof" className="t-h2">
-              Proof before permission
-            </h2>
-            <p className="t-lede">{USP_BODY}</p>
-            <p className="t-muted">This is a real recorded decision for INV-2048, loaded from the gate. Nothing below is scripted.</p>
-            <ReplayProof live={live} />
-          </div>
-        </section>
-      </div>
+      ) : null}
+      {live ? <Rail /> : null}
+      <Problem />
+      <Gate live={live} />
+      <Claims />
+      <Proof />
     </div>
   );
 }

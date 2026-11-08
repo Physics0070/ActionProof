@@ -1,53 +1,53 @@
-/* ActionProof tokens. Source of truth: web/DESIGN.md (palette by role, type, grid, motion, signals).
-   Contrast of every allowed pairing: `npm run contrast` (scripts/contrast.mjs). 0px radius everywhere. */
+/* ActionProof tokens ("Airlock"). Source of truth: web/DESIGN.md (palette by role, type, motion, signals).
+   Contrast of every pairing: `npm run contrast` (scripts/contrast.mjs). Sharp corners everywhere. */
 
-:root {
-  /* Ground (mist) */
-  --c-ground: #f6f8f7;
+:root,
+.band-mist {
+  /* Light surfaces (console, evaluation details): pale mint ground */
+  --c-ground: #e7f2ec;
   --c-paper: #ffffff;
-  --c-ink: #15141f;
-  --c-muted: #55535f;
-  --c-line: #c9ccd0;
-  --c-accent: #f5a524;
-  --c-accent-ink: #15141f;
-  --c-focus: #15141f;
+  --c-ink: #0a2b26;
+  --c-muted: #416257;
+  --c-line: #b7d0c5;
+  --c-accent: #ff3d9a;
+  --c-accent-ink: #0a2b26;
+  --c-focus: #0a2b26;
 
-  /* Carbon band palette (applied by .band-carbon) */
-  --carbon: #15141f;
-  --carbon-raised: #211f2d;
-  --carbon-text: #f6f8f7;
-  --carbon-muted: #a9a7b4;
-  --carbon-line: #3a3846;
+  /* Spruce (the airlock): applied by .band-carbon, which is most of the public site */
+  --carbon: #0a2b26;
+  --carbon-raised: #11403a;
+  --carbon-text: #eef8f3;
+  --carbon-muted: #a4c9be;
+  --carbon-line: #2d6157;
 
-  /* Signals: one colour per decision. "lamp" = emissive (3D, marks on carbon), "ink" = text/marks on mist.
+  /* Signals. lamp = light on spruce (3D, marks on dark); ink = words and marks on light.
      Never colour alone: <Signal> always pairs colour + shape + word. */
-  --sig-allow-lamp: #3ddc84;
-  --sig-review-lamp: #f5a524;
-  --sig-deny-lamp: #ff5a4a;
-  --sig-allow-ink: #0b6b35;
-  --sig-review-ink: #7f4d00;
-  --sig-deny-ink: #b3261e;
+  --sig-allow-lamp: #34f0c2;
+  --sig-review-lamp: #ffd11a;
+  --sig-deny-lamp: #ff7d52;
+  --sig-allow-ink: #00604d;
+  --sig-review-ink: #6b4f00;
+  --sig-deny-ink: #b3260a;
   --sig-allow: var(--sig-allow-ink);
   --sig-review: var(--sig-review-ink);
   --sig-deny: var(--sig-deny-ink);
 
   /* Type */
-  --font-display: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-bricolage), "Arial Narrow", Arial, sans-serif;
   --font-body: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
-  --fs-mono: 0.8125rem; /* 13px labels */
-  --fs-small: 0.875rem; /* 14px */
-  --fs-body: 1.0625rem; /* 17px */
-  --fs-lede: clamp(1.1875rem, 1.05rem + 0.6vw, 1.5rem); /* 19 -> 24 */
-  --fs-h3: clamp(1.5rem, 1.3rem + 0.9vw, 2rem); /* 24 -> 32 */
-  --fs-h2: clamp(2.25rem, 1.6rem + 3vw, 4rem); /* 36 -> 64 */
-  --fs-display: clamp(3.25rem, 1.8rem + 7.2vw, 9.5rem); /* 52 -> 152 */
-  --fs-kinetic: clamp(5rem, 2rem + 15vw, 17.5rem); /* 80 -> 280 */
-  --track-display: -0.04em;
-  --track-h2: -0.03em;
+  --fs-mono: 0.8125rem;
+  --fs-small: 0.9375rem;
+  --fs-body: 1.125rem; /* 18px */
+  --fs-lede: clamp(1.25rem, 1.05rem + 0.9vw, 1.75rem);
+  --fs-h3: clamp(1.5rem, 1.25rem + 1.1vw, 2.25rem);
+  --fs-h2: clamp(2.5rem, 1.4rem + 4.6vw, 6rem);
+  --fs-display: clamp(3.25rem, 1.2rem + 9vw, 9.5rem); /* up to 9vw-ish */
+  --track-display: -0.045em;
+  --track-h2: -0.035em;
   --track-mono: 0.02em;
-  --lh-display: 0.92;
-  --lh-head: 1.05;
+  --lh-display: 0.9;
+  --lh-head: 1;
   --lh-body: 1.55;
 
   /* Space (4px base) */
@@ -62,23 +62,15 @@
   --s-9: 96px;
   --s-10: 144px;
 
-  /* Grid */
   --grid-max: 1320px;
-  --grid-cols: 12;
-  --grid-gutter: 24px;
   --grid-margin: clamp(16px, 4vw, 64px);
-
-  /* Shape */
-  --radius: 0px;
   --hair: 1px;
 
-  /* Motion: verb "latch" (short travel, hard stop). One easing family. */
+  /* Motion: verb "latch" (a bolt slides, then stops hard). One easing family. */
   --ease-latch: cubic-bezier(0.2, 0, 0, 1);
-  --ease-release: cubic-bezier(0.4, 0, 1, 1);
   --t-snap: 120ms;
-  --t-latch: 240ms;
+  --t-latch: 220ms;
   --t-travel: 480ms;
-  --t-scene: 900ms;
 }
 
 .band-carbon {
@@ -94,7 +86,6 @@
   background: var(--c-ground);
   color: var(--c-ink);
 }
-
 .band-mist {
   background: var(--c-ground);
   color: var(--c-ink);
@@ -106,12 +97,13 @@
   box-sizing: border-box;
   border-radius: 0 !important;
 }
-
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-
+html:has(.site-root) {
+  background: var(--carbon);
+}
 body {
   margin: 0;
   background: var(--c-ground);
@@ -122,7 +114,6 @@ body {
   font-feature-settings: "tnum" 1;
   -webkit-font-smoothing: antialiased;
 }
-
 h1,
 h2,
 h3,
@@ -132,35 +123,30 @@ figure,
 blockquote {
   margin: 0;
 }
-
 h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 800;
   line-height: var(--lh-head);
   text-wrap: balance;
 }
-
 p {
-  max-width: 68ch;
+  max-width: 62ch;
   text-wrap: pretty;
 }
-
 a {
   color: inherit;
   text-decoration: underline;
   text-decoration-thickness: var(--hair);
   text-underline-offset: 0.2em;
 }
-
 img,
 svg,
 canvas {
   display: block;
   max-width: 100%;
 }
-
 button,
 input,
 select,
@@ -168,18 +154,16 @@ textarea {
   font: inherit;
   color: inherit;
 }
-
 :focus-visible {
-  outline: 2px solid var(--c-focus);
-  outline-offset: 2px;
+  outline: 3px solid var(--c-focus);
+  outline-offset: 3px;
 }
-
 .skip-link {
   position: absolute;
   left: var(--s-4);
   top: -100px;
   z-index: 100;
-  padding: var(--s-2) var(--s-4);
+  padding: var(--s-3) var(--s-5);
   background: var(--c-accent);
   color: var(--c-accent-ink);
   font-family: var(--font-mono);
@@ -188,7 +172,6 @@ textarea {
 .skip-link:focus {
   top: var(--s-4);
 }
-
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -198,51 +181,33 @@ textarea {
   white-space: nowrap;
 }
 
-/* Layout */
 .container {
   width: 100%;
   max-width: calc(var(--grid-max) + 2 * var(--grid-margin));
   margin-inline: auto;
   padding-inline: var(--grid-margin);
 }
-.grid {
-  display: grid;
-  grid-template-columns: repeat(var(--grid-cols), minmax(0, 1fr));
-  column-gap: var(--grid-gutter);
-}
-@media (max-width: 720px) {
-  :root {
-    --grid-cols: 4;
-    --grid-gutter: 16px;
-  }
-}
 
 /* Type roles */
 .t-display {
   font-family: var(--font-display);
   font-size: var(--fs-display);
-  font-weight: 500;
+  font-weight: 800;
   letter-spacing: var(--track-display);
   line-height: var(--lh-display);
-}
-.t-kinetic {
-  font-family: var(--font-display);
-  font-size: var(--fs-kinetic);
-  font-weight: 500;
-  letter-spacing: var(--track-display);
-  line-height: 0.85;
 }
 .t-h2 {
   font-size: var(--fs-h2);
   letter-spacing: var(--track-h2);
+  line-height: 0.95;
 }
 .t-h3 {
   font-size: var(--fs-h3);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
 }
 .t-lede {
   font-size: var(--fs-lede);
-  line-height: 1.4;
+  line-height: 1.35;
 }
 .t-muted {
   color: var(--c-muted);
@@ -254,9 +219,7 @@ textarea {
   font-size: var(--fs-mono);
   letter-spacing: var(--track-mono);
   line-height: 1.4;
-  font-weight: 400;
 }
-
 .hairline {
   border: 0;
   margin: 0;
@@ -266,7 +229,6 @@ textarea {
 .hairline-strong {
   border-top-color: var(--c-ink);
 }
-
 .band {
   padding-block: var(--s-9);
 }
@@ -275,7 +237,6 @@ textarea {
     padding-block: var(--s-8);
   }
 }
-
 .card {
   background: var(--c-paper);
   border: var(--hair) solid var(--c-line);
@@ -294,8 +255,8 @@ textarea {
   white-space: nowrap;
 }
 .signal svg {
-  width: 0.9em;
-  height: 0.9em;
+  width: 1em;
+  height: 1em;
   flex: none;
 }
 .signal[data-state="ALLOW"] {
@@ -308,7 +269,7 @@ textarea {
   color: var(--sig-deny);
 }
 .signal-solid {
-  padding: var(--s-1) var(--s-2);
+  padding: var(--s-2) var(--s-3);
   color: var(--carbon) !important;
 }
 .signal-solid[data-state="ALLOW"] {
@@ -321,45 +282,71 @@ textarea {
   background: var(--sig-deny-lamp);
 }
 
+/* Button: the latch. A bolt (fill) slides in from the left and stops hard; press drops 2px. */
 .button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--s-2);
-  min-height: 44px;
-  padding: var(--s-3) var(--s-5);
-  border: var(--hair) solid var(--c-ink);
+  min-height: 48px;
+  padding: var(--s-3) var(--s-6);
+  border: 2px solid var(--c-ink);
   background: transparent;
   color: var(--c-ink);
   font-family: var(--font-mono);
   font-size: var(--fs-mono);
+  font-weight: 500;
   letter-spacing: var(--track-mono);
   text-decoration: none;
   cursor: pointer;
   transition:
-    background-color var(--t-snap) var(--ease-latch),
-    color var(--t-snap) var(--ease-latch),
-    translate var(--t-latch) var(--ease-latch);
+    color var(--t-latch) var(--ease-latch),
+    translate var(--t-snap) var(--ease-latch);
 }
-.button:hover {
+.button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: var(--c-ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--t-latch) var(--ease-latch);
+}
+.button:hover,
+.button:focus-visible {
   color: var(--c-ground);
 }
+.button:hover::before,
+.button:focus-visible::before {
+  transform: scaleX(1);
+}
 .button:active {
-  translate: 0 1px;
+  translate: 0 2px;
 }
 .button-primary {
   background: var(--c-accent);
   border-color: var(--c-accent);
   color: var(--c-accent-ink);
+  min-height: 56px;
+  font-size: 0.9375rem;
 }
-.button-primary:hover {
+.button-primary::before {
   background: var(--c-ink);
+}
+.button-primary:hover,
+.button-primary:focus-visible {
   border-color: var(--c-ink);
-  color: var(--c-ground);
 }
 .button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
+}
+.button:disabled::before {
+  transform: scaleX(0);
 }
 
 @media (prefers-reduced-motion: reduce) {

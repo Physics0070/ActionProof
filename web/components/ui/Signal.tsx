@@ -12,19 +12,22 @@ export function Signal({
   state,
   solid = false,
   label,
+  word,
 }: {
   state: Decision;
   /** Filled lamp plate with ink text (for carbon bands and the hero card). */
   solid?: boolean;
   /** Extra words after the decision, e.g. a rule id. */
   label?: string;
+  /** Replaces the decision word (e.g. Met, Partial) while keeping its colour and shape. */
+  word?: string;
 }) {
   return (
     <span className={solid ? "signal signal-solid" : "signal"} data-state={state}>
       <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" fill="currentColor">
         {SHAPES[state]}
       </svg>
-      <span>{state}</span>
+      <span>{word ?? state}</span>
       {label ? <span>{label}</span> : null}
     </span>
   );

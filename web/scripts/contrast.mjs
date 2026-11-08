@@ -1,4 +1,4 @@
-// WCAG 2.x contrast ratios for every text/mark pairing the tokens allow (web/DESIGN.md "Contrast").
+// WCAG 2.x contrast ratios for every text/mark pairing the "Airlock" tokens allow (web/DESIGN.md "Contrast").
 // Run: npm run contrast. Exits 1 if any pairing is below its required ratio.
 const lum = (hex) => {
   const c = hex.replace("#", "").match(/../g).map((h) => parseInt(h, 16) / 255);
@@ -10,34 +10,46 @@ const ratio = (a, b) => {
   return (x + 0.05) / (y + 0.05);
 };
 const T = {
-  mist: "#f6f8f7", paper: "#ffffff", ink: "#15141f", muted: "#55535f", line: "#c9ccd0",
-  carbon: "#15141f", carbonRaised: "#211f2d", carbonText: "#f6f8f7", carbonMuted: "#a9a7b4", carbonLine: "#3a3846",
-  amber: "#f5a524",
-  allowLamp: "#3ddc84", reviewLamp: "#f5a524", denyLamp: "#ff5a4a",
-  allowInk: "#0b6b35", reviewInk: "#7f4d00", denyInk: "#b3261e",
+  // light surfaces (console, slips)
+  mint: "#e7f2ec", paper: "#ffffff", ink: "#0a2b26", muted: "#416257", line: "#b7d0c5",
+  allowInk: "#00604d", reviewInk: "#6b4f00", denyInk: "#b3260a",
+  // spruce (the airlock)
+  spruce: "#0a2b26", pine: "#11403a", frost: "#eef8f3", sage: "#a4c9be", moss: "#2d6157",
+  pink: "#ff3d9a",
+  allowLamp: "#34f0c2", reviewLamp: "#ffd11a", denyLamp: "#ff7d52",
 };
-// [label, fg, bg, min] — 4.5 body text, 3.0 large text / non-text marks (WCAG 1.4.11).
+// [label, fg, bg, min]: 4.5 body text, 3.0 large text or non-text marks (WCAG 1.4.11).
 const pairs = [
-  ["ink on mist", T.ink, T.mist, 4.5],
-  ["muted on mist", T.muted, T.mist, 4.5],
-  ["ink on paper", T.ink, T.paper, 4.5],
-  ["hairline on mist (non-text)", T.line, T.mist, 1.0],
-  ["carbon text on carbon", T.carbonText, T.carbon, 4.5],
-  ["carbon muted on carbon", T.carbonMuted, T.carbon, 4.5],
-  ["carbon muted on carbon raised", T.carbonMuted, T.carbonRaised, 4.5],
-  ["amber on carbon", T.amber, T.carbon, 4.5],
-  ["ink on amber (filled CTA)", T.ink, T.amber, 4.5],
-  ["ALLOW ink word on mist", T.allowInk, T.mist, 4.5],
-  ["REVIEW ink word on mist", T.reviewInk, T.mist, 4.5],
-  ["DENY ink word on mist", T.denyInk, T.mist, 4.5],
-  ["ALLOW lamp word on carbon", T.allowLamp, T.carbon, 4.5],
-  ["REVIEW lamp word on carbon", T.reviewLamp, T.carbon, 4.5],
-  ["DENY lamp word on carbon", T.denyLamp, T.carbon, 4.5],
-  ["ink word on ALLOW lamp", T.ink, T.allowLamp, 4.5],
-  ["ink word on REVIEW lamp", T.ink, T.reviewLamp, 4.5],
-  ["ink word on DENY lamp", T.ink, T.denyLamp, 4.5],
-  ["ALLOW ink mark on mist (non-text)", T.allowInk, T.mist, 3.0],
-  ["DENY lamp vs ALLOW lamp (non-text, shape also differs)", T.denyLamp, T.allowLamp, 1.0],
+  ["ink on mint ground", T.ink, T.mint, 4.5],
+  ["muted on mint ground", T.muted, T.mint, 4.5],
+  ["ink on white paper", T.ink, T.paper, 4.5],
+  ["muted on white paper", T.muted, T.paper, 4.5],
+  ["ALLOW ink word on mint", T.allowInk, T.mint, 4.5],
+  ["REVIEW ink word on mint", T.reviewInk, T.mint, 4.5],
+  ["DENY ink word on mint", T.denyInk, T.mint, 4.5],
+  ["ALLOW ink word on white", T.allowInk, T.paper, 4.5],
+  ["REVIEW ink word on white", T.reviewInk, T.paper, 4.5],
+  ["DENY ink word on white", T.denyInk, T.paper, 4.5],
+  ["frost text on spruce", T.frost, T.spruce, 4.5],
+  ["sage muted on spruce", T.sage, T.spruce, 4.5],
+  ["sage muted on pine", T.sage, T.pine, 4.5],
+  ["frost on pine", T.frost, T.pine, 4.5],
+  ["pink on spruce (USP line, closing line)", T.pink, T.spruce, 4.5],
+  ["spruce ink on pink (CTA, claims chapter, $500 slip)", T.spruce, T.pink, 4.5],
+  ["frost on spruce card (claims cards on pink)", T.frost, T.spruce, 4.5],
+  ["ALLOW lamp word on spruce", T.allowLamp, T.spruce, 4.5],
+  ["REVIEW lamp word on spruce", T.reviewLamp, T.spruce, 4.5],
+  ["DENY lamp word on spruce", T.denyLamp, T.spruce, 4.5],
+  ["ALLOW lamp word on pine", T.allowLamp, T.pine, 4.5],
+  ["REVIEW lamp word on pine", T.reviewLamp, T.pine, 4.5],
+  ["DENY lamp word on pine", T.denyLamp, T.pine, 4.5],
+  ["spruce word on ALLOW lamp plate", T.spruce, T.allowLamp, 4.5],
+  ["spruce word on REVIEW lamp plate", T.spruce, T.reviewLamp, 4.5],
+  ["spruce word on DENY lamp plate", T.spruce, T.denyLamp, 4.5],
+  ["pink focus ring on spruce (non-text)", T.pink, T.spruce, 3.0],
+  ["ink focus ring on mint (non-text)", T.ink, T.mint, 3.0],
+  ["spruce focus ring on pink (non-text)", T.spruce, T.pink, 3.0],
+  ["moss hairline on spruce (decorative)", T.moss, T.spruce, 1.0],
 ];
 let fail = 0;
 for (const [label, fg, bg, min] of pairs) {
