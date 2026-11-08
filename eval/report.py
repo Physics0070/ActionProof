@@ -76,8 +76,8 @@ def render(r: dict) -> str:
           "wall time of the prepare + commit calls including OPA, DB and OCR; *added* = arm time minus `no_gate` time "
           "for the same case. The actionproof arm uses a pooled connection factory, as a deployment would. Judge latency "
           "is the recorded latency of the live API call (answers are cached on disk).",
-          "- Attack classes: seven (spec/attack-classes.md). Handwritten attacks were written with the code; generated "
-          "the independent generator that was meant to supply the other half was blocked, so that half is missing (see above).", "",
+          "- Attack classes: seven (spec/attack-classes.md). Handwritten attacks were written with the code. The "
+          "independent generator that was meant to supply the other half was blocked, so that half is missing (see above).", "",
           "## Arms", "",
           "| arm | what it is |", "|---|---|",
           "| no_gate | executes the claimed request directly, no checks |",
