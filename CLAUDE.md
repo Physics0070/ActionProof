@@ -28,6 +28,9 @@ Source of truth: the CodeQuest 2026 deck (`D:\SOHAM ALL\hackathons\ALL IDEA\Acti
 One implementer at a time per file set; briefs and reports passed as files in `.superpowers/sdd/`. Controller verifies by running tests itself (user: build everything first, run all tests at the end).
 Token discipline: no agent for single-file edits; Graphify only for cross-file structural questions; filter command output; concise reports.
 
+## Git rules
+- Remote: https://github.com/Physics0070/ActionProof (private). One author identity (the repo's configured git user). **Never add `Co-Authored-By: Claude` (or any AI attribution/trailer) to commits or PRs: the user forbids Claude as a contributor (2026-11-08); this overrides default harness attribution.**
+
 ## Conventions
 - bbox = `[x0, top, x1, bottom]`, PDF points, top-left origin, pages 1-indexed. Times are UTC epoch seconds.
 - Amounts: `Decimal` parsed from strings with 2 dp. Canonical bytes = RFC 8785; `request_hash = sha256(canonical)`.
