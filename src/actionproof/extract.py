@@ -30,6 +30,9 @@ class Extracted:
 
 
 MONEYISH = re.compile(r"^-?[\d,]+(\.\d+)?$")
+# ADR-017: the one money-oriented re-read (digits and money punctuation only, single line, finer raster).
+MONEY_OCR = {"dpi": 400, "config": "--psm 7 -c tessedit_char_whitelist=0123456789$,.-"}
+DEFAULT_OCR = {"dpi": 300, "config": "--psm 7"}
 INDEX = re.compile(r"^(0|[1-9]\d*)$")
 
 
@@ -77,8 +80,9 @@ def pdf_text(pdf: bytes, page: int, bbox: list[str]) -> str:
     return _plumber_crop(pdf, page, bbox)[0]
 
 
-def pdf_ocr(pdf: bytes, page: int, bbox: list[str]) -> str:
+def pdf_ocr(pdf: bytes, page: int, bbox: list[str], money: bool = False) -> str:
     _check_page(page)
+    cfg = MONEY_OCR if money else DEFAULT_OCR
     box = _box(bbox)
     cmd = os.environ.get("TESSERACT_CMD", "")
     if not cmd or not os.path.isfile(cmd):
@@ -95,9 +99,9 @@ def pdf_ocr(pdf: bytes, page: int, bbox: list[str]) -> str:
             rect = pymupdf.Rect(*box)
             if not p.rect.contains(rect):
                 raise ExtractionError("bbox outside page")
-            png = p.get_pixmap(clip=rect, dpi=300).tobytes("png")
+            png = p.get_pixmap(clip=rect, dpi=cfg["dpi"]).tobytes("png")
         pytesseract.pytesseract.tesseract_cmd = cmd
-        return _collapse(pytesseract.image_to_string(Image.open(io.BytesIO(png)), config="--psm 7"))
+        return _collapse(pytesseract.image_to_string(Image.open(io.BytesIO(png)), config=cfg["config"]))
     except ExtractionError:
         raise
     except Exception as e:
@@ -121,6 +125,10 @@ def extract_pdf(pdf: bytes, page: int, bbox: list[str]) -> Extracted:
     o = pdf_ocr(pdf, page, bbox)
     if t and o:
         if agree(t, o):
+            return Extracted(t, "dual")
+        # ADR-017: a money-shaped text layer gets ONE re-read of the same box with a money-only OCR config. It is
+        # still an independent reader (it never sees the text layer); accepted only if it equals the text layer.
+        if MONEYISH.match(_norm(t, "$")) and agree(t, pdf_ocr(pdf, page, bbox, True)):
             return Extracted(t, "dual")
         raise Disagreement("text layer and OCR disagree")
     if not t and o and n_images >= 1:

@@ -86,9 +86,6 @@ BENIGN2_HEAD = [("100.00", "0.00"), ("4900.00", "0.00"), ("4900.00", "100.00"), 
 BENIGN2_VARIANCES = ["0.00", "0.00", "0.01", "100.00", "0.00", "100.01", "-100.00", "-100.01", "99.99",
                      "50.00", "0.00", "-37.25", "250.00", "-0.01"]
 BENIGN2_COUNT = 56
-# Tesseract reads "$4,419.49" at the Total box as a different number (the dual-extraction check then fails closed);
-# a benign corpus must not depend on that, so this one total is replaced.
-BENIGN2_OCR_FIX = {"4419.49": Decimal("4420.00")}
 
 
 def benign2_pairs() -> list:
@@ -96,7 +93,6 @@ def benign2_pairs() -> list:
     for i in range(BENIGN2_COUNT - len(out)):
         cents = 10000 + (i * 791993) % 480001  # 100.00 .. 4900.00, deterministic
         total = Decimal(max(cents, 40000)) / 100
-        total = BENIGN2_OCR_FIX.get(f"{total:.2f}", total)
         out.append((f"{total:.2f}", BENIGN2_VARIANCES[i % len(BENIGN2_VARIANCES)]))
     return out
 

@@ -52,6 +52,38 @@ def test_ocr_different_number_is_a_disagreement(monkeypatch):
         extract_pdf(doc("invoice.pdf"), *field("invoice.pdf", "total"))
 
 
+def _ocr_by_config(monkeypatch, default: str, money: str) -> list:
+    calls = []
+
+    def fake(pdf, page, bbox, money_cfg=False):
+        calls.append(money_cfg)
+        return money if money_cfg else default
+
+    monkeypatch.setattr(extract, "pdf_ocr", fake)
+    return calls
+
+
+def test_money_retry_accepts_only_an_exact_text_layer_match(monkeypatch):
+    """ADR-017: first OCR misreads a money box; ONE money-config re-read equal to the text layer is accepted."""
+    calls = _ocr_by_config(monkeypatch, "$4,8O0.00", "$4,800.00")
+    r = extract_pdf(doc("invoice.pdf"), *field("invoice.pdf", "total"))
+    assert r == extract.Extracted("$4,800.00", "dual") and calls == [False, True]
+
+
+def test_money_retry_still_disagreeing_is_a_disagreement(monkeypatch):
+    calls = _ocr_by_config(monkeypatch, "$4,300.00", "$4,300.00")
+    with pytest.raises(Disagreement):
+        extract_pdf(doc("invoice.pdf"), *field("invoice.pdf", "total"))
+    assert calls == [False, True]  # exactly one retry, never a loop
+
+
+def test_no_money_retry_for_a_non_money_text_layer(monkeypatch):
+    calls = _ocr_by_config(monkeypatch, "INV-2O48", "INV-2048")
+    with pytest.raises(Disagreement):
+        extract_pdf(doc("invoice.pdf"), *field("invoice.pdf", "invoice_id"))
+    assert calls == [False]
+
+
 def test_ocr_empty_with_text_is_a_disagreement(monkeypatch):
     monkeypatch.setattr(extract, "pdf_ocr", lambda *a: "")
     with pytest.raises(Disagreement):

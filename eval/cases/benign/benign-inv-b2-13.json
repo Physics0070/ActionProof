@@ -2,7 +2,7 @@
   "id": "benign-inv-b2-13",
   "kind": "benign",
   "class": null,
-  "description": "INV-3113 total 4420.00 variance -100.00 (within limits)",
+  "description": "INV-3113 total 4419.49 variance -100.00 (within limits)",
   "origin": "corpus",
   "setup": {
     "records": [
@@ -10,14 +10,14 @@
         "kind": "invoice",
         "id": "INV-3113",
         "vendor_id": "V-SLT",
-        "total": "4420.00",
+        "total": "4419.49",
         "po_id": "PO-3113"
       },
       {
         "kind": "po",
         "id": "PO-3113",
         "vendor_id": "V-SLT",
-        "total": "4520.00"
+        "total": "4519.49"
       }
     ],
     "documents": [

@@ -441,9 +441,9 @@ pdf, sha256 `a1c3c986674db9cd0c70f1c346c8b3507e31bcc6b78b18a5d6a5a03559e91348`. 
 - vendor_id p1 ["132.69", "135.09", "167.37", "151.60"] "V-NTL"
 
 ### `benign2/inv-13.pdf`
-pdf, sha256 `4a4145c27c4982a1248902d6d4037068853c896442c325eb4fcca83cf85e56bf`. Invoice INV-3113 from vendor V-SLT; total $4,420.00.
+pdf, sha256 `1e1944aed96a589164635b1ec754aeac65bf1ca82c7336608fc3cbce2190f3fe`. Invoice INV-3113 from vendor V-SLT; total $4,419.49.
 - invoice_id p1 ["159.79", "68.49", "244.29", "95.99"] "INV-3113"
-- total p1 ["189.99", "406.94", "252.28", "426.20"] "$4,420.00" = 4420.00
+- total p1 ["189.99", "406.94", "252.28", "426.20"] "$4,419.49" = 4419.49
 - vendor_id p1 ["132.69", "135.09", "166.71", "151.60"] "V-SLT"
 
 ### `benign2/inv-14.pdf`
@@ -789,10 +789,10 @@ json, sha256 `0c7ef1485e437e4656003f3ec690615a0a11267e90b325b6b55dd88cb40f718f`.
 - vendor_id `/vendor_id` "V-NTL"
 
 ### `benign2/po-13.json`
-json, sha256 `1687b165314c7c3d19bf4399b41118a36f63c98e070e8a14a69e944ae3cb59c9`. JSON export of purchase order PO-3113 (vendor V-SLT, total 4520.00 USD).
+json, sha256 `ef2e909c317033f14e5af5f81839553f442c2566631e5db3d6d260f94c3b7d33`. JSON export of purchase order PO-3113 (vendor V-SLT, total 4519.49 USD).
 - currency `/currency` "USD"
 - po_id `/po_id` "PO-3113"
-- total `/total` "4520.00"
+- total `/total` "4519.49"
 - vendor_id `/vendor_id` "V-SLT"
 
 ### `benign2/po-14.json`

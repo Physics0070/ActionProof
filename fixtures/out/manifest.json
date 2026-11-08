@@ -2319,8 +2319,8 @@
             "426.20"
           ],
           "page": 1,
-          "text": "$4,420.00",
-          "value": "4420.00"
+          "text": "$4,419.49",
+          "value": "4419.49"
         },
         "vendor_id": {
           "bbox": [
@@ -2337,7 +2337,7 @@
       "kind": "pdf",
       "notes": "Benign2 pair with benign2/po-13.json. Variance -100.00.",
       "path": "benign2/inv-13.pdf",
-      "sha256": "4a4145c27c4982a1248902d6d4037068853c896442c325eb4fcca83cf85e56bf"
+      "sha256": "1e1944aed96a589164635b1ec754aeac65bf1ca82c7336608fc3cbce2190f3fe"
     },
     "benign2/inv-14.pdf": {
       "fields": {
@@ -4402,7 +4402,7 @@
         },
         "total": {
           "pointer": "/total",
-          "value": "4520.00"
+          "value": "4519.49"
         },
         "vendor_id": {
           "pointer": "/vendor_id",
@@ -4412,7 +4412,7 @@
       "kind": "json",
       "notes": "PO for benign2/inv-13.pdf. Variance -100.00.",
       "path": "benign2/po-13.json",
-      "sha256": "1687b165314c7c3d19bf4399b41118a36f63c98e070e8a14a69e944ae3cb59c9"
+      "sha256": "ef2e909c317033f14e5af5f81839553f442c2566631e5db3d6d260f94c3b7d33"
     },
     "benign2/po-14.json": {
       "fields": {
