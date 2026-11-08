@@ -1,5 +1,47 @@
 # Demo video: what is rendered, what is not
 
+Source of truth for timings and captions: [DEMO.md](DEMO.md). Deck row S8.4. Project: [`video/`](../video/README.md).
+
+## Final cut (Remotion): `video-out/actionproof-demo.mp4` (git-ignored)
+1920x1080, 30 fps, H.264, **205.06 s (3:25.06)** (cap 210 s), 61.1 MB (the file carries a silent AAC track added by the renderer). Silent: no voice-over, no music; every narration line is a
+burned-in caption (46 px, bottom band, never over the content), and big on-screen type carries the rest. Look: the site's
+"Airlock" palette and type (`web/DESIGN.md`), the latch motion verb, procedural corridor backgrounds, signal marks
+(shape + word, never colour alone).
+
+| Time | Chapter | Source of what is on screen |
+|---|---|---|
+| 0:00-0:12 | Cold open: hook, INV-2048 $4,800 vs PO $4,300, "Proof before permission." | amounts from the real demo card + console API (`request.json`) |
+| 0:12-0:35 | The problem: three gaps, the filter that sees nothing wrong | deck wording (`web/lib/site-copy.ts`) |
+| 0:35-1:25 | **The gate** (hero beat): real site gate scene, the real intercept card, five steps with the re-derivation, real console: rev-alice signs in, source span highlighted on the PDF page, reason, Approve, Confirm, executed once; "requested by agent-7 for user-123 · approved by a different person" | Playwright recordings of the production build + demo log |
+| 1:25-1:45 | Injected PDF: hidden text, DENY AP-VER-01 (G1) | demo log beat 2 |
+| 1:45-2:10 | Replay AP-REP-05 (G2); two $4,900 approvals under a $5,000 cap, one executes, other AP-CUM-03; same person via agent-8 | demo log beats 3-4 |
+| 2:10-2:30 | Refund connector: injected destination (taint) DENY, clean retry DENY on the cap, small refund ALLOW | demo log beat 5 |
+| 2:30-2:50 | `audit: OK (25 entries, 25 checkpoints)`, then an edited copy: `audit: FAILED at seq 9` | `video/tamper.py` (real verifier; the edit is made on a COPY of the database, with the append-only trigger disabled as a DB admin could) |
+| 2:50-3:15 | Attacks executed per arm (of 211), the three targets, the disclosures, "What ActionProof does not claim" (4 limits) | `eval/results.json` copy |
+| 3:15-3:25 | "Prove the action before the system executes it." / "Proof before permission." / ActionProof | deck |
+
+Honest disclosures shown on screen: the held-out set is a second handwritten set, not independent; the independent generator
+was blocked. ActionProof's one false block (1 of 120) is shown, not hidden.
+
+## Data truth
+Nothing on screen is typed by hand: `video/scripts/build-props.mjs` parses `video/data/demo-output.txt` (real `bash demo.sh`),
+`eval-results.json`, `audit-run.txt` and `request.json` into `src/data.generated.json`; scenes read that. Console footage is
+a live approval of a freshly minted REVIEW (`scripts/mint_review.py` path via `video/rec/prepare.py`), password field
+rendered transparent and never printed. After recording, `bash demo.sh` was re-run so the demo database holds the real
+decision and replay attempt again.
+
+## Not included / limits
+- No voice-over, no sound (nothing was sent to any external service). Add a narration track over the captions if wanted.
+- AnimatedWebs backgrounds were not used (needs a signed-in Pro account); backgrounds are procedural.
+- The console footage shows a request minted for the take (same content as the demo's INV-2048), not the demo.sh decision itself.
+- The video renders needed `--offthreadvideo-cache-size-in-bytes` at concurrency 4 (Remotion otherwise raised "No frame found").
+
+## Regenerate
+See [video/README.md](../video/README.md).
+
+---
+# Earlier terminal-only cut (scripts/record_demo.py)
+
 Source of truth for timings and captions: [DEMO.md](DEMO.md). Deck row S8.4.
 
 ## What the machine has (checked with `where` / `--version` only)
