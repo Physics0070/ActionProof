@@ -13,3 +13,5 @@ eval/generator_sandbox/out/
 eval/.judge_cache.json
 eval/.judge_cache.tmp
 graphify-out/
+
+video-out/
