@@ -19,7 +19,9 @@ BAD = ("DENY", "REFUSED", "ERROR")
 # Capability probes: existing handwritten attack cases chosen so each isolates one column of the slide-5 table.
 # Yes = every probe defended, No = none, Partial = some. signed_receipt additionally needs a receipt to be issued.
 PROBES = {
-    "checks_args": ["atk-con-amount-over-user-limit", "atk-arg-unicode-digits-amount"],
+    # one value-rule probe (well-typed, over the limit) and two type probes (malformed amount, floats where
+    # decimal strings are required): "Types" (slide 5, schema validation) = the type probes held, the value rule not
+    "checks_args": ["atk-con-amount-over-user-limit", "atk-arg-trailing-whitespace", "atk-evi-bbox-as-floats"],
     "evidence_per_arg": ["atk-evi-value-absent-from-span", "atk-evi-image-only-value-misread",
                          "atk-evi-bbox-shows-vendor-not-amount"],
     "taint_flow": ["atk-pro-tainted-vendor-id", "atk-pro-refund-to-asserted-tainted",
@@ -176,6 +178,8 @@ def main(argv=None) -> int:
     ap.add_argument("--arms", nargs="+", default=list(evarms.NAMES), choices=evarms.NAMES)
     ap.add_argument("--dirs", nargs="+", type=Path)
     ap.add_argument("--out", type=Path, default=ROOT / "eval" / "results.json")
+    ap.add_argument("--latency-only", action="store_true",
+                    help="benign cases only, arms default to no_gate + actionproof; prints latency, writes nothing")
     ap.add_argument("--report", action="store_true", help="render docs/EVAL.md from --out, run nothing")
     ap.add_argument("--report-out", type=Path, default=ROOT / "docs" / "EVAL.md")
     a = ap.parse_args(argv)
@@ -184,11 +188,16 @@ def main(argv=None) -> int:
         a.report_out.write_text(report.render(json.loads(a.out.read_text(encoding="utf-8"))), encoding="utf-8")
         print(f"wrote {a.report_out}")
         return 0
+    if a.latency_only:
+        a.dirs = a.dirs or [ev.CASES / "benign"]
+        if "--arms" not in (argv if argv is not None else sys.argv):
+            a.arms = ["no_gate", "actionproof"]
     cases = [c for d in (a.dirs or default_dirs()) for c in ev.load_cases(d)]
     arm_names = sorted(a.arms, key=lambda n: n != "no_gate")  # no_gate first: the latency baseline
     with provision() as env:
         res = run_eval(cases, arm_names, env, evarms.LLMJudge.from_env())
-    a.out.write_text(json.dumps(res, indent=1), encoding="utf-8")
+    if not a.latency_only:
+        a.out.write_text(json.dumps(res, indent=1), encoding="utf-8")
     for n, x in res["arms"].items():
         if x["status"] != "ok":
             print(f"{n}: {x['status']} ({x['reason']})")

@@ -142,6 +142,7 @@ class Env:
         self.tools = {INVOICE_TOOL: self.payments, REFUND_TOOL: self.refunds}
         tess = tesseract_cmd or os.environ.get("TESSERACT_CMD") or read_dotenv(ROOT / ".env.example").get(
             "TESSERACT_CMD", "tesseract")
+        os.environ.setdefault("OCR_POOL_SIZE", read_dotenv(ROOT / ".env.example").get("OCR_POOL_SIZE", "0"))  # as deployed
         os.environ.setdefault("TESSERACT_CMD", tess)  # extract.py reads the binary path from the environment
         self.settings = Settings(database_url=database_url, opa_url=opa_url, tesseract_cmd=tess,
                                  signing_key_path=str(key_path))
