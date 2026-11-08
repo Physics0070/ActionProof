@@ -155,7 +155,7 @@ raise). A superuser or the table owner can bypass the trigger; the chain and the
   leaves signing.py, ADR-007; the exact payload key sets keep receipts and checkpoints apart). The gate checkpoints
   every `AUDIT_CHECKPOINT_EVERY` entries (default 1, validated env) in the same tx as the entry.
 - `python -m actionproof.audit verify [--public-key B64]` needs only `DATABASE_URL` and the PUBLIC key
-  (`--public-key` or the file at `AUDIT_PUBLIC_KEY_PATH`, base64 of `Signer.public_key_b64()`); never the seed. One
+  (`--public-key`, else a directory `AUDIT_PUBLIC_KEYS_DIR` of `<kid>.pub` files so each checkpoint is checked with the key of its `kid` and an unknown `kid` fails, else the single-key file `AUDIT_PUBLIC_KEY_PATH`; base64 of `Signer.public_key_b64()`); never the seed. One
   REPEATABLE READ read-only snapshot. Checks contiguous seq from 1, every `prev_hash` link, every `entry_hash`, and
   for every checkpoint: an entry exists at its seq, `head_hash` equals that entry's hash, the signature verifies.
   Prints `audit: OK (<n> entries, <m> checkpoints)` (exit 0) or `audit: FAILED at seq <k>: <reason>` (exit 1;

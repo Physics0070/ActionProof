@@ -37,7 +37,7 @@ python scripts/dev_pg.py start                      # Postgres 16 on :5433 (bina
 C:/Users/Soham/tools/opa/opa.exe run --server --addr 127.0.0.1:8181 --watch policy &
 python scripts/gen_key.py keys/dev-signing.key
 python scripts/demo_seed.py --reset && python scripts/seed_console.py
-python -m actionproof.console                       # 127.0.0.1:8766
+python -m actionproof.console                       # CONSOLE_BIND_HOST:CONSOLE_PORT, default 127.0.0.1:8766 (compose sets 0.0.0.0 in the container)
 cd web && npm install && npm run dev                # http://localhost:5173
 ```
 
@@ -50,19 +50,16 @@ git-ignored `.env` (without them that arm is recorded `not_run`). `python -m uv 
 only (secret `GROQ_API_KEY`, variable `JUDGE_MODEL`).
 
 ## 2. Key rotation
-The audit verifier (`python -m actionproof.audit verify`) takes ONE public key; receipts and checkpoints carry a `kid`.
+Receipts and checkpoints carry a `kid`. The audit verifier (`python -m actionproof.audit verify`) verifies each checkpoint with the public key of its `kid`: put one `<kid>.pub` per key ever used in a directory and set `AUDIT_PUBLIC_KEYS_DIR` to it (an unknown `kid` is `FAILED`). `AUDIT_PUBLIC_KEY_PATH` (one key, any `kid`) still works for a never-rotated chain.
 Rotate at a quiet point so nothing is verified with the wrong key:
 1. Drain: no `pending` reviews (decide or let them expire: unexpired receipts signed by the old key fail after the swap).
 2. Verify the chain with the OLD public key and save the output line (`audit: OK (N entries, M checkpoints)`). This is
    the record that everything up to seq N was intact under `k1`.
-3. Keep the old PUBLIC key forever (`keys/signing-k1.pub`, base64 from `Signer.public_key_b64()`); archive the old seed offline, then delete it from the host.
-4. `python scripts/gen_key.py keys/signing.key.new`; record its public key as `keys/signing-k2.pub`.
+3. Keep the old PUBLIC key forever (`keys/pub/k1.pub`, base64 from `Signer.public_key_b64()`); archive the old seed offline, then delete it from the host.
+4. `python scripts/gen_key.py keys/signing.key.new`; record its public key as `keys/pub/k2.pub`.
 5. Replace the compose secret file, set `SIGNING_KID=k2`, `docker compose -f docker-compose.yml up -d api`.
-6. Make one decision so a `k2` checkpoint exists, then verify with the NEW key.
-**Known limit:** the verifier checks every checkpoint against the one key it is given, so after a rotation a full-chain
-verify fails at the first `k2` checkpoint under the old key (and at the first `k1` checkpoint under the new one).
-That failure is the expected rotation boundary, not tampering, but it is indistinguishable by message; audit the two
-segments with the saved step-2 line and a verify run from the new key's first checkpoint. Upgrade path: a kid-to-key map in `audit.py`.
+6. Make one decision so a `k2` checkpoint exists, then verify the full chain: `AUDIT_PUBLIC_KEYS_DIR=keys/pub python -m actionproof.audit verify` (k1 and k2 checkpoints each against their own key).
+**Remaining limit:** a leaked OLD key lets an attacker forge checkpoints that verify under its `kid`; retire it from the directory only after archiving the verified output line (step 2).
 
 ## 3. Backup and restore (Postgres, including the audit chain)
 The audit chain (`audit_log`, `audit_checkpoints`) lives in the same database, so one dump covers it.

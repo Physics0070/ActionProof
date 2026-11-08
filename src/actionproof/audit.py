@@ -1,7 +1,9 @@
 """Audit chain (deck slide 3 step 5, S9.3): an append-only, hash-chained log with gate-signed checkpoints, and a
 verifier CLI that needs only the database and the PUBLIC key.
 
-    python -m actionproof.audit verify [--public-key <base64>]      (else env AUDIT_PUBLIC_KEY_PATH)
+    python -m actionproof.audit verify [--public-key <base64>]
+        (else env AUDIT_PUBLIC_KEYS_DIR: a directory of <kid>.pub files, one per key ever used; each checkpoint is
+         verified with the key of its kid, an unknown kid FAILS; else env AUDIT_PUBLIC_KEY_PATH: one key, any kid)
 
 - `append` sets entry_hash = sha256(RFC 8785 of every field but entry_hash, prev_hash included) and assigns
   seq = head + 1 under the audit lock, so the chain is gap-free under concurrency.
@@ -17,6 +19,7 @@ import hashlib
 import os
 import sys
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 import psycopg
@@ -75,8 +78,9 @@ def checkpoint(conn, signer) -> int:
     return seq
 
 
-def verify(conn, public_key_b64: str) -> tuple[int, int]:
+def verify(conn, keys: "str | Mapping[str, str]") -> tuple[int, int]:
     """(entries, checkpoints) if the chain and every checkpoint check out, else raises AuditFailure.
+    `keys`: one base64 public key (checks every checkpoint, whatever its kid) or a kid -> key map (unknown kid fails).
     # ponytail: holds every entry hash in memory; upgrade path is a server-side cursor merged with checkpoints."""
     prev, n, heads = GENESIS, 0, {}
     for row in conn.execute(f"SELECT {', '.join(FIELDS)}, entry_hash FROM audit_log ORDER BY seq"):
@@ -97,19 +101,21 @@ def verify(conn, public_key_b64: str) -> tuple[int, int]:
             raise AuditFailure(seq, "checkpoint refers to a missing entry (log truncated)")
         if heads[seq] != head:
             raise AuditFailure(seq, "checkpoint head_hash does not match the entry")
-        if not signing.verify({"payload": {"seq": seq, "head_hash": head, "ts": ts}, "sig": sig, "kid": kid},
-                              public_key_b64):
+        key = keys if isinstance(keys, str) else keys.get(kid)
+        if key is None:
+            raise AuditFailure(seq, "checkpoint signed by an unknown kid")
+        if not signing.verify({"payload": {"seq": seq, "head_hash": head, "ts": ts}, "sig": sig, "kid": kid}, key):
             raise AuditFailure(seq, "checkpoint signature invalid")
     return n, m
 
 
-def run_verify(database_url: str, public_key_b64: str) -> tuple[int, str]:
+def run_verify(database_url: str, keys: "str | Mapping[str, str]") -> tuple[int, str]:
     """(exit code, output line). Read-only, one consistent snapshot of both tables. Fails closed."""
     try:
         with psycopg.connect(database_url, connect_timeout=5) as conn:
             conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
             conn.read_only = True
-            n, m = verify(conn, public_key_b64)
+            n, m = verify(conn, keys)
     except AuditFailure as f:
         return 1, f"audit: FAILED at seq {f.seq}: {f.reason}"
     except Exception as e:  # unreachable DB, missing tables, ...: not verified = failed
@@ -135,6 +141,17 @@ def _public_key(arg: str | None, env) -> str:
     return arg
 
 
+def _public_keys(arg: str | None, env) -> "str | dict[str, str]":
+    """--public-key, else AUDIT_PUBLIC_KEYS_DIR (kid -> key from <kid>.pub), else AUDIT_PUBLIC_KEY_PATH."""
+    d = env.get("AUDIT_PUBLIC_KEYS_DIR", "").strip()
+    if arg is not None or not d:
+        return _public_key(arg, env)
+    files = sorted(Path(d).glob("*.pub")) if Path(d).is_dir() else []
+    if not files:
+        raise ValueError("AUDIT_PUBLIC_KEYS_DIR has no <kid>.pub files")
+    return {f.stem: _public_key(None, {"AUDIT_PUBLIC_KEY_PATH": str(f)}) for f in files}
+
+
 def main(argv=None, env=os.environ) -> int:
     ap = argparse.ArgumentParser(prog="python -m actionproof.audit")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -142,7 +159,7 @@ def main(argv=None, env=os.environ) -> int:
     v.add_argument("--public-key", help="base64 Ed25519 public key (default: file at AUDIT_PUBLIC_KEY_PATH)")
     args = ap.parse_args(argv)
     try:
-        pub = _public_key(args.public_key, env)
+        pub = _public_keys(args.public_key, env)
         url = env.get("DATABASE_URL", "").strip()
         if not url:
             raise ValueError("DATABASE_URL is not set")

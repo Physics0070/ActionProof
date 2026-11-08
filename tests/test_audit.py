@@ -333,3 +333,47 @@ def test_cli_main_config_errors(pg, capsys, signing_key_path):
     assert audit.main(["verify"], env={"DATABASE_URL": pg, "AUDIT_PUBLIC_KEY_PATH": str(signing_key_path)}) == 2
     err = capsys.readouterr().err
     assert "audit: config error" in err and signing_key_path.read_bytes().hex() not in err
+
+
+# ------------------------------------------------------------------ key rotation: kid -> public key map
+
+
+def _rotated(db, signer):
+    """Entries 1-2 checkpointed by k1, entries 3-4 by k2 (a rotation in the middle of the chain)."""
+    k2 = Signer(SigningKey.generate(), "k2")
+    _entries(db, signer, 2)
+    _entries(db, k2, 2)
+    return k2
+
+
+def test_rotation_full_chain_verifies_with_kid_map(db, pg, signer):
+    k2 = _rotated(db, signer)
+    keys = {"k1": signer.public_key_b64(), "k2": k2.public_key_b64()}
+    assert _check(pg, keys) == (0, "audit: OK (4 entries, 4 checkpoints)")
+    # the single-key form still works and still fails at the first checkpoint it cannot verify
+    assert _check(pg, signer.public_key_b64()) == (1, "audit: FAILED at seq 3: checkpoint signature invalid")
+    # a kid mapped to the wrong key is a signature failure, not a pass
+    assert _check(pg, {**keys, "k2": signer.public_key_b64()}) == (1, "audit: FAILED at seq 3: checkpoint signature invalid")
+
+
+def test_unknown_kid_fails(db, pg, signer):
+    k2 = _rotated(db, signer)
+    assert _check(pg, {"k1": signer.public_key_b64()}) == (1, "audit: FAILED at seq 3: checkpoint signed by an unknown kid")
+    assert k2.kid == "k2"
+
+
+def test_cli_keys_dir(db, pg, signer, tmp_path):
+    k2 = _rotated(db, signer)
+    d = tmp_path / "pubs"
+    d.mkdir()
+    (d / "k1.pub").write_text(signer.public_key_b64() + "\n", encoding="ascii")
+    (d / "k2.pub").write_text(k2.public_key_b64() + "\n", encoding="ascii")
+    ok = _cli({"DATABASE_URL": pg, "AUDIT_PUBLIC_KEYS_DIR": str(d)})
+    assert (ok.returncode, ok.stdout.strip()) == (0, "audit: OK (4 entries, 4 checkpoints)"), ok.stderr
+    (d / "k2.pub").unlink()
+    bad = _cli({"DATABASE_URL": pg, "AUDIT_PUBLIC_KEYS_DIR": str(d)})
+    assert (bad.returncode, bad.stdout.strip()) == (1, "audit: FAILED at seq 3: checkpoint signed by an unknown kid")
+    (d / "k1.pub").unlink()
+    assert audit.main(["verify"], env={"DATABASE_URL": pg, "AUDIT_PUBLIC_KEYS_DIR": str(d)}) == 2  # empty dir
+    (d / "k3.pub").write_text("not-base64!", encoding="ascii")
+    assert audit.main(["verify"], env={"DATABASE_URL": pg, "AUDIT_PUBLIC_KEYS_DIR": str(d)}) == 2
