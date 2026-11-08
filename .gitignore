@@ -10,3 +10,6 @@ web/out/
 eval/generator_sandbox/out/
 .superpowers/
 .pgdata/
+eval/.judge_cache.json
+eval/.judge_cache.tmp
+graphify-out/
