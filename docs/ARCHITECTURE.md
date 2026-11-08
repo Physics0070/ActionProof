@@ -270,7 +270,7 @@ from the MCP/agent surface. Endpoints, auth and errors: docs/API.md "Review cons
 | Gateway | Python, FastAPI, MCP SDK | official MCP SDK; thin |
 | Contracts | Pydantic v2 strict, RFC 8785 | typed, canonical bytes to hash and sign |
 | Policy | OPA sidecar, Rego | declarative default-deny, `opa test` |
-| Evidence | pdfplumber + raster/OCR | two independent readers must agree (ADR-002) |
+| Evidence | pdfplumber + raster/OCR | two independent readers must agree (ADR-002); reads are cached per request by document hash, boxes OCRed in one batch, warm single-use tesseract pool (ADR-018) |
 | State | PostgreSQL | serializable tx, UNIQUE constraints (ADR-001) |
 | Signing | Ed25519 (PyNaCl) | small, deterministic signatures |
 | Agent adapter | LangChain wrapper | existing agents (ADR-004) |

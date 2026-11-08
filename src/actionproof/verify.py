@@ -103,6 +103,14 @@ def _direct(name, c, docs, money: set) -> tuple[str, str]:
     return c.value, ex.method
 
 
+def direct_spans(req: ActionRequest, docs) -> list:
+    """The PDF boxes DIRECT claims cite in documents whose bytes match the claimed hash (nothing else is ever read
+    ahead): (bytes, page, bbox) each."""
+    return [(blob, c.src.page, c.src.bbox) for c in req.args.values()
+            if c.claim is ClaimType.DIRECT and c.src.pointer is None
+            and isinstance(blob := docs.get(c.src.doc), bytes) and hashlib.sha256(blob).hexdigest() == c.doc_sha256]
+
+
 def verify_request(req: ActionRequest, docs: Mapping[str, bytes], sor: Mapping[str, str]) -> VerifyResult:
     try:
         return _verify(req, docs, sor)
@@ -196,8 +204,14 @@ def _verify(req: ActionRequest, docs, sor) -> VerifyResult:
         results[name] = res
         return res
 
-    for name in req.args:
-        check(name)
+    with extract.request_scope():  # ADR-018: reads are shared inside this request only, keyed by document hash
+        try:
+            extract.prefetch_join()  # the gate may have started the OCR batch before its database reads
+            extract.prefetch(direct_spans(req, docs))
+        except Exception:  # an optimisation only: every read below still runs and fails closed on its own
+            pass
+        for name in req.args:
+            check(name)
     claims = {n: results[n] for n in req.args}
     reasons += [r.reason for r in claims.values() if not r.ok]
     return VerifyResult(not reasons, claims, reasons)

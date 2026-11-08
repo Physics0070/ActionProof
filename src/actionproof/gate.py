@@ -25,15 +25,16 @@ import logging
 import secrets
 import time
 from dataclasses import asdict, dataclass, field
+from collections.abc import Mapping
 from decimal import Decimal
 
 import psycopg
 import rfc8785
 from psycopg import errors
 
-from actionproof import audit, policy, signing
+from actionproof import audit, extract, policy, signing
 from actionproof.contracts import MONEY, ActionRequest, ContractError, parse_request, request_hash
-from actionproof.verify import Reason, VerifyResult, verify_request
+from actionproof.verify import Reason, VerifyResult, direct_spans, verify_request
 
 TOOL = "payments.approve_invoice"
 REFUND_TOOL = "payments.refund_payment"  # second connector (ADR-009): same prepare/commit, no parallel path
@@ -330,7 +331,8 @@ class Gate:
     def prepare(self, req, docs=None, *, principal) -> PrepareResult:
         """`principal` is the caller identity from the transport; required (no default = no fail-open)."""
         try:
-            res = self._prepare(req, docs, principal)
+            with extract.request_scope():
+                res = self._prepare(req, docs, principal)
         except Exception as e:  # fail closed (invariant 1)
             res = PrepareResult("DENY", [_err(f"prepare failed: {type(e).__name__}")], _NOT_VERIFIED, None, None,
                                 req if isinstance(req, ActionRequest) else None)
@@ -367,12 +369,23 @@ class Gate:
         if tgt is None:
             return deny(_ver(f"{t.arg}: required to target a record (evidence gap)"))
         record_id = f"{t.kind}:{tgt.value}"
+        docs_err = None
+        if docs is None:  # resolved early so the OCR can start; a provider failure still surfaces where it did
+            try:
+                docs = self._docs_provider(req) if self._docs_provider is not None else {}
+            except Exception as e:
+                docs_err = e
+        try:
+            # ADR-018: the OCR batch runs while the database is read; verify_request joins it before reading a value.
+            extract.prefetch_start(direct_spans(req, docs) if isinstance(docs, Mapping) else [])
+        except Exception:
+            pass
         try:
             sor = dict(tool.sor_for(tgt.value))
         except KeyError:
             return deny(_ver(f"{t.arg}: target record not in the system of record"))
-        if docs is None:
-            docs = self._docs_provider(req) if self._docs_provider is not None else {}
+        if docs_err is not None:
+            raise docs_err
         v = verify_request(req, docs, sor)
 
         data, version = tool.read_record(record_id)

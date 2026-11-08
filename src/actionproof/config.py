@@ -29,6 +29,8 @@ class Settings(BaseModel):
     # ponytail: entries after the last checkpoint can be truncated undetected, so the default checkpoints every
     # entry (one signature per append); raise it only with an external anchor for the head.
     audit_checkpoint_every: int = 1
+    # Warm tesseract processes kept ready (extract.py reads OCR_POOL_SIZE from the environment too); 0 = off.
+    ocr_pool_size: int = 0
 
     @field_validator("database_url", "opa_url", "tesseract_cmd", "signing_key_path", "signing_kid")
     @classmethod
@@ -42,6 +44,13 @@ class Settings(BaseModel):
     def _http(cls, v: str) -> str:
         if not v.startswith(("http://", "https://")):
             raise ValueError("must be an http(s) URL")
+        return v
+
+    @field_validator("ocr_pool_size")
+    @classmethod
+    def _pool(cls, v: int) -> int:
+        if not 0 <= v <= 16:
+            raise ValueError("must be 0..16")
         return v
 
     @field_validator("receipt_ttl_seconds", "review_receipt_ttl_seconds", "review_token_ttl_seconds",
