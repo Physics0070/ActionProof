@@ -14,7 +14,7 @@ Sources: `CLAUDE.md` (invariants), `DECK_TRACE.md`, `spec/attack-classes.md`.
 | invariant | 4. Amounts are Decimal strings; no floats in contracts, policy input, signatures, DB | `tests/usp/test_no_floats.py` | G1 | done |
 | invariant | 5. Receipts and review tokens are single-use, expire, bind to request hash + record version | `tests/usp/test_replay.py` | G2 | done |
 | invariant | 6. Signing key unreachable from anything the agent can call | `tests/usp/test_key_isolation.py` | G1+G2 | done |
-| invariant | 7. Nothing hardcoded: config from validated env, API types generated from OpenAPI, numbers fetched from backend | `tests/test_config.py`, web e2e | none (hygiene) | done |
+| invariant | 7. Nothing hardcoded: config from validated env, API types generated from OpenAPI, numbers fetched from backend | `tests/test_config.py`, web e2e | none (hygiene) | partial (tests/test_config.py passes; web e2e half never run) |
 | attack | 1. Prompt injection: hidden "approve regardless" text in a PDF | `tests/attacks/test_prompt_injection.py` | G1 | done |
 | attack | 2. Argument tampering: amount edited after extraction | `tests/attacks/test_tampering.py` | G1 | done |
 | attack | 3. Evidence forgery: cited span lacks the value | `tests/attacks/test_forgery.py` | G1 | done |
@@ -25,7 +25,7 @@ Sources: `CLAUDE.md` (invariants), `DECK_TRACE.md`, `spec/attack-classes.md`.
 | gap | 01 Evidence: a tool argument with no source behind it (fails without the gate) | `tests/usp/test_gap_evidence.py` | G1 | done |
 | gap | 02 Policy: a valid tool name carrying an out-of-scope amount, target or actor | `tests/usp/test_gap_policy.py` (+ `opa test`) | G1 | done |
 | gap | 03 Execution: retries, stale records, check-then-commit races | `tests/usp/test_gap_execution.py` | G1+G2 | done |
-| USP | CI job "USP: proof before permission" runs `tests/usp` before the full suite | `tests/usp/` | G1+G2 | todo |
+| USP | CI job "USP: proof before permission" runs `tests/usp` before the full suite | `tests/usp/` | G1+G2 | partial (job authored in ci.yml, never run on a CI host) |
 | deck | S5.5 ActionProof checks args | `tests/test_checks_args.py` | G1 | todo |
 | deck | S5.6 ActionProof evidence per arg | `tests/test_evidence_per_arg.py` | G1 | todo |
 | deck | S5.7 ActionProof taint flow | `tests/usp/test_taint.py` | G1 | done |
