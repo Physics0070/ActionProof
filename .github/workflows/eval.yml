@@ -1,0 +1,44 @@
+name: Evaluation (manual / nightly)
+
+# ~25 minutes and uses the LLM-judge arm (Groq). Never on push or PR. Needs the repository secret GROQ_API_KEY and
+# the repository variable JUDGE_MODEL (e.g. llama-3.3-70b-versatile).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: actionproof
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci-only@localhost:5432/actionproof
+      OPA_URL: http://127.0.0.1:8181
+      TESSERACT_CMD: /usr/bin/tesseract
+      SIGNING_KEY_PATH: keys/ci.key
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/backend
+      - run: uv run python -m eval.run
+      - run: uv run python -m eval.run --report
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: |
+            eval/results.json
+            docs/EVAL.md

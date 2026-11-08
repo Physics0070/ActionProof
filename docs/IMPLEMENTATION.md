@@ -65,4 +65,5 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 - [ ] 7.3 console: login, queue, detail with cited spans, decision; Playwright + axe e2e
 
 ## Phase 8 — Ship
-- [ ] CSP/headers, compose full stack, GitHub Actions, demo.sh, video, RUNBOOK/DEMO/README
+- [x] CSP/headers (`web/security-headers.mjs`, wired in next.config.ts), compose full stack (`docker-compose.yml`, `Dockerfile.api`, `web/Dockerfile`; authored, NOT run: no Docker engine), GitHub Actions (`ci.yml`, `eval.yml`), Playwright specs + Lighthouse budgets (authored, not run), RUNBOOK
+- [ ] demo.sh, video, DEMO/README, first `docker compose up` from a fresh clone, first green CI run

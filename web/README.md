@@ -32,3 +32,27 @@ The browser only talks to its own origin: `next.config.ts` rewrites `NEXT_PUBLIC
 ## API types
 Never hand-write a response type. `openapi.json` is generated from the FastAPI app; `lib/api-types.ts` is generated
 from it; `lib/api.ts` (`apiGet`, `apiPost`, `pagePngUrl`) is typed against it and sends `X-CSRF-Token` on POSTs.
+
+## Ship: security headers, image, e2e, Lighthouse
+**Security headers** live in `security-headers.mjs` (CSP, nosniff, no-referrer, frame-ancestors none, COOP/CORP,
+minimal Permissions-Policy; the `/api` proxy path is excluded). The CSP tradeoff (static `'unsafe-inline'` for Next's
+inline bootstrap scripts vs. a per-request nonce via `proxy.ts`/`cspWithNonce`, which makes pages dynamic) is stated
+at the top of that file. It is wired in `next.config.ts` (together with `output: "standalone"` for `web/Dockerfile`):
+```ts
+import { headers } from "./security-headers.mjs";
+const nextConfig: NextConfig = { output: "standalone", headers, /* ... */ };
+```
+**Image**: `docker build --build-arg NEXT_PUBLIC_API_BASE=/api --build-arg CONSOLE_API_ORIGIN=http://api:8766 -t actionproof-web web`
+(normally via the root `docker-compose.yml`; see `docs/RUNBOOK.md`).
+
+**e2e** (`e2e/*.spec.ts`, `playwright.config.ts`) runs against a running stack (`bash docker/ci-stack.sh` from the
+repo root). Add the dev deps once and commit the lockfile, then add the script:
+`npm i -D @playwright/test @axe-core/playwright` and `"e2e": "playwright test"`. Env: `E2E_BASE_URL`,
+`E2E_REVIEWER_LOGIN`, `E2E_REVIEWER_PASSWORD`, `E2E_MINT_CMD` (prints `{"request_hash": ...}`; compose:
+`docker compose -f docker-compose.yml exec -T api python scripts/mint_review.py`). `e2e/` and `playwright.config.ts`
+are excluded from `tsconfig.json` so `next build` and `npm run typecheck` do not need Playwright installed.
+UI specs select by accessible name (labels "login", "password", "reason", buttons "sign in", "approve", "reject",
+"confirm"); keep those names or edit `e2e/helpers.ts`.
+
+**Lighthouse** budgets are in `lighthouserc.json` (mobile LCP < 2.5 s, CLS < 0.05, performance >= 0.85,
+accessibility and best-practices >= 0.95); CI runs `npx @lhci/cli autorun --config=web/lighthouserc.json`, no repo dependency.

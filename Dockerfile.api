@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+# ActionProof gateway image: the review-console API (default CMD) and the MCP server (documented command below).
+#
+#   docker build -f Dockerfile.api -t actionproof-api .
+#   Console (default):  docker run ... actionproof-api                      -> python scripts/serve_console.py
+#   MCP server (stdio): docker run -i --rm ... actionproof-api python -m actionproof.server --stdio
+#   MCP server (http):  docker run ... actionproof-api python -m actionproof.server --http   (binds 127.0.0.1 in the
+#                       container: reachable only from inside it; put a TLS proxy in the same netns if you need it)
+#
+# The signing key is NEVER in the image (ADR-007): mount a secret file and point SIGNING_KEY_PATH at it.
+# First run: `python scripts/gen_key.py keys/signing.key` on a trusted host (refuses to overwrite; prints the PUBLIC key).
+# Policy (OPA) is a separate sidecar container; this image has no policy and no fixtures.
+ARG PYTHON_IMAGE=python:3.12-slim
+
+FROM ${PYTHON_IMAGE} AS builder
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /usr/local/bin/uv
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
+WORKDIR /app
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
+
+FROM ${PYTHON_IMAGE} AS runtime
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends tesseract-ocr \
+ && apt-get clean \
+ && groupadd --system --gid 10001 app \
+ && useradd --system --uid 10001 --gid app --home-dir /tmp --shell /usr/sbin/nologin app
+COPY --from=builder /opt/venv /opt/venv
+WORKDIR /app
+COPY src ./src
+COPY scripts ./scripts
+COPY docker ./docker
+COPY examples ./examples
+# Windows checkouts may carry CRLF; a CRLF shebang would not exec.
+RUN sed -i 's/\r$//' docker/*.sh && chmod 0555 docker/*.sh
+ENV PATH="/opt/venv/bin:${PATH}" PYTHONPATH=/app/src PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
+    TESSERACT_CMD=/usr/bin/tesseract CONSOLE_BIND_HOST=0.0.0.0 CONSOLE_PORT=8766 HOME=/tmp
+USER 10001:10001
+EXPOSE 8766
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 CMD ["python", "docker/healthcheck.py"]
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
+CMD ["python", "scripts/serve_console.py"]

@@ -1,20 +1,162 @@
+# Full stack: web (Next.js) + api (review console, gate) + postgres + opa sidecar (ADR-005) + init (one-shot).
+#
+# Networks: `edge` carries only web <-> api and the two published ports. `backend` is internal: true, so postgres and
+# opa have no route to or from the host or the internet; only api and init join it.
+# Secrets are compose `secrets:` files (mounted at /run/secrets/*), never environment values:
+#   keys/signing.key  Ed25519 seed (python scripts/gen_key.py keys/signing.key)   -> api only
+#   keys/pg_password  hex password (python -c "import secrets;print(secrets.token_hex(24))" > keys/pg_password)
+# Dev (ports for pytest, dev passwords): the auto-loaded docker-compose.override.yml.
+# Production: `docker compose -f docker-compose.yml ...` (only web and api are then published).
+# Runbook: docs/RUNBOOK.md. Validate with `docker compose -f docker-compose.yml config -q`.
+name: actionproof
+
+x-api-image: &api-image
+  image: actionproof-api:local
+  build: { context: ., dockerfile: Dockerfile.api }
+
+x-api-env: &api-env
+  PG_USER: ${PG_USER:-actionproof}
+  PG_DB: ${PG_DB:-actionproof}
+  PG_HOST: postgres
+  PG_PASSWORD_FILE: /run/secrets/pg_password
+  OPA_URL: http://opa:8181
+  OPA_TIMEOUT_SECONDS: ${OPA_TIMEOUT_SECONDS:-0.2}
+  SIGNING_KEY_PATH: /run/secrets/signing_key
+  SIGNING_KID: ${SIGNING_KID:-k1}
+  RECEIPT_TTL_SECONDS: ${RECEIPT_TTL_SECONDS:-300}
+  REVIEW_RECEIPT_TTL_SECONDS: ${REVIEW_RECEIPT_TTL_SECONDS:-3600}
+  REVIEW_TOKEN_TTL_SECONDS: ${REVIEW_TOKEN_TTL_SECONDS:-3600}
+  AUDIT_CHECKPOINT_EVERY: ${AUDIT_CHECKPOINT_EVERY:-1}
+  DOCS_DIR: /app/fixtures/out
+  RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-60}
+  WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+  SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-28800}
+  CONSOLE_COOKIE_SECURE: ${CONSOLE_COOKIE_SECURE:-auto}
+  CONSOLE_PORT: "8766"
+  CONSOLE_BIND_HOST: 0.0.0.0
+
 services:
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${PG_USER:-actionproof}
-      POSTGRES_PASSWORD: ${PG_PASSWORD:-actionproof-dev}
       POSTGRES_DB: ${PG_DB:-actionproof}
-    ports: ["${PG_PORT:-5433}:5432"]
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+    secrets: [pg_password]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
+    shm_size: 128mb
+    mem_limit: 512m
+    cpus: 1.0
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-actionproof}"]
-      interval: 3s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
       timeout: 3s
       retries: 20
 
-  # ADR-005: OPA runs as a sidecar next to the gateway.
+  # ADR-005: OPA is a sidecar reached only by the gateway. -debug image = busybox wget for the healthcheck.
+  # No --watch in production: a policy change is a reviewed redeploy. Policy is mounted read-only.
   opa:
-    image: openpolicyagent/opa:latest
-    command: ["run", "--server", "--addr=0.0.0.0:8181", "--watch", "/policy"]
+    image: ${OPA_IMAGE:-openpolicyagent/opa:1.22.2-debug}
+    restart: unless-stopped
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "--log-level=error", "/policy"]
     volumes: ["./policy:/policy:ro"]
-    ports: ["${OPA_PORT:-8181}:8181"]
+    networks: [backend]
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8181/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: apply the schema; seed demo data ONLY when DEMO_SEED=1 (that wipes every table incl. the audit chain).
+  init:
+    <<: *api-image
+    entrypoint: ["/app/docker/entrypoint.sh"]
+    command: ["/app/docker/init.sh"]
+    restart: "no"
+    environment:
+      <<: *api-env
+      DEMO_SEED: ${DEMO_SEED:-0}
+      CONSOLE_PASSWORD_REV_ALICE: ${CONSOLE_PASSWORD_REV_ALICE:-}
+      CONSOLE_PASSWORD_REV_BOB: ${CONSOLE_PASSWORD_REV_BOB:-}
+      CONSOLE_PASSWORD_SUB_USER123: ${CONSOLE_PASSWORD_SUB_USER123:-}
+      CONSOLE_PASSWORD_ADMIN_OPS: ${CONSOLE_PASSWORD_ADMIN_OPS:-}
+    secrets: [pg_password]
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [backend]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 256m
+
+  # Review console API (+ migrations on start). The MCP server runs from the same image:
+  #   docker compose run --rm -i -T -e ACTIONPROOF_ACTOR=agent-7 -e ACTIONPROOF_ON_BEHALF_OF=user-123 api python -m actionproof.server --stdio
+  api:
+    <<: *api-image
+    restart: unless-stopped
+    # Linux hosts: set APP_UID/APP_GID to the owner of keys/signing.key (or chmod it 0444) so the secret is readable.
+    user: "${APP_UID:-10001}:${APP_GID:-10001}"
+    environment:
+      <<: *api-env
+      APPLY_SCHEMA: "1"
+    secrets: [pg_password, signing_key]
+    volumes:
+      - ./fixtures:/app/fixtures:ro   # doc store (DOCS_DIR) + hero helpers; the fixtures are public test data
+      - ./eval:/app/eval:ro           # eval/results.json served at /api/public/eval
+    ports: ["${API_BIND:-127.0.0.1}:${API_PORT:-8766}:8766"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      opa: { condition: service_healthy }
+      init: { condition: service_completed_successfully }
+    networks: [edge, backend]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 768m
+    cpus: 1.5
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-/api}
+        CONSOLE_API_ORIGIN: http://api:8766
+    image: actionproof-web:local
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-/api}
+      CONSOLE_API_ORIGIN: http://api:8766
+    ports: ["${WEB_BIND:-127.0.0.1}:${WEB_PORT:-5173}:5173"]
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [edge]
+    read_only: true
+    tmpfs: [/tmp, /app/.next/cache]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 512m
+    cpus: 1.0
+
+networks:
+  edge: {}
+  backend:
+    internal: true
+
+volumes:
+  pgdata: {}
+
+secrets:
+  signing_key:
+    file: ${SIGNING_KEY_FILE:-./keys/signing.key}
+  pg_password:
+    file: ${PG_PASSWORD_SECRET_FILE:-./keys/pg_password}

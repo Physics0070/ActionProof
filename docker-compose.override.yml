@@ -1,0 +1,16 @@
+# DEV ONLY. docker compose auto-loads this file, so `docker compose up -d postgres opa` keeps working for the
+# local pytest flow (CLAUDE.md): postgres on 127.0.0.1:5433 and opa on 127.0.0.1:8181, dev password, --watch.
+# Production ignores it: `docker compose -f docker-compose.yml up -d` (only web and api are then published).
+services:
+  postgres:
+    ports: ["127.0.0.1:${PG_PORT:-5433}:5432"]
+    networks: [backend, edge]
+  opa:
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "--watch", "/policy"]
+    ports: ["127.0.0.1:${OPA_PORT:-8181}:8181"]
+    networks: [backend, edge]
+secrets:
+  signing_key:
+    file: ${SIGNING_KEY_FILE:-./keys/dev-signing.key}
+  pg_password:
+    file: ${PG_PASSWORD_SECRET_FILE:-./docker/dev-pg-password}

@@ -1,0 +1,32 @@
+name: backend
+description: Python 3.12 + uv (cached) + tesseract + OPA server on 127.0.0.1:8181 + a throwaway CI signing key. Postgres comes from the job's service container.
+inputs:
+  opa-version:
+    description: OPA version (matches the compose image)
+    default: "1.22.2"
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v5
+      with:
+        python-version: "3.12"
+        enable-cache: true
+        cache-dependency-glob: uv.lock
+    - name: Install dependencies and tesseract
+      shell: bash
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends tesseract-ocr
+        uv sync --frozen
+    - uses: open-policy-agent/setup-opa@v2
+      with:
+        version: ${{ inputs.opa-version }}
+    - name: Start OPA (policy mounted from the repo)
+      shell: bash
+      run: |
+        nohup opa run --server --addr=127.0.0.1:8181 --log-level=error policy > opa.log 2>&1 &
+        for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8181/health && exit 0; sleep 1; done
+        cat opa.log; exit 1
+    - name: Generate a throwaway signing key (never a real one)
+      shell: bash
+      run: uv run python scripts/gen_key.py keys/ci.key

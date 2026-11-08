@@ -1,0 +1,22 @@
+# Dockerfile.api copies only src, scripts, docker, examples, pyproject.toml and uv.lock; this keeps the context small
+# and keeps secrets out of it.
+.git
+.venv
+.pgdata
+.superpowers
+.env
+.env.*
+keys
+secrets
+**/*.key
+**/node_modules
+web
+tests
+eval
+fixtures
+graphify-out
+docs
+spec
+policy
+**/__pycache__
+.pytest_cache
