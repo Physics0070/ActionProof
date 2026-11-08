@@ -24,27 +24,25 @@ function VerifyChain() {
     }
   }
   return (
-    <div className="c-verify">
-      <button type="button" className="button button-primary" onClick={() => void run()} disabled={check.step === "running"}>
+    <div className="a-verify">
+      <button type="button" className="button button-primary a-button" onClick={() => void run()} disabled={check.step === "running"}>
         {check.step === "running" ? "Verifying…" : "Verify chain"}
       </button>
-      <div role="status" aria-live="polite">
+      <div role="status" aria-live="polite" className="a-result">
+        {check.step === "idle" ? <p className="t-muted">Re-computes every hash in the log and its signed checkpoints.</p> : null}
         {check.step === "done" && check.v.ok ? (
           <p>
-            <Signal state="ALLOW" label="chain verified" />{" "}
-            <MonoLabel>
-              {check.v.entries} entries, {check.v.checkpoints} checkpoints
-            </MonoLabel>
+            <Signal state="ALLOW" label="chain verified" /> {check.v.entries} entries and {check.v.checkpoints} checkpoints check out. Nothing was changed after it was written.
           </p>
         ) : null}
         {check.step === "done" && !check.v.ok ? (
           <p>
-            <Signal state="DENY" label="chain broken" /> <MonoLabel>{check.v.error ?? "verification failed"}</MonoLabel>
+            <Signal state="DENY" label="chain broken" /> {check.v.error ?? "Verification failed."}
           </p>
         ) : null}
         {check.step === "failed" ? (
           <p role="alert">
-            <Signal state="DENY" label={check.error.code} /> <MonoLabel>{check.error.message}</MonoLabel>
+            <Signal state="DENY" label={check.error.code} /> {check.error.message}
           </p>
         ) : null}
       </div>

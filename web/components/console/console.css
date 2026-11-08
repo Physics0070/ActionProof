@@ -354,3 +354,305 @@
   margin: 0;
   white-space: pre-wrap;
 }
+
+/* ---------------------------------------------------------------- console v2: cards, verdict, decision bar */
+.c-main h1 {
+  font-size: clamp(2rem, 1rem + 3.2vw, 3.75rem);
+  letter-spacing: -0.04em;
+  line-height: 0.98;
+}
+.c-brand,
+.c-navlink {
+  font-family: var(--font-display);
+}
+.c-navlink {
+  position: relative;
+}
+.c-navlink::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  height: 2px;
+  background: var(--c-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--t-latch) var(--ease-latch);
+}
+.c-navlink:hover::after,
+.c-navlink:focus-visible::after,
+.c-navlink[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+.c-navlink[aria-current="page"] {
+  text-decoration: none;
+}
+.q-filters {
+  margin-block: var(--s-5);
+  border-top: 2px solid var(--c-ink);
+}
+.q-filters summary,
+.r-more summary {
+  cursor: pointer;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+.q-filters summary:hover,
+.r-more summary:hover {
+  color: var(--sig-deny);
+}
+.q-filters .c-filters {
+  margin-top: 0;
+}
+.q-list {
+  list-style: none;
+  margin: var(--s-5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-4);
+}
+.q-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-5);
+  align-items: center;
+  padding: var(--s-6);
+  background: var(--c-paper);
+  border: 2px solid var(--c-ink);
+  border-left-width: 10px;
+  transition: translate var(--t-latch) var(--ease-latch);
+}
+.q-card[data-status="pending"] {
+  border-left-color: var(--sig-review);
+}
+.q-card[data-status="executed"],
+.q-card[data-status="approved"] {
+  border-left-color: var(--sig-allow);
+}
+.q-card[data-status="denied"],
+.q-card[data-status="rejected"] {
+  border-left-color: var(--sig-deny);
+}
+.q-card:hover,
+.q-card:focus-within {
+  translate: 6px 0;
+}
+.q-main {
+  display: grid;
+  gap: var(--s-2);
+}
+.q-head {
+  font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
+  letter-spacing: -0.03em;
+}
+.q-why {
+  font-size: 1.125rem;
+}
+.q-side {
+  display: grid;
+  gap: var(--s-3);
+  justify-items: end;
+}
+@media (max-width: 720px) {
+  .q-card {
+    grid-template-columns: 1fr;
+    padding: var(--s-5);
+  }
+  .q-side {
+    justify-items: start;
+    grid-auto-flow: column;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+.r-back {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.r-title {
+  margin-block: var(--s-2) var(--s-3);
+  max-width: 26ch;
+}
+.r-verdict {
+  margin-top: var(--s-6);
+  padding: var(--s-5) var(--s-6);
+  background: var(--carbon);
+  color: var(--carbon-text);
+  border-left: 10px solid var(--sig-review-lamp);
+  display: grid;
+  gap: var(--s-2);
+}
+.r-why {
+  font-size: var(--fs-lede);
+  line-height: 1.3;
+}
+.k-list {
+  list-style: none;
+  margin: var(--s-4) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-3);
+}
+.k-item {
+  display: grid;
+  gap: var(--s-2);
+  justify-items: start;
+  padding: var(--s-5);
+  background: var(--c-paper);
+  border: 2px solid var(--c-line);
+  transition: border-color var(--t-snap) var(--ease-latch);
+}
+.k-item:hover,
+.k-item[data-active="true"] {
+  border-color: var(--c-ink);
+}
+.k-value {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2rem, 1.2rem + 2.4vw, 3.25rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.r-more {
+  margin-top: var(--s-7);
+  margin-bottom: var(--s-9);
+  display: grid;
+}
+.r-more details {
+  border-top: 2px solid var(--c-line);
+  padding-block: var(--s-3);
+}
+.r-more details[open] > summary {
+  margin-bottom: var(--s-4);
+}
+
+/* Sticky decision bar */
+.d-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin-inline: calc(var(--grid-margin) * -1);
+  padding: var(--s-4) var(--grid-margin);
+  background: var(--carbon);
+  color: var(--carbon-text);
+  --c-ink: var(--carbon-text);
+  --c-ground: var(--carbon);
+  --c-paper: var(--carbon-raised);
+  --c-muted: var(--carbon-muted);
+  --c-line: var(--carbon-line);
+  --c-focus: var(--c-accent);
+  --sig-allow: var(--sig-allow-lamp);
+  --sig-review: var(--sig-review-lamp);
+  --sig-deny: var(--sig-deny-lamp);
+  border-top: 4px solid var(--c-accent);
+}
+.d-bar .c-field input,
+.d-bar .c-field select,
+.d-bar .c-field textarea {
+  color: var(--carbon-text);
+  border-color: var(--carbon-muted);
+}
+.d-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--s-3) var(--s-5);
+}
+.d-form > .c-field {
+  grid-column: 1;
+}
+.d-form > .c-actions,
+.d-form > .c-confirm {
+  grid-column: 2;
+  align-self: end;
+}
+.d-form > .c-outcome,
+.d-form > [role="alert"] {
+  grid-column: 1 / -1;
+}
+.d-bar .c-confirm {
+  border-color: var(--c-accent);
+}
+.d-bar .c-confirm p {
+  max-width: 44ch;
+  font-size: var(--fs-small);
+}
+@media (max-width: 720px) {
+  .d-form {
+    grid-template-columns: 1fr;
+  }
+  .d-form > .c-actions,
+  .d-form > .c-confirm {
+    grid-column: 1;
+  }
+}
+
+/* Audit */
+.a-verify {
+  margin-block: var(--s-6);
+  padding: var(--s-6);
+  background: var(--c-paper);
+  border: 2px solid var(--c-ink);
+  display: grid;
+  gap: var(--s-4);
+  justify-items: start;
+}
+.a-button {
+  min-height: 72px;
+  padding-inline: var(--s-8);
+  font-size: 1.125rem;
+}
+.a-result p {
+  font-size: var(--fs-lede);
+  max-width: 40ch;
+}
+
+.nobr {
+  white-space: nowrap;
+}
+.d-bar .c-field textarea {
+  min-height: 52px;
+}
+@media (max-width: 720px) {
+  .d-bar {
+    padding-block: var(--s-3);
+  }
+  .d-form {
+    gap: var(--s-2);
+  }
+  .d-bar .c-field label {
+    font-size: 0.75rem;
+  }
+  .d-bar .c-field p {
+    font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 721px) {
+  .c-table th,
+  .c-table td {
+    overflow-wrap: normal;
+  }
+  .c-table td[data-label="Seq"],
+  .c-table td[data-label="Kind"],
+  .c-table td[data-label="Time"],
+  .c-table td[data-label="Decision"] {
+    white-space: nowrap;
+  }
+  .c-table td[data-label="Request"],
+  .c-table td[data-label="Entry hash"] {
+    overflow-wrap: anywhere;
+  }
+  .c-table thead th {
+    white-space: nowrap;
+  }
+}

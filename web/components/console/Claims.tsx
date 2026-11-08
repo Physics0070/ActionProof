@@ -1,6 +1,7 @@
 "use client";
 import type { Schemas } from "@/lib/api";
 import { parseSource } from "@/lib/console-format";
+import { moneyStr } from "@/lib/site-data";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Signal } from "@/components/ui/Signal";
 
@@ -77,6 +78,41 @@ export function Claims({ claims, active, onActive }: { claims: Claim[]; active: 
     <ul className="c-claims">
       {claims.map((c) => (
         <Row key={c.name} c={c} active={active === c.name} onActive={onActive} />
+      ))}
+    </ul>
+  );
+}
+
+/** The 2 or 3 authority values a reviewer needs first: money-like, evidence-backed, one per distinct name. */
+export function KeyValues({ claims, active, onActive }: { claims: Claim[]; active: string | null; onActive: (n: string | null) => void }) {
+  const real = claims.filter((c) => c.claim !== "ASSERTED" && !c.taint);
+  const money = real.filter((c) => moneyStr(c.value) !== null);
+  const seen = new Set<string>();
+  const pool = (money.length ? money : real).filter((c) => {
+    const k = `${c.claim}:${c.value}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  const items = pool.slice(0, 3);
+  return (
+    <ul className="k-list">
+      {items.map((c) => (
+        <li
+          key={c.name}
+          className="k-item"
+          data-active={active === c.name}
+          tabIndex={0}
+          aria-label={`${c.name}: ${moneyStr(c.value) ?? c.value}`}
+          onMouseEnter={() => onActive(c.name)}
+          onMouseLeave={() => onActive(null)}
+          onFocus={() => onActive(c.name)}
+          onBlur={() => onActive(null)}
+        >
+          <span className="mono-label t-muted">{c.name}</span>
+          <span className="k-value">{moneyStr(c.value) ?? c.value}</span>
+          {c.verification?.ok ? <Signal state="ALLOW" label="verified" /> : <Signal state="DENY" label="not verified" />}
+        </li>
       ))}
     </ul>
   );

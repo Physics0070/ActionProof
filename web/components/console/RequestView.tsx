@@ -4,11 +4,11 @@ import { useCallback, useState } from "react";
 import { ApiError, apiGet } from "@/lib/api";
 import { canDecide, canRead, useAuth } from "@/lib/console-auth";
 import { useAsync } from "@/lib/console-async";
-import { formatUtc, HASH_RE, toDecision } from "@/lib/console-format";
+import { formatUtc, HASH_RE, headline, toDecision, whyPaused } from "@/lib/console-format";
 import { Card } from "@/components/ui/Card";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Signal } from "@/components/ui/Signal";
-import { Claims } from "./Claims";
+import { Claims, KeyValues } from "./Claims";
 import { DecisionForm } from "./DecisionForm";
 import { Dict, ErrorState, Loading, PermissionDenied, ReasonList } from "./Parts";
 import { SourcePages } from "./SourcePages";
@@ -37,14 +37,21 @@ export function RequestView({ hash }: { hash: string }) {
   const verb = d.status === "rejected" ? "rejected" : "approved";
   const label =
     d.reviewer && decided && d.status !== "denied" ? `${d.label} · ${verb} by ${d.reviewer}${verb === "approved" ? " (different person)" : ""}` : d.label;
+  const amount = d.claims.find((c) => c.name === "amount")?.value ?? d.claims.find((c) => c.name === "invoice.total")?.value;
+  const title = headline(d.tool, amount, d.record_id);
+  const cited = d.claims.filter((c) => c.claim !== "ASSERTED" && !c.taint);
+  const checked = cited.filter((c) => c.verification?.ok).length;
+  const notEvidence = d.claims.length - cited.length;
 
   return (
-    <article aria-labelledby="req-h">
+    <article aria-labelledby="req-h" className="r-page">
       <p>
-        <Link href="/console">← Queue</Link>
+        <Link href="/console" className="r-back">
+          ← All requests
+        </Link>
       </p>
-      <h1 className="t-h3" id="req-h">
-        {d.tool} <MonoLabel muted>{d.record_id}</MonoLabel>
+      <h1 className="r-title" id="req-h">
+        {title.split(/([A-Z]{2,}-\d+)/).map((part, i) => (i % 2 ? <span key={i} className="nobr">{part}</span> : part))}
       </h1>
       <p className="c-label">{label}</p>
       <p className="c-meta">
@@ -52,85 +59,89 @@ export function RequestView({ hash }: { hash: string }) {
         <MonoLabel muted>{formatUtc(d.created_at)}</MonoLabel>
         {d.decided_at ? <MonoLabel muted>decided {formatUtc(d.decided_at)}</MonoLabel> : null}
       </p>
-      <p>
-        <MonoLabel muted>request hash</MonoLabel> <span className="mono-label c-wrap">{d.request_hash}</span>
-      </p>
+
+      <section className="r-verdict" aria-label="Verdict">
+        <p className="r-why">
+          <strong>Why this paused:</strong> {whyPaused(d.claims, d.policy_reasons)}.
+        </p>
+        <p>
+          Checked: {checked} of {cited.length} cited values re-verified against their sources.
+          {notEvidence > 0 ? ` ${notEvidence} model-only or document-text ${notEvidence === 1 ? "value was" : "values were"} not counted as evidence.` : ""}
+        </p>
+        <p>{decided ? `This request is ${d.status}; no further decision can be made.` : "Approve runs the write once. Reject closes it without running anything."}</p>
+      </section>
 
       <div className="c-split">
         <div>
-          <h2 className="t-h3">Authority arguments</h2>
-          <p className="t-muted">Hover or focus an argument to find its source span on the page.</p>
-          <Claims claims={d.claims} active={active} onActive={setActive} />
+          <h2 className="t-h3">Values that matter</h2>
+          <KeyValues claims={d.claims} active={active} onActive={setActive} />
         </div>
         <div>
-          <h2 className="t-h3">Source pages</h2>
+          <h2 className="t-h3">Source page</h2>
           <SourcePages hash={d.request_hash} claims={d.claims} active={active} onActive={setActive} />
         </div>
       </div>
 
-      <section aria-labelledby="why-h" className="c-section">
-        <h2 className="t-h3" id="why-h">
-          Why it paused
-        </h2>
-        <ReasonList reasons={d.policy_reasons} state="REVIEW" />
-        {d.outcome_reasons.length ? (
-          <>
-            <h3 className="mono-label">Latest outcome</h3>
-            <ReasonList reasons={d.outcome_reasons} state="DENY" />
-          </>
-        ) : null}
-        {d.taint_flags.length ? (
+      <div className="r-more">
+        <details>
+          <summary>Evidence: every argument and how it was checked</summary>
+          <p className="t-muted">Hover or focus an argument to find its source span on the page.</p>
+          <Claims claims={d.claims} active={active} onActive={setActive} />
+        </details>
+        <details>
+          <summary>Policy reasons</summary>
+          <ReasonList reasons={d.policy_reasons} state="REVIEW" />
+          {d.outcome_reasons.length ? (
+            <>
+              <h3 className="mono-label">Latest outcome</h3>
+              <ReasonList reasons={d.outcome_reasons} state="DENY" />
+            </>
+          ) : null}
+          {d.taint_flags.length ? (
+            <p>
+              <MonoLabel>Tainted arguments: {d.taint_flags.join(", ")}. Document text is shown, never trusted.</MonoLabel>
+            </p>
+          ) : null}
+        </details>
+        <details>
+          <summary>Technical details</summary>
           <p>
-            <MonoLabel>Tainted arguments: {d.taint_flags.join(", ")}. Document text is shown, never trusted.</MonoLabel>
+            <MonoLabel muted>request hash</MonoLabel> <span className="mono-label c-wrap">{d.request_hash}</span>
           </p>
-        ) : null}
-      </section>
-
-      <div className="c-split c-section">
-        <section aria-labelledby="diff-h">
-          <h2 className="t-h3" id="diff-h">
-            Dry-run diff
-          </h2>
-          {d.diff ? <Dict value={d.diff} /> : <p className="t-muted">No dry-run diff stored.</p>}
-        </section>
-        <section aria-labelledby="before-h">
-          <h2 className="t-h3" id="before-h">
-            Record before
-          </h2>
-          {d.before ? <Dict value={d.before} /> : <p className="t-muted">No before-state stored.</p>}
-        </section>
+          <div className="c-split">
+            <section aria-labelledby="diff-h">
+              <h2 className="mono-label" id="diff-h">
+                Dry-run diff
+              </h2>
+              {d.diff ? <Dict value={d.diff} /> : <p className="t-muted">No dry-run diff stored.</p>}
+            </section>
+            <section aria-labelledby="before-h">
+              <h2 className="mono-label" id="before-h">
+                Record before
+              </h2>
+              {d.before ? <Dict value={d.before} /> : <p className="t-muted">No before-state stored.</p>}
+            </section>
+          </div>
+          {d.card ? (
+            <Card>
+              <pre className="c-card mono-label" tabIndex={0} aria-label="Intercept card text">
+                {d.card}
+              </pre>
+            </Card>
+          ) : null}
+        </details>
       </div>
 
-      {d.card ? (
-        <section aria-labelledby="card-h" className="c-section">
-          <h2 className="t-h3" id="card-h">
-            Card
-          </h2>
-          <Card>
-            <pre className="c-card mono-label" tabIndex={0} aria-label="Intercept card text">
-              {d.card}
-            </pre>
-          </Card>
-        </section>
+      {(!decided || submitted) && canDecide(user) ? (
+        <DecisionForm
+          hash={d.request_hash}
+          onDecided={() => {
+            setSubmitted(true);
+            reload();
+          }}
+        />
       ) : null}
-
-      <div className="c-section">
-        {(!decided || submitted) && canDecide(user) ? (
-          <DecisionForm
-            hash={d.request_hash}
-            onDecided={() => {
-              setSubmitted(true);
-              reload();
-            }}
-          />
-        ) : null}
-        {!decided && !canDecide(user) ? <PermissionDenied roles={user.roles} need="Only the reviewer role can approve or reject; admin cannot decide." /> : null}
-        {decided && !submitted ? (
-          <p role="status">
-            <MonoLabel>This request is {d.status}; no further decision can be made.</MonoLabel>
-          </p>
-        ) : null}
-      </div>
+      {!decided && !canDecide(user) ? <PermissionDenied roles={user.roles} need="Only the reviewer role can approve or reject; admin cannot decide." /> : null}
       {error ? <ErrorState error={error} onRetry={reload} /> : null}
     </article>
   );

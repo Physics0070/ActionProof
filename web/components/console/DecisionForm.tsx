@@ -2,7 +2,6 @@
 import { useId, useState } from "react";
 import { ApiError, apiPost, type Schemas } from "@/lib/api";
 import { REASON_MAX, REASON_MIN } from "@/lib/console-format";
-import { Card } from "@/components/ui/Card";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Signal } from "@/components/ui/Signal";
 import { ReasonList } from "./Parts";
@@ -46,16 +45,16 @@ export function DecisionForm({ hash, onDecided }: { hash: string; onDecided: () 
   const choice = phase.step === "confirm" || phase.step === "pending" ? phase.choice : null;
 
   return (
-    <Card as="section">
-      <h2 className="t-h3">Decide</h2>
-      <div className="c-form">
+    <section className="d-bar" aria-label="Decision">
+      <h2 className="visually-hidden">Decide</h2>
+      <div className="c-form d-form">
         <div className="c-field">
           <label htmlFor={`${id}-reason`}>
             Reason ({REASON_MIN}-{REASON_MAX} characters)
           </label>
           <textarea
             id={`${id}-reason`}
-            rows={3}
+            rows={1}
             value={reason}
             maxLength={REASON_MAX}
             disabled={lock}
@@ -127,6 +126,6 @@ export function DecisionForm({ hash, onDecided }: { hash: string; onDecided: () 
           </div>
         ) : null}
       </div>
-    </Card>
+    </section>
   );
 }

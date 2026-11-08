@@ -5,7 +5,7 @@ import { useCallback, type FormEvent, type KeyboardEvent } from "react";
 import { apiGet, type Schemas } from "@/lib/api";
 import { canRead, useAuth } from "@/lib/console-auth";
 import { useAsync } from "@/lib/console-async";
-import { formatAge, formatUtc, guaranteeOf, shortHash, STATUS_OPTIONS, TOOL_OPTIONS, toDecision } from "@/lib/console-format";
+import { formatAge, formatUtc, guaranteeOf, headline, STATUS_OPTIONS, TOOL_OPTIONS, toDecision } from "@/lib/console-format";
 import { useNow } from "@/lib/console-now";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Signal } from "@/components/ui/Signal";
@@ -14,44 +14,39 @@ import { Empty, ErrorState, Loading, PermissionDenied } from "./Parts";
 type Item = Schemas["QueueItem"];
 const pick = <T extends string>(v: string | null, options: readonly T[]): T | undefined => options.find((o) => o === v);
 
-function Row({ item, now }: { item: Item; now: number | null }) {
+function QueueCard({ item, now }: { item: Item; now: number | null }) {
   const state = toDecision(item.status);
   const g = guaranteeOf(item.reasons, item.top_rule);
+  const text = headline(item.tool, item.amount);
+  const pending = item.status === "pending";
   return (
-    <tr>
-      <td data-label="Status">
-        {state ? <Signal state={state} label={item.status} /> : <MonoLabel>{item.status}</MonoLabel>}
-      </td>
-      <td data-label="Request">
-        <Link href={`/console/requests/${item.request_hash}`} data-row title={item.request_hash} className="mono-label">
-          {shortHash(item.request_hash)}
+    <li className="q-card" data-status={item.status}>
+      <div className="q-main">
+        <h2 className="q-head">{text}</h2>
+        {item.reasons[0] ? (
+          <p className="q-why" title={item.top_rule ? `${item.top_rule}${g ? ` · ${g}` : ""}` : undefined}>
+            {item.reasons[0].msg}
+          </p>
+        ) : null}
+        <p className="q-meta mono-label">
+          Asked by {item.actor} for {item.on_behalf_of} ·{" "}
+          <time dateTime={new Date(item.created_at * 1000).toISOString()} title={formatUtc(item.created_at)}>
+            {formatAge(item.created_at, now)} ago
+          </time>
+        </p>
+      </div>
+      <div className="q-side">
+        {state ? <Signal state={state} label={item.status === state ? undefined : item.status} /> : <MonoLabel>{item.status}</MonoLabel>}
+        <Link href={`/console/requests/${item.request_hash}`} data-row title={item.request_hash} className={pending ? "button button-primary" : "button"} aria-label={`${pending ? "Review" : "Open"}: ${text}`}>
+          {pending ? "Review" : "Open"}
         </Link>
-      </td>
-      <td data-label="Tool">
-        <MonoLabel>{item.tool}</MonoLabel>
-      </td>
-      <td data-label="Requested by / for">
-        <MonoLabel>
-          {item.actor} / {item.on_behalf_of}
-        </MonoLabel>
-      </td>
-      <td data-label="Amount">
-        <MonoLabel>{item.amount ?? "-"}</MonoLabel>
-      </td>
-      <td data-label="Rule">
-        <MonoLabel>{item.top_rule ? `${item.top_rule}${g ? ` · ${g}` : ""}` : "-"}</MonoLabel>
-      </td>
-      <td data-label="Age">
-        <time dateTime={new Date(item.created_at * 1000).toISOString()} title={formatUtc(item.created_at)} className="mono-label">
-          {formatAge(item.created_at, now)}
-        </time>
-      </td>
-    </tr>
+      </div>
+    </li>
   );
 }
 
 /** Arrow keys move between the request links of the rows; Enter follows the focused link. */
-function rowKeys(e: KeyboardEvent<HTMLTableSectionElement>) {
+function rowKeys(e: KeyboardEvent<HTMLUListElement>) {
   const links = Array.from(e.currentTarget.querySelectorAll<HTMLAnchorElement>("a[data-row]"));
   const i = links.indexOf(document.activeElement as HTMLAnchorElement);
   if (i < 0) return;
@@ -100,8 +95,10 @@ export function QueueView() {
   return (
     <section aria-labelledby="queue-h">
       <h1 className="t-h2" id="queue-h">
-        Review queue
+        Review requests
       </h1>
+      <details className="q-filters" open={Boolean(status || tool || actor)}>
+        <summary>Filter{status || tool || actor ? " (on)" : ""}</summary>
       <form className="c-filters" onSubmit={apply} key={sp.toString()} aria-label="Filter the queue">
         <div className="c-field">
           <label htmlFor="f-status">Status</label>
@@ -133,6 +130,7 @@ export function QueueView() {
           Apply filters
         </button>
       </form>
+      </details>
 
       <div aria-busy={loading} className={loading && data ? "c-dim" : undefined}>
         {error ? <ErrorState error={error} onRetry={reload} /> : null}
@@ -141,23 +139,11 @@ export function QueueView() {
           <Empty title="No requests match">Nothing is {status ?? "queued"} for these filters. Clear a filter or check back later.</Empty>
         ) : null}
         {data && data.items.length > 0 ? (
-          <table className="c-table">
-            <caption className="visually-hidden">Review requests, newest first. Use the arrow keys to move between rows.</caption>
-            <thead>
-              <tr>
-                {["Status", "Request", "Tool", "Requested by / for", "Amount", "Rule", "Age"].map((h) => (
-                  <th key={h} scope="col" className="mono-label">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody onKeyDown={rowKeys}>
-              {data.items.map((it) => (
-                <Row key={it.request_hash} item={it} now={now} />
-              ))}
-            </tbody>
-          </table>
+          <ul className="q-list" aria-label="Review requests, newest first. Use the arrow keys to move between them." onKeyDown={rowKeys}>
+            {data.items.map((it) => (
+              <QueueCard key={it.request_hash} item={it} now={now} />
+            ))}
+          </ul>
         ) : null}
       </div>
 
