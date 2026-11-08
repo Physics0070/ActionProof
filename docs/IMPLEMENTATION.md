@@ -54,7 +54,7 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 
 ### Demo seed / reset
 - [x] `scripts/demo_seed.py --reset` (idempotent): wipes all demo state (db.reset, incl. the audit chain); seed INV-2048/PO-2048, people, delegations (db.seed_hero), PAY-7731 (db.seed_refunds), prior refunds 4800.00 for (agent-7, CUST-311) across PAY-7001..7004 (`tests/test_refund_demo_seed.py`)
-- [ ] `tests/test_demo_script.py`: beats in order — hero REVIEW (approved by rev-alice), injected DENY, replay DENY, concurrent $4,900 one DENY, refund taint DENY, refund cap DENY — asserts outcome + rule id each
+- [x] `scripts/demo.py` (run by `demo.sh`, asserts each beat; ran green once, not a pytest): beats in order — hero REVIEW (approved by rev-alice), injected DENY, replay DENY, concurrent $4,900 one DENY, refund taint DENY, refund cap DENY — asserts outcome + rule id each
 
 ## Phase 6 — Proof (W4)
 - [ ] attacks (handwritten + generated in isolation), 100+ benign, eval/run.py 5 arms, EVAL.md
@@ -66,4 +66,5 @@ Tick as done. Tasks are S/M sized; each phase ends in a gate with real output re
 
 ## Phase 8 — Ship
 - [x] CSP/headers (`web/security-headers.mjs`, wired in next.config.ts), compose full stack (`docker-compose.yml`, `Dockerfile.api`, `web/Dockerfile`; authored, NOT run: no Docker engine), GitHub Actions (`ci.yml`, `eval.yml`), Playwright specs + Lighthouse budgets (authored, not run), RUNBOOK
-- [ ] demo.sh, video, DEMO/README, first `docker compose up` from a fresh clone, first green CI run
+- [x] demo.sh, docs/DEMO.md
+- [ ] video, README, first `docker compose up` from a fresh clone, first green CI run
