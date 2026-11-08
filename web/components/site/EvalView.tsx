@@ -1,11 +1,13 @@
 "use client";
 // /evaluation: everything here is read from GET /api/public/eval (eval/results.json). No result is typed in source;
 // when the payload says available:false the page says so and shows nothing in its place.
+// Layout: one headline, a three-number target strip, five big comparison rows; the rest sits in <details>.
 import { useEffect, useState } from "react";
 import { apiGet, type Schemas } from "@/lib/api";
 import { CLASSES, FRAMING, SETS, TABLE_COLS, TABLE_ROWS } from "@/lib/site-copy";
 import { ms, pct, readEval, utc, type Arm, type EvalResults, type SetCount } from "@/lib/site-data";
 import { MonoLabel } from "@/components/ui/MonoLabel";
+import { Signal } from "@/components/ui/Signal";
 
 type Load = { attempt: number; out: { ok: Schemas["EvalOut"] } | { err: string } };
 
@@ -26,92 +28,124 @@ function Count({ c, emptyText }: { c: SetCount | undefined; emptyText: string })
   );
 }
 
-function Status({ state }: { state: "met" | "missed" | "unmeasured" }) {
-  const text = state === "met" ? "Met" : state === "missed" ? "Missed" : "Not measured";
-  return <strong className="status" data-status={state}>{text}</strong>;
+type Mood = "met" | "missed" | "unmeasured" | "yes" | "partial" | "no";
+
+/** Shape + word + colour, never colour alone: circle = good, triangle = partial or unmeasured, square = bad. */
+function Mark({ state, word }: { state: Mood; word?: string }) {
+  const tone = state === "met" || state === "yes" ? "ALLOW" : state === "missed" || state === "no" ? "DENY" : "REVIEW";
+  const text = word ?? { met: "Met", missed: "Missed", unmeasured: "Not measured", yes: "Yes", partial: "Partial", no: "No" }[state];
+  return <Signal state={tone} word={text} />;
 }
 
-function Lead({ r }: { r: EvalResults }) {
+function Headline({ r }: { r: EvalResults }) {
   const ap = r.arms["actionproof"];
-  const ng = r.arms["no_gate"];
   if (!ap || ap.status !== "ok" || !ap.attacks) {
     return <p role="status">The ActionProof arm did not run in this evaluation, so there is no headline result to show.</p>;
   }
-  const hw = ap.attacks.by_set.handwritten;
+  const total = ap.attacks.total;
+  const rivals = ["no_gate", "schema_only", "llm_judge", "policy_gateway"].filter((k) => r.arms[k]?.attacks);
   return (
-    <div className="lead-grid">
-      <div>
-        <p className="t-kinetic lead-num" aria-label={`${ap.attacks.total.success} of ${ap.attacks.total.n} attacks executed`}>
-          {ap.attacks.total.success}
-          <span className="lead-of"> of {ap.attacks.total.n}</span>
-        </p>
-        <p className="t-lede">
-          attacks executed against ActionProof
-          {ng?.attacks ? <>, against {ng.attacks.total.success} of {ng.attacks.total.n} with no gate</> : null}. Handwritten set: {hw.success} of {hw.n}.
-        </p>
-      </div>
-      <ul className="plain-list lead-side">
-        {ap.benign ? (
-          <li>
-            <MonoLabel muted>False blocks on benign cases</MonoLabel>
-            <br />
-            {ap.benign.false_blocks} of {ap.benign.n} ({pct(ap.benign.false_blocks, ap.benign.n)})
-          </li>
-        ) : null}
-        {ap.latency_ms ? (
-          <li>
-            <MonoLabel muted>Added latency, p95</MonoLabel>
-            <br />
-            {ms(ap.latency_ms.added_p95)}
-          </li>
-        ) : null}
-        <li>
-          <MonoLabel muted>Targets</MonoLabel>
-          <br />
-          {r.targets_met?.all ? "all met" : "not all met, see below"}
-        </li>
+    <div className="ev-hero">
+      <p className="ev-big" aria-label={`${total.success} of ${total.n} attacks executed against ActionProof`}>
+        <span className="ev-num">{total.success}</span> of {total.n}
+        <span className="ev-big-cap">attacks executed against ActionProof</span>
+      </p>
+      <ul className="ev-bars" aria-label="Attacks that executed, by approach">
+        {[...rivals, "actionproof"].map((k) => {
+          const a = r.arms[k]?.attacks?.total;
+          if (!a) return null;
+          return (
+            <li key={k} data-self={k === "actionproof"}>
+              <span className="ev-bar-label">{ARM_LABEL[k] ?? k}</span>
+              <span className="ev-bar" aria-hidden="true">
+                <span style={{ width: `${a.n ? (a.success / a.n) * 100 : 0}%` }} />
+              </span>
+              <span className="ev-bar-n">
+                {a.success} of {a.n}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
 }
 
-function CapabilityTable({ r }: { r: EvalResults }) {
+function TargetStrip({ r }: { r: EvalResults }) {
+  const t = r.targets;
+  const m = r.targets_met;
+  const ap = r.arms["actionproof"];
+  if (!t || !m) return <p className="t-muted">This evaluation did not record targets.</p>;
+  const heldN = m.held_out_n ?? 0;
+  const raw: unknown = m.held_out_successes;
+  const held: Mood = heldN === 0 || raw == null ? "unmeasured" : typeof raw === "boolean" ? (raw ? "met" : "missed") : (raw as number) <= t.held_out_successes_max ? "met" : "missed";
+  const heldSet = ap?.attacks?.by_set.handwritten2;
+  const fb: Mood = m.false_block_rate == null ? "unmeasured" : m.false_block_rate ? "met" : "missed";
+  const lat: Mood = m.added_p95_ms == null ? "unmeasured" : m.added_p95_ms ? "met" : "missed";
+  const cards: { k: string; label: string; value: string; state: Mood }[] = [
+    {
+      k: "attacks",
+      label: `Attacks that executed on the held-out set (target ${t.held_out_successes_max})`,
+      value: heldSet && String(m.held_out_set ?? "").startsWith("handwritten2") ? `${heldSet.success} of ${heldSet.n}` : heldN > 0 ? `${heldN} cases` : "none",
+      state: held,
+    },
+    {
+      k: "blocks",
+      label: `False blocks on benign cases (target at most ${Math.round(t.false_block_rate_max * 1000) / 10}%)`,
+      value: ap?.benign ? pct(ap.benign.false_blocks, ap.benign.n) : "n/a",
+      state: fb,
+    },
+    {
+      k: "latency",
+      label: `Added latency, p95 (target under ${t.added_p95_ms_max} ms)`,
+      value: ap?.latency_ms ? ms(ap.latency_ms.added_p95) : "n/a",
+      state: lat,
+    },
+  ];
   return (
-    <div className="table-wrap">
-      <table className="data-table">
-        <caption className="visually-hidden">Capabilities of each approach, measured by probes in the evaluation</caption>
-        <thead>
-          <tr>
-            <th scope="col">Approach</th>
-            {TABLE_COLS.map((c) => (
-              <th key={c.key} scope="col">
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {TABLE_ROWS.map((row) => {
-            const caps = row.measured ? r.capabilities[row.key] : undefined;
-            return (
-              <tr key={row.key} data-self={row.key === "actionproof"}>
-                <th scope="row">
-                  {row.label}
-                  {!row.measured ? (
-                    <>
-                      <br />
-                      <MonoLabel muted>typical design, not measured</MonoLabel>
-                    </>
-                  ) : null}
-                </th>
-                {TABLE_COLS.map((c) => (
-                  <td key={c.key}>{caps ? (caps[c.key] ?? "n/a") : <span className="t-muted">n/a</span>}</td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <ul className="ev-targets">
+      {cards.map((c) => (
+        <li key={c.k}>
+          <p className="ev-target-v">{c.value}</p>
+          <p className="ev-target-l">{c.label}</p>
+          <Mark state={c.state} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Comparison({ r }: { r: EvalResults }) {
+  return (
+    <div className="ev-compare" role="table" aria-label="What each approach checks, measured by probes in the evaluation">
+      <div className="ev-crow ev-chead" role="row">
+        <span role="columnheader">Approach</span>
+        {TABLE_COLS.map((c) => (
+          <span key={c.key} role="columnheader">
+            {c.label}
+          </span>
+        ))}
+      </div>
+      {TABLE_ROWS.map((row) => {
+        const caps = row.measured ? r.capabilities[row.key] : undefined;
+        return (
+          <div key={row.key} className="ev-crow" role="row" data-self={row.key === "actionproof"}>
+            <span role="rowheader" className="ev-cname">
+              {row.label}
+              {!row.measured ? <small>typical design, not measured</small> : null}
+            </span>
+            {TABLE_COLS.map((c) => {
+              const v = caps?.[c.key];
+              const k = (v ?? "").toLowerCase();
+              return (
+                <span key={c.key} role="cell" data-col={c.label}>
+                  {v ? <Mark state={k.startsWith("y") ? "yes" : k.startsWith("p") ? "partial" : "no"} word={v} /> : <span className="t-muted">n/a</span>}
+                </span>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -202,62 +236,6 @@ function ArmTable({ r }: { r: EvalResults }) {
   );
 }
 
-function Targets({ r }: { r: EvalResults }) {
-  const t = r.targets;
-  const m = r.targets_met;
-  const ap = r.arms["actionproof"];
-  if (!t || !m) return <p className="t-muted">This evaluation did not record targets.</p>;
-  const heldN = m.held_out_n ?? 0;
-  const held: "met" | "missed" | "unmeasured" =
-    heldN > 0 && m.held_out_successes != null ? (m.held_out_successes <= t.held_out_successes_max ? "met" : "missed") : "unmeasured";
-  const fb = m.false_block_rate == null ? "unmeasured" : m.false_block_rate ? "met" : "missed";
-  const lat = m.added_p95_ms == null ? "unmeasured" : m.added_p95_ms ? "met" : "missed";
-  return (
-    <>
-      <p className="t-muted">Proposed targets, not results. Each is checked against what this run measured.</p>
-      <div className="table-wrap">
-        <table className="data-table">
-          <caption className="visually-hidden">Targets against measured values</caption>
-          <thead>
-            <tr>
-              <th scope="col">Target</th>
-              <th scope="col">Measured</th>
-              <th scope="col">Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th scope="row">{t.held_out_successes_max} successful attacks on the held-out set</th>
-              <td>
-                {held === "unmeasured"
-                  ? `not measured: the held-out set (${m.held_out_set ?? "unnamed"}) has ${heldN} cases`
-                  : `${m.held_out_successes} successful of ${heldN}`}
-              </td>
-              <td>
-                <Status state={held} />
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">At most {Math.round(t.false_block_rate_max * 1000) / 10}% false blocks</th>
-              <td>{ap?.benign ? `${pct(ap.benign.false_blocks, ap.benign.n)} (${ap.benign.false_blocks} of ${ap.benign.n})` : "n/a"}</td>
-              <td>
-                <Status state={fb} />
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">p95 under {t.added_p95_ms_max} ms added</th>
-              <td>{ap?.latency_ms ? ms(ap.latency_ms.added_p95) : "n/a"}</td>
-              <td>
-                <Status state={lat} />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
 export function EvalView() {
   const [attempt, setAttempt] = useState(0);
   const [load, setLoad] = useState<Load | null>(null);
@@ -302,46 +280,55 @@ export function EvalView() {
   return (
     <>
       <section aria-labelledby="ev-lead" className="ev-section">
-        <h2 id="ev-lead" className="t-h2">
-          Proof before permission, measured
+        <h2 id="ev-lead" className="visually-hidden">
+          Headline result
         </h2>
-        <Lead r={r} />
-        <MonoLabel as="p" muted>
-          {r.commit ? `commit ${r.commit.sha.slice(0, 12)}${r.commit.dirty ? " (working tree had uncommitted changes)" : ""}` : "commit not recorded"}
-          {r.generated_at ? `, run ${utc(r.generated_at)}` : ""}
-        </MonoLabel>
-      </section>
-
-      <section aria-labelledby="ev-caps" className="ev-section">
-        <h2 id="ev-caps" className="t-h2">
-          What each approach checks
-        </h2>
-        <p className="t-muted">Filled from capabilities the evaluation measured. The CaMeL-style row is a typical design and was not run.</p>
-        <CapabilityTable r={r} />
-      </section>
-
-      <section aria-labelledby="ev-attacks" className="ev-section">
-        <h2 id="ev-attacks" className="t-h2">
-          Seven attack classes
-        </h2>
-        <p className="t-muted">Attacks that executed against ActionProof, by class and set. Lower is better. The second handwritten set is NOT independent.</p>
-        {ap && ap.status === "ok" ? <ClassTable ap={ap} /> : <p>The ActionProof arm did not run.</p>}
-        <h3 className="t-h3">Every approach, same cases</h3>
-        <ArmTable r={r} />
+        <Headline r={r} />
       </section>
 
       <section aria-labelledby="ev-targets" className="ev-section">
-        <h2 id="ev-targets" className="t-h2">
-          Targets against actuals
+        <h2 id="ev-targets" className="t-h3">
+          Three targets
         </h2>
-        <Targets r={r} />
+        <TargetStrip r={r} />
+      </section>
+
+      <section aria-labelledby="ev-caps" className="ev-section">
+        <h2 id="ev-caps" className="t-h3">
+          What each approach checks
+        </h2>
+        <Comparison r={r} />
       </section>
 
       <section aria-labelledby="ev-honest" className="ev-section">
         <h2 id="ev-honest" className="t-h3">
-          How to read this
+          Read this before trusting it
         </h2>
-        <p>{FRAMING}</p>
+        <ul className="ev-honest">
+          <li>The second handwritten set is NOT independent.</li>
+          <li>The independent generator is absent, so the generated set did not run.</li>
+          <li>The CaMeL-style row is a typical design, not measured.</li>
+        </ul>
+      </section>
+
+      <section aria-label="Details" className="ev-section ev-details">
+        <details>
+          <summary>Attack classes, by set</summary>
+          <p className="t-muted">Attacks that executed against ActionProof. Lower is better.</p>
+          {ap && ap.status === "ok" ? <ClassTable ap={ap} /> : <p>The ActionProof arm did not run.</p>}
+        </details>
+        <details>
+          <summary>Every approach on the same cases, with latency</summary>
+          <ArmTable r={r} />
+        </details>
+        <details>
+          <summary>How to read this, and which commit produced it</summary>
+          <p>{FRAMING}</p>
+          <MonoLabel as="p" muted>
+            {r.commit ? `commit ${r.commit.sha.slice(0, 12)}${r.commit.dirty ? " (working tree had uncommitted changes)" : ""}` : "commit not recorded"}
+            {r.generated_at ? `, run ${utc(r.generated_at)}` : ""}
+          </MonoLabel>
+        </details>
       </section>
     </>
   );
