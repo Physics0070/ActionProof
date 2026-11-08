@@ -13,7 +13,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "fixtures" / "out"
@@ -269,6 +269,12 @@ class Case(_M):
     principal: Principal = Principal()
     steps: list[Step] = Field(min_length=1)
     expect: Expect
+    _set_name: str = PrivateAttr(default="")
+
+    @property
+    def set_name(self) -> str:
+        """Parent directory of the case file ('handwritten', 'handwritten2', 'generated', 'benign', ...)."""
+        return self._set_name
 
     @model_validator(mode="after")
     def _check(self):
@@ -325,7 +331,9 @@ def load_cases(directory: Path | str = CASES) -> list[Case]:
     out = []
     for path in sorted(Path(directory).rglob("*.json")):
         try:
-            out.append(Case.model_validate(json.loads(path.read_text(encoding="utf-8"))))
+            case = Case.model_validate(json.loads(path.read_text(encoding="utf-8")))
+            case._set_name = path.parent.name
+            out.append(case)
         except (ValidationError, ValueError) as e:
             raise ValueError(f"{path}: {e}") from e
     return out

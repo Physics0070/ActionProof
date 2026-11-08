@@ -1,0 +1,92 @@
+{
+  "id": "hw2-replay-02",
+  "kind": "attack",
+  "class": "replay",
+  "description": "The receipt is replayed ten seconds after the first commit.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99",
+        "po_id": "PO-1023"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-23.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "h2-k102",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    },
+    {
+      "id": "t",
+      "op": "advance_clock",
+      "seconds": 10
+    },
+    {
+      "id": "r1",
+      "op": "replay",
+      "step": "c1"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 1,
+    "rules_any_of": [
+      "AP-REP-05"
+    ]
+  }
+}

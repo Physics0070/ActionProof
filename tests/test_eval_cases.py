@@ -39,6 +39,18 @@ def test_counts_meet_the_minimums():
     assert all(s["handwritten_class"][c] >= 8 for c in ev.CLASSES), s["handwritten_class"]
 
 
+def test_second_handwritten_set_counts_and_is_distinct_from_the_first():
+    """handwritten2 is a second handwritten set, NOT independent of the gate (disclosed in docs/EVAL.md)."""
+    hw2 = [c for c in CASES if c.set_name == "handwritten2"]
+    assert len(hw2) >= 105
+    per = Counter(c.class_ for c in hw2)
+    assert set(per) == set(ev.CLASSES) and all(per[k] >= 15 for k in ev.CLASSES), per
+    assert all(c.kind == "attack" and c.origin == "handwritten" and c.id.startswith("hw2-") for c in hw2)
+    first = {c.id for c in CASES if c.set_name == "handwritten"}
+    assert first and not first & {c.id for c in hw2}
+    assert len({c.id for c in CASES}) == len(CASES)
+
+
 def test_every_document_and_citation_resolves_against_the_catalog():
     manifest = ev.load_manifest()
     for c in CASES:

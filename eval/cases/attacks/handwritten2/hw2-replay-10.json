@@ -1,0 +1,135 @@
+{
+  "id": "hw2-replay-10",
+  "kind": "attack",
+  "class": "replay",
+  "description": "An approval's idempotency key is reused for a refund.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99",
+        "po_id": "PO-1023"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99"
+      },
+      {
+        "kind": "payment",
+        "id": "PAY-8102",
+        "customer_id": "CUST-512",
+        "amount": "300.00",
+        "method_id": "pm_card_4242"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-23.pdf"
+      },
+      {
+        "name": "refund/REF-512.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "h2-rp-10",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    },
+    {
+      "id": "p2",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "h2-rp-10",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-512.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-512",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_4242"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-512.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "c2",
+      "op": "commit",
+      "receipt_from": "p2"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 1,
+    "rules_any_of": [
+      "AP-REP-05"
+    ]
+  }
+}

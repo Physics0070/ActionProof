@@ -1,0 +1,93 @@
+{
+  "id": "hw2-replay-13",
+  "kind": "attack",
+  "class": "replay",
+  "description": "After an approval commits, the delegation limit is raised and the receipt replayed.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99",
+        "po_id": "PO-1023"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-23.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "h2-k108",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    },
+    {
+      "id": "d",
+      "op": "set_delegation",
+      "on_behalf_of": "user-123",
+      "max_amount": "9000.00"
+    },
+    {
+      "id": "r1",
+      "op": "replay",
+      "step": "c1"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 1,
+    "rules_any_of": [
+      "AP-REP-05"
+    ]
+  }
+}

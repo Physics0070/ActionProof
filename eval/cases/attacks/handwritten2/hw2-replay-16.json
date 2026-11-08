@@ -1,0 +1,145 @@
+{
+  "id": "hw2-replay-16",
+  "kind": "attack",
+  "class": "replay",
+  "description": "Two sessions of one person prepare the same request under one key and both commit.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99",
+        "po_id": "PO-1023"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-23.pdf"
+      }
+    ],
+    "people": [
+      {
+        "login": "agent-8",
+        "person_id": "p-user123",
+        "roles": [
+          "agent"
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "h2-rp-16",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "p2",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "h2-rp-16",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          }
+        },
+        "actor": "agent-8"
+      },
+      "principal": {
+        "actor": "agent-8",
+        "on_behalf_of": "user-123"
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    },
+    {
+      "id": "c2",
+      "op": "commit",
+      "receipt_from": "p2",
+      "principal": {
+        "actor": "agent-8",
+        "on_behalf_of": "user-123"
+      }
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 1,
+    "rules_any_of": [
+      "AP-REP-05"
+    ]
+  }
+}

@@ -1,0 +1,160 @@
+{
+  "id": "hw2-split_payments-09",
+  "kind": "attack",
+  "class": "split_payments",
+  "description": "A 400.00 payment refunded 150.00, 150.00, then 150.00 again (only 100.00 remains).",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "payment",
+        "id": "PAY-7731",
+        "customer_id": "CUST-311",
+        "amount": "400.00",
+        "method_id": "pm_card_4242"
+      }
+    ],
+    "documents": [
+      {
+        "name": "refund/REF-312.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "h2-k085",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-312.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-311",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_4242"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-312.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    },
+    {
+      "id": "p2",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "h2-k086",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-312.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-311",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_4242"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-312.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "c2",
+      "op": "commit",
+      "receipt_from": "p2"
+    },
+    {
+      "id": "p3",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.refund_payment",
+        "idempotency_key": "h2-k087",
+        "args": {
+          "payment_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-312.pdf",
+              "field": "payment_id"
+            }
+          },
+          "customer_id": {
+            "claim": "ASSERTED",
+            "value": "CUST-311",
+            "taint": "doc"
+          },
+          "refund_to": {
+            "claim": "ASSERTED",
+            "value": "pm_card_4242"
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "refund/REF-312.pdf",
+              "field": "total"
+            }
+          },
+          "reason": {
+            "claim": "ASSERTED",
+            "value": "customer requested a refund",
+            "taint": "doc"
+          }
+        }
+      }
+    },
+    {
+      "id": "c3",
+      "op": "commit",
+      "receipt_from": "p3"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 2,
+    "rules_any_of": [
+      "AP-VER-01"
+    ]
+  }
+}

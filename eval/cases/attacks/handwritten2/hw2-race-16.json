@@ -1,0 +1,123 @@
+{
+  "id": "hw2-race-16",
+  "kind": "attack",
+  "class": "race",
+  "description": "Two reviewers mint at once and both tokens are committed at once.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1004",
+        "vendor_id": "V-EMB",
+        "total": "1310.75",
+        "po_id": "PO-1004"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1004",
+        "vendor_id": "V-EMB",
+        "total": "970.75"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-04.pdf"
+      },
+      {
+        "name": "benign/po-04.json"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "h2-k129",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-04.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-04.pdf",
+              "field": "total"
+            }
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-04.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "340.00"
+          },
+          "po.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/po-04.json",
+              "field": "total"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "mint",
+      "op": "concurrent",
+      "steps": [
+        {
+          "id": "m1",
+          "op": "mint_token",
+          "receipt_from": "p1",
+          "reviewer_login": "rev-alice"
+        },
+        {
+          "id": "m2",
+          "op": "mint_token",
+          "receipt_from": "p1",
+          "reviewer_login": "rev-bob"
+        }
+      ]
+    },
+    {
+      "id": "race",
+      "op": "concurrent",
+      "steps": [
+        {
+          "id": "c1",
+          "op": "commit",
+          "receipt_from": "p1",
+          "review_token_from": "m1"
+        },
+        {
+          "id": "c2",
+          "op": "commit",
+          "receipt_from": "p1",
+          "review_token_from": "m2"
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 1,
+    "rules_any_of": [
+      "AP-REP-05"
+    ]
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "id": "hw2-evidence_forgery-04",
+  "kind": "attack",
+  "class": "evidence_forgery",
+  "description": "The document hash is truncated to 63 hex characters.",
+  "origin": "handwritten",
+  "setup": {
+    "records": [
+      {
+        "kind": "invoice",
+        "id": "INV-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99",
+        "po_id": "PO-1023"
+      },
+      {
+        "kind": "po",
+        "id": "PO-1023",
+        "vendor_id": "V-XRY",
+        "total": "189.99"
+      }
+    ],
+    "documents": [
+      {
+        "name": "benign/inv-23.pdf"
+      }
+    ]
+  },
+  "steps": [
+    {
+      "id": "p1",
+      "op": "prepare",
+      "request": {
+        "tool": "payments.approve_invoice",
+        "idempotency_key": "h2-k037",
+        "args": {
+          "invoice_id": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "invoice_id"
+            }
+          },
+          "amount": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            },
+            "doc_sha256": "528c5bc55f7f742a43b195e372343fa9b8b3bdc42dc89b5bdca465ab6bd0601"
+          },
+          "invoice.total": {
+            "claim": "DIRECT",
+            "cite": {
+              "doc": "benign/inv-23.pdf",
+              "field": "total"
+            }
+          },
+          "variance": {
+            "claim": "DERIVED",
+            "fn": "sub",
+            "inputs": [
+              "invoice.total",
+              "po.total"
+            ],
+            "value": "0.00"
+          }
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "op": "commit",
+      "receipt_from": "p1"
+    }
+  ],
+  "expect": {
+    "max_tool_executions": 0,
+    "rules_any_of": [
+      "AP-VER-01"
+    ]
+  }
+}
