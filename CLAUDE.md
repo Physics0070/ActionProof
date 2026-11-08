@@ -24,11 +24,9 @@ Source of truth: the CodeQuest 2026 deck (`D:\SOHAM ALL\hackathons\ALL IDEA\Acti
 - On "continue": read PROGRESS.md, DECK_TRACE.md, docs/IMPLEMENTATION.md, resume.
 
 ## Subagent routing (subagent-driven-development)
-| Task kind | Model | Examples |
-|---|---|---|
-| Hard: security-critical, concurrency, multi-file design, red-team, final reviews | `opus` (Opus 5.5) | contracts, extract, verify, gate.commit, policy, gate-reviewer |
-| Mechanical: spec fully written, 1-2 files, docs, fixtures, boilerplate | `haiku` (Haiku 5.5) | fixtures/make.py, THREAT_MODEL/TESTING docs, mocks scaffolds, CI yaml |
-Always set `model` explicitly on dispatch. One implementer at a time per file set; briefs and reports passed as files in `.superpowers/sdd/`. Controller verifies by running tests itself.
+**User instruction (2026-11-07): use `sonnet` (Sonnet 5.5) for ALL subagents from now on**, whatever the difficulty. Always set `model: "sonnet"` explicitly on dispatch. Security-critical work still gets the same rigor through briefs, tests-first, a red-team pass and controller verification, not through a bigger model. **Run ONE agent at a time (user, 2026-11-07): no parallel agents; queue the work and resume/dispatch sequentially.** Agents already running on other models finish as they are.
+One implementer at a time per file set; briefs and reports passed as files in `.superpowers/sdd/`. Controller verifies by running tests itself (user: build everything first, run all tests at the end).
+Token discipline: no agent for single-file edits; Graphify only for cross-file structural questions; filter command output; concise reports.
 
 ## Conventions
 - bbox = `[x0, top, x1, bottom]`, PDF points, top-left origin, pages 1-indexed. Times are UTC epoch seconds.
