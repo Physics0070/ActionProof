@@ -9,6 +9,13 @@ if [ -z "${DATABASE_URL:-}" ]; then
   DATABASE_URL="postgresql://${PG_USER:?}:${PW}@${PG_HOST:-postgres}:${PG_PORT_INTERNAL:-5432}/${PG_DB:?}"
   export DATABASE_URL
 fi
+# Hosts without secret files (Render blueprint): materialise the signing seed from a generated secret env var, then
+# drop it from the environment so the app process never holds it. SIGNING_KEY_PATH still names the only reader (ADR-007).
+if [ -n "${SIGNING_KEY_B64:-}" ]; then
+  umask 077
+  printf '%s' "$SIGNING_KEY_B64" | base64 -d > "${SIGNING_KEY_PATH:?SIGNING_KEY_PATH not set}"
+  unset SIGNING_KEY_B64
+fi
 if [ "${APPLY_SCHEMA:-0}" = "1" ]; then
   python scripts/apply_schema.py
 fi
