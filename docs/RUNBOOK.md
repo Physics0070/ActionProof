@@ -33,8 +33,8 @@ docker compose -f docker-compose.yml ps                          # api, web, pos
 
 ### Local, no Docker
 ```bash
-python scripts/dev_pg.py start                      # Postgres 16 on :5433 (binaries in C:/Users/Soham/tools/pgsql)
-C:/Users/Soham/tools/opa/opa.exe run --server --addr 127.0.0.1:8181 --watch policy &
+python scripts/dev_pg.py start                      # Postgres 16 on :5433 (set PG_BIN if Postgres is not on PATH)
+opa run --server --addr 127.0.0.1:8181 --watch policy &
 python scripts/gen_key.py keys/dev-signing.key
 python scripts/demo_seed.py --reset && python scripts/seed_console.py
 python -m actionproof.console                       # CONSOLE_BIND_HOST:CONSOLE_PORT, default 127.0.0.1:8766 (compose sets 0.0.0.0 in the container)

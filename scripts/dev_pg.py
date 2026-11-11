@@ -1,6 +1,6 @@
 """Local dev Postgres without Docker: python scripts/dev_pg.py start|stop|status|reset
 
-Binaries from PG_BIN (default C:/Users/Soham/tools/pgsql/bin), data in .pgdata/ (git-ignored),
+Binaries from PG_BIN (a folder; empty = use the ones on PATH), data in .pgdata/ (git-ignored),
 port PG_PORT (default 5433), user/password/db PG_USER/PG_PASSWORD/PG_DB (defaults match .env.example).
 Idempotent: `start` on a running cluster only ensures the database and schema exist.
 Docker compose stays the production path.
@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-PG_BIN = Path(os.environ.get("PG_BIN", "C:/Users/Soham/tools/pgsql/bin"))
+PG_BIN = os.environ.get("PG_BIN", "")
 DATA = ROOT / ".pgdata"
 PORT = os.environ.get("PG_PORT", "5433")
 USER = os.environ.get("PG_USER", "actionproof")
@@ -24,7 +24,7 @@ DB = os.environ.get("PG_DB", "actionproof")
 
 
 def _bin(name: str) -> str:
-    return str(PG_BIN / name)
+    return str(Path(PG_BIN) / name) if PG_BIN else name
 
 
 def _running() -> bool:

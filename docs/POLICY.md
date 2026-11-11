@@ -5,7 +5,7 @@ client is `src/actionproof/policy.py` (`decide(payload) -> Decision`). Commit-ti
 `gate.commit` (design: `.superpowers/sdd/phase3/design.md`). Every DENY/REVIEW reason is
 `{"rule", "guarantee", "msg"}`.
 
-Run: `C:/Users/Soham/tools/opa/opa.exe test policy -v` and `python -m uv run pytest tests/test_policy.py -q`.
+Run: `opa test policy -v` and `python -m uv run pytest tests/test_policy.py -q`.
 
 ## Input shape (two tools, ADR-009)
 

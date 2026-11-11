@@ -1,11 +1,14 @@
 import os
 from pathlib import Path
 
-# Dev default for the Tesseract binary, taken from .env.example (no secrets there).
-for line in (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8").splitlines():
-    key, sep, value = line.partition("=")
-    if sep and key.strip() == "TESSERACT_CMD":
-        os.environ.setdefault("TESSERACT_CMD", value.strip())
+# Tool paths: a real environment variable wins, then your git-ignored .env, then .env.example (generic, PATH-based).
+_ROOT = Path(__file__).resolve().parents[1]
+for _f in (".env", ".env.example"):
+    if (_ROOT / _f).exists():
+        for line in (_ROOT / _f).read_text(encoding="utf-8").splitlines():
+            key, sep, value = line.partition("=")
+            if sep and key.strip() in ("TESSERACT_CMD", "OPA_BIN", "PG_BIN") and value.strip():
+                os.environ.setdefault(key.strip(), value.strip())
 
 
 # --- Postgres fixtures (Phase 3, task 2). Real local Postgres via scripts/dev_pg.py; no Docker needed.
@@ -100,7 +103,7 @@ def db(pg):
 import socket  # noqa: E402
 import time  # noqa: E402
 
-_OPA_BIN = os.environ.get("OPA_BIN", "C:/Users/Soham/tools/opa/opa.exe")
+_OPA_BIN = os.environ.get("OPA_BIN", "opa")
 
 
 @pytest.fixture(scope="session")

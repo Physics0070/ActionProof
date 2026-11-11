@@ -7,7 +7,7 @@ the operator-side pending store; the model's context only ever holds the card te
 Setup (once per take):
     python scripts/dev_pg.py start                      # local Postgres on 5433
     python scripts/gen_key.py                           # keys/dev-signing.key (if absent)
-    C:/Users/Soham/tools/opa/opa.exe run --server --addr 127.0.0.1:8181 policy   # OPA sidecar (or docker compose)
+    opa run --server --addr 127.0.0.1:8181 policy   # OPA sidecar (or docker compose)
     python scripts/demo_seed.py --reset                 # hero records, delegation, people
 Run:
     python -m uv run python examples/langchain_agent.py
