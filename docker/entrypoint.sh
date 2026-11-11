@@ -19,4 +19,10 @@ fi
 if [ "${APPLY_SCHEMA:-0}" = "1" ]; then
   python scripts/apply_schema.py
 fi
+# Free hosts have no shell for one-off jobs: SEED_ON_BOOT=1 upserts the demo data and console users on every boot.
+# Never --reset here (that wipes the audit chain); passwords come from env, so re-running is idempotent.
+if [ "${SEED_ON_BOOT:-0}" = "1" ]; then
+  python scripts/demo_seed.py
+  python scripts/seed_console.py
+fi
 exec "$@"

@@ -39,6 +39,11 @@ services:
       - { key: CONSOLE_COOKIE_SECURE, value: "true" }
       - { key: WEB_ORIGIN, value: https://actionproof-web.onrender.com }
       - { key: TESSERACT_CMD, value: /usr/bin/tesseract }
+      - { key: SEED_ON_BOOT, value: "1" }
+      - { key: CONSOLE_PASSWORD_REV_ALICE, generateValue: true }
+      - { key: CONSOLE_PASSWORD_REV_BOB, generateValue: true }
+      - { key: CONSOLE_PASSWORD_SUB_USER123, generateValue: true }
+      - { key: CONSOLE_PASSWORD_ADMIN_OPS, generateValue: true }
 
   - type: web
     name: actionproof-web
