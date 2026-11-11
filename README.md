@@ -29,7 +29,7 @@ ActionProof closes them with two guarantees, each backed by named tests:
 | | |
 |---|---|
 | **Pitch video** (2:50) | _add the upload link here before submitting_ |
-| **Live deployment** | None: this is a local prototype. Run it yourself with one command: `bash demo.sh` (see [Installation](#installation-guide)) |
+| **Live deployment** | https://actionproof-web.onrender.com (Render free tier: the first request after idle takes ~1 min to wake; the demo database resets about 30 days after creation). Local alternative: `bash demo.sh` (see [Installation](#installation-guide)) |
 | **Demo script and judge Q&A** | [docs/DEMO.md](docs/DEMO.md) |
 | **Evaluation report** | [docs/EVAL.md](docs/EVAL.md) |
 
