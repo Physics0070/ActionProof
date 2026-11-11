@@ -49,6 +49,6 @@ services:
     healthCheckPath: /
     envVars:
       - { key: NEXT_PUBLIC_API_BASE, value: /api }
-      - { key: CONSOLE_API_ORIGIN, value: https://actionproof-api.onrender.com }
+      - { key: CONSOLE_API_ORIGIN, value: https://actionproof-api-ch8h.onrender.com }
       - { key: NEXT_PUBLIC_SITE_URL, value: https://actionproof-web.onrender.com }
       - { key: NEXT_PUBLIC_REPO_URL, value: https://github.com/Physics0070/ActionProof }
