@@ -12,11 +12,12 @@ secrets
 **/node_modules
 web
 tests
-eval
-fixtures
+eval/*
+!eval/results.json
+fixtures/*
+!fixtures/out
 graphify-out
 docs
 spec
-policy
 **/__pycache__
 .pytest_cache

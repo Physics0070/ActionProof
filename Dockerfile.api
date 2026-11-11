@@ -31,6 +31,9 @@ COPY src ./src
 COPY scripts ./scripts
 COPY docker ./docker
 COPY examples ./examples
+# Hosts without bind mounts (Render) need the public fixtures (DOCS_DIR) and eval results in the image.
+COPY fixtures/out ./fixtures/out
+COPY eval/results.json ./eval/results.json
 # Windows checkouts may carry CRLF; a CRLF shebang would not exec.
 RUN sed -i 's/\r$//' docker/*.sh && chmod 0555 docker/*.sh
 ENV PATH="/opt/venv/bin:${PATH}" PYTHONPATH=/app/src PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
