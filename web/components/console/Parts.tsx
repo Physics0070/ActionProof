@@ -48,7 +48,7 @@ export function PermissionDenied({ roles, need }: { roles: string[]; need: strin
   );
 }
 
-/** Rule id + guarantee, the form every DENY / REVIEW reason takes (CLAUDE.md working rules). */
+/** Rule id + guarantee, the form every DENY / REVIEW reason takes (README.md working rules). */
 export function ReasonList({ reasons, state }: { reasons: Schemas["ReasonOut"][]; state: Decision }) {
   if (!reasons.length) return <p className="t-muted">No reasons recorded.</p>;
   return (

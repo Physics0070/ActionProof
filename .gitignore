@@ -15,3 +15,18 @@ eval/.judge_cache.tmp
 graphify-out/
 
 video-out/
+
+# working files and tooling kept locally, not part of the submission
+video/
+video-out/
+.claude/
+CLAUDE.md
+SKILLS.md
+PROGRESS.md
+CHANGELOG.md
+docs/council/
+docs/IMPLEMENTATION.md
+docs/VIDEO.md
+docs/VOICEOVER.md
+eval/generator_sandbox/
+web/AGENTS.md

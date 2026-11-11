@@ -1,5 +1,5 @@
 // Public-site data helpers. Everything numeric on the site comes from GET /api/public/eval and
-// GET /api/public/replay/inv-2048 (CLAUDE.md invariant 7). Money is handled as integer cents parsed from 2dp
+// GET /api/public/replay/inv-2048 (README.md invariant 7). Money is handled as integer cents parsed from 2dp
 // decimal strings (invariant 4: no floats).
 import type { Schemas } from "./api";
 

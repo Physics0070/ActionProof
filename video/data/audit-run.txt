@@ -1,7 +1,0 @@
-$ python -m actionproof.audit verify        # the demo database
-audit: OK (25 entries, 25 checkpoints)
-[exit 0]
-$ (a DB admin edits one row of a COPY: audit_log seq 9, ts + 1)
-$ python -m actionproof.audit verify        # the edited copy
-audit: FAILED at seq 9: entry_hash does not recompute (entry edited)
-[exit 1]

@@ -58,7 +58,7 @@ Narration spine: "The agent proposes. The gate re-derives every number from the 
     - "Safety, not judgment: it stops unauthorized actions. It doesn't guarantee a good business decision."
 
     Also not claimed: production readiness, real payments (mocks only), or that the proposed targets ("0 successful attacks on the held-out set, at most 5% false blocks, p95 under 250 ms added") are met until `eval/EVAL.md` says so.
-11. **How do I check any claim?** Each invariant has a named test (CLAUDE.md table; `DECK_TRACE.md` maps each deck row to code and a test). `python -m actionproof.audit verify` re-verifies the chain with a public key only.
+11. **How do I check any claim?** Each invariant has a named test (README.md table; `DECK_TRACE.md` maps each deck row to code and a test). `python -m actionproof.audit verify` re-verifies the chain with a public key only.
 12. **What if the database is tampered with?** The audit log is append-only (triggers) and hash-chained with a signed checkpoint per entry; edits, deletions and truncation are detected by the verifier. A DB owner can disable the triggers, which is exactly what the verifier exists to catch.
 13. **What if OPA is down or slow?** Timeout or error is DENY. Availability is traded for safety.
 14. **Does a second connector dilute the claim?** It shows the gate is tool-agnostic: the refund uses the same `prepare`/`commit` with its own verifier entry. It adds one idea to the video ("same gate, second tool") and is capped at 40 s.

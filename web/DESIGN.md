@@ -148,6 +148,6 @@ Hairlines (moss on spruce 2.13) are decorative; every control also has a border 
 - Auth, CSRF, role gating, the 8 to 500 character reason, the confirm step, double-submit lock and the aria-live outcome are untouched.
 
 ## Data rule
-CLAUDE.md invariant 7: every number on screen is fetched (`lib/api.ts`, types generated from `web/openapi.json`).
+README.md invariant 7: every number on screen is fetched (`lib/api.ts`, types generated from `web/openapi.json`).
 The site embeds no eval result, latency or amount in source; the home story replays `GET /api/public/replay/inv-2048`
 and `/evaluation` reads `GET /api/public/eval`, both with honest empty and error states.

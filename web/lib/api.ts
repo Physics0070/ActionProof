@@ -1,5 +1,5 @@
 // Thin typed client over the console backend. Types come only from lib/api-types.ts, generated from
-// web/openapi.json by `npm run gen:api` (CLAUDE.md invariant 7). Never hand-write a response type here.
+// web/openapi.json by `npm run gen:api` (README.md invariant 7). Never hand-write a response type here.
 import type { components, paths } from "./api-types";
 import { API_BASE } from "./config";
 

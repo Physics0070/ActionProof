@@ -41,7 +41,7 @@ def _rules(s: dict) -> list[str]:
 
 
 def _assert_decision_shape(texts, s):
-    """Every DENY/REVIEW names a rule id and its guarantee (CLAUDE.md), and carries the card text."""
+    """Every DENY/REVIEW names a rule id and its guarantee (README.md), and carries the card text."""
     assert s["card"] in texts[0] and texts[0].startswith(s["card"])
     if s["decision"] in ("DENY", "REVIEW"):
         assert s["reasons"] and all(RULE.fullmatch(r["rule"]) and r["guarantee"] in ("G1", "G2") for r in s["reasons"])

@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import { loadConfig } from "./lib/config";
 import { headers } from "./security-headers.mjs";
 
-// Fails the build (and `next dev`) loudly if the env is missing or malformed (CLAUDE.md invariant 7).
+// Fails the build (and `next dev`) loudly if the env is missing or malformed (README.md invariant 7).
 const cfg = loadConfig(process.env);
 
 const nextConfig: NextConfig = {

@@ -1,5 +1,5 @@
 # DEV ONLY. docker compose auto-loads this file, so `docker compose up -d postgres opa` keeps working for the
-# local pytest flow (CLAUDE.md): postgres on 127.0.0.1:5433 and opa on 127.0.0.1:8181, dev password, --watch.
+# local pytest flow (README.md): postgres on 127.0.0.1:5433 and opa on 127.0.0.1:8181, dev password, --watch.
 # Production ignores it: `docker compose -f docker-compose.yml up -d` (only web and api are then published).
 services:
   postgres:

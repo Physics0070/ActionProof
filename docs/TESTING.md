@@ -2,7 +2,7 @@
 
 **USP: Proof before permission.** Every row below maps a claim to the test that guards it. `done` means the test file exists in the repo and the suite passes (HEAD: 742 passed, OPA 46/46). `todo` rows name a file that was never created; the deck row it served is proven by the file listed in DECK_TRACE.md instead.
 
-Sources: `CLAUDE.md` (invariants), `DECK_TRACE.md`, `spec/attack-classes.md`.
+Sources: `README.md` (invariants), `DECK_TRACE.md`, `spec/attack-classes.md`.
 
 ## Matrix
 
@@ -60,7 +60,7 @@ Notes:
 
 ## How to run
 
-From `CLAUDE.md`:
+From `README.md`:
 
 ```
 python -m uv sync                              # install

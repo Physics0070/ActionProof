@@ -1,4 +1,4 @@
-// Validated web config (CLAUDE.md invariant 7: nothing hardcoded, config from validated env).
+// Validated web config (README.md invariant 7: nothing hardcoded, config from validated env).
 // `loadConfig` runs in next.config.ts, so a missing/invalid variable stops `next build` / `next dev` with the
 // variable NAME (never its value).
 

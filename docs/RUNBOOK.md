@@ -1,7 +1,7 @@
 # Runbook
 
 **USP: Proof before permission.** G1: no value authorizes a write unless its derivation re-checks. G2: no approval can be replayed.
-Status: authored, not exercised end to end (the Docker engine was unavailable when this was written; see PROGRESS.md).
+Status: authored, not exercised end to end (the Docker engine was unavailable when this was written; see README.md (honest limits)).
 
 ## Limits (deck slide 10, verbatim)
 - Verifier-bound: Only as good as its deterministic verifiers. Free-form judgments can't be proven.

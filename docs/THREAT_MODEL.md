@@ -2,7 +2,7 @@
 
 **USP: Proof before permission.** No value can authorize a write unless its derivation re-checks (**G1**), and no approval can be replayed (**G2**).
 
-Sources: `CLAUDE.md`, `DECK_TRACE.md`, `spec/attack-classes.md`, `spec/actionrequest.md`, `docs/ARCHITECTURE.md`.
+Sources: `README.md`, `DECK_TRACE.md`, `spec/attack-classes.md`, `spec/actionrequest.md`, `docs/ARCHITECTURE.md`.
 
 Status legend: **built** = code and test exist in the repo today. **planned (Phase N)** = not built yet; phase numbers follow `DECK_TRACE.md` S8.1-S8.4 (W1 Claims = Phase 2, W2 Gate = Phase 3, W3 Surface = Phase 5 and 7, W4 Proof = Phase 6 and 8).
 
