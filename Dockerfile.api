@@ -33,6 +33,7 @@ COPY docker ./docker
 COPY examples ./examples
 # Hosts without bind mounts (Render) need the public fixtures (DOCS_DIR) and eval results in the image.
 COPY fixtures/out ./fixtures/out
+COPY fixtures/hero.py ./fixtures/hero.py
 COPY eval/results.json ./eval/results.json
 # Windows checkouts may carry CRLF; a CRLF shebang would not exec.
 RUN sed -i 's/\r$//' docker/*.sh && chmod 0555 docker/*.sh

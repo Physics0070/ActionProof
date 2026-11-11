@@ -24,5 +24,6 @@ fi
 if [ "${SEED_ON_BOOT:-0}" = "1" ]; then
   python scripts/demo_seed.py
   python scripts/seed_console.py
+  python scripts/seed_hero_review.py || echo "hero review not parked (OPA cold?); restart to retry"
 fi
 exec "$@"
