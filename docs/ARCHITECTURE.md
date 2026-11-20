@@ -83,13 +83,14 @@ request's `actor`/`on_behalf_of` must equal it exactly, else AP-SCOPE-02 / G1. I
 | 3b | request `actor`/`on_behalf_of` == `principal` (ADR-012) | AP-SCOPE-02 G1 |
 | 4 | REVIEW needs a token | AP-REV-10 G2 |
 | — | open one connection, SERIALIZABLE; `LOCK TABLE commits IN SHARE ROW EXCLUSIVE MODE` before any snapshot | |
-| 4b | record not in `quarantine` (ADR-014) | AP-REP-05 G2 |
+| 4b | record not in `quarantine` and no unresolved execution on it (ADR-014, ADR-019); request idempotency key not held by another unresolved execution (ADR-022) | AP-REP-05 G2 |
 | 5 | REVIEW: atomic `UPDATE review_tokens ... used_at IS NULL AND exp > now RETURNING` | AP-REV-10 (other hash / unknown), AP-REP-05 (used), AP-EXP-06 (expired) |
 | 5b | REVIEW: re-read `people` `FOR SHARE` for the token's `minted_by` and the bound Principal; reviewer role + different person (ADR-008) | AP-SEP-12 G2 (rollback, token unused) |
 | 6 | `INSERT INTO commits` (UNIQUE nonce, idempotency_key) | AP-REP-05 G2 |
-| 7 | `SUM(amount)` actor+vendor incl. this row `<= 5000.00` | AP-CUM-03 G1 |
+| 7 | `SUM(amount)` over `reservations` (commits + unresolved executions, ADR-022) actor+vendor incl. this row `<= 5000.00`; same for the person | AP-CUM-03 G1 |
 | 8 | `SELECT ... FOR UPDATE` version == payload.version, and diff hash recomputed == payload.diff_hash | AP-STALE-07 G2 |
 | 8b | **fresh policy** (ADR-014): rebuild the policy input from CURRENT state (delegation scope, PO total via `sor_for`, committed sum; amount and variance must still equal the records) and `policy.decide` again | fresh DENY: OPA's rules (G1); fresh REVIEW on an ALLOW receipt: AP-STALE-07 G2 |
+| 8c | write the `tool_reached` reservation (all commit columns) on its OWN connection and commit it; if that fails the tool is not called | AP-ERR-11 |
 | 9 | `tool.execute(req, version, idempotency_key, conn)` once; after it the version moved by at most one | AP-STALE-07 / AP-ERR-11 |
 | 10 | gate sets `version = payload.version + 1`, COMMIT | |
 
@@ -98,6 +99,7 @@ rolled back and the receipt is burned: its `commits` row and a `quarantine` row 
 their own tx (ADR-010, ADR-014), so a retry is AP-REP-05 and no new receipt for that record can be prepared or
 committed until `release_quarantine(record_id, reviewer)`. If a burn write fails, the DENY carries an extra
 AP-ERR-11 reason.
+A process crash after step 9 runs no cleanup at all: no commits row, no burn, but the step 8c reservation survives, so the retry, a new receipt with the same idempotency key, and the cumulative caps all still see it (ADR-019, ADR-022). It stays until `release_quarantine(record, reviewer, executed)`. The chain holds no `EXECUTED` entry for it.
 The commit lock makes concurrent split payments deterministic: exactly one executes, the other is AP-CUM-03
 (`tests/attacks/test_split_payments.py`, 20 rounds).
 

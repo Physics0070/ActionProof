@@ -135,19 +135,20 @@ def _money(v) -> bool:
 # ADR-016: the second AP-CUM-03 key is the person behind on_behalf_of (people.person_id of that login, or the
 # on_behalf_of string itself when unmapped). Commits are keyed by the same mapping, read at decision time.
 _PERSON_SUM = (
-    "SELECT COALESCE(SUM(c.amount), 0)::numeric(18,2) FROM commits c LEFT JOIN people p ON p.login = c.on_behalf_of "
+    "SELECT COALESCE(SUM(c.amount), 0)::numeric(18,2) FROM reservations c LEFT JOIN people p ON p.login = c.on_behalf_of "
     "WHERE c.vendor_id = %(cp)s AND COALESCE(p.person_id, c.on_behalf_of) = "
     "COALESCE((SELECT person_id FROM people WHERE login = %(obo)s), %(obo)s)")
 
 
 def _person_total(conn, on_behalf_of: str, counterparty) -> Decimal:
-    """Sum of commits on `counterparty` for the person behind `on_behalf_of` (burned ones included, ADR-010)."""
+    """Sum of reservations on `counterparty` for the person behind `on_behalf_of`: commits (burned ones included,
+    ADR-010) plus unresolved executions (ADR-022)."""
     return conn.execute(_PERSON_SUM, {"cp": counterparty, "obo": on_behalf_of}).fetchone()[0]
 
 
 def _refunded(conn, record_id: str, exclude_nonce: str | None = None) -> Decimal:
     """Refunds committed against one payment (burned ones included: unknown outcome = spent, ADR-010)."""
-    return conn.execute("SELECT COALESCE(SUM(amount), 0) FROM commits WHERE record_id = %s "
+    return conn.execute("SELECT COALESCE(SUM(amount), 0) FROM reservations WHERE record_id = %s "
                         "AND nonce IS DISTINCT FROM %s", (record_id, exclude_nonce)).fetchone()[0]
 
 
@@ -419,7 +420,7 @@ class Gate:
                     v = VerifyResult(False, v.claims, v.reasons + extra)
             counterparty = data.get(t.counterparty)  # the record's, never the request's (ADR-009/015)
             committed = conn.execute(
-                "SELECT COALESCE(SUM(amount), 0)::numeric(18,2)::text FROM commits WHERE actor = %s AND vendor_id = %s",
+                "SELECT COALESCE(SUM(amount), 0)::numeric(18,2)::text FROM reservations WHERE actor = %s AND vendor_id = %s",
                 (req.actor, counterparty)).fetchone()[0]
             person = str(_person_total(conn, req.on_behalf_of, counterparty))
             payload = self._policy_input(conn, req, v.ok, v.reasons, counterparty, committed, person)
@@ -476,23 +477,44 @@ class Gate:
 
     # ------------------------------------------------------------------ quarantine
 
-    def release_quarantine(self, record_id: str, reviewer: str) -> bool:
+    def release_quarantine(self, record_id: str, reviewer: str, executed: bool = False) -> bool:
         """Reconcile path (admin, not tool-facing): a human checked the tool's real outcome for a record whose
-        commit was burned and lifts the block. Returns whether a row was released. Raises on bad input.
-        The release and its audit entry (who, what) commit together; if the entry cannot be written, nothing is
-        released and the error propagates."""
+        commit was burned or whose execution is unresolved (ADR-019/022) and lifts the block. Returns whether
+        anything was released. Raises on bad input.
+        `executed`: the human confirms an unresolved execution DID happen: its reservation becomes a commits row
+        (the amount stays counted, the idempotency key stays used). Default False: it did not happen, the
+        reservation and its key are freed. The release and its audit entry commit together; if the entry cannot
+        be written, nothing is released and the error propagates."""
         if not isinstance(record_id, str) or not record_id:
             raise ValueError("record_id is required")
         if not isinstance(reviewer, str) or not reviewer.strip():
             raise ValueError("reviewer is required")
+        if not isinstance(executed, bool):
+            raise ValueError("executed must be a bool")
         with self._conn_factory() as conn:
             released = conn.execute("DELETE FROM quarantine WHERE record_id = %s RETURNING record_id",
                                     (record_id,)).fetchone() is not None
-            dangling = conn.execute("DELETE FROM tool_reached t WHERE t.record_id = %s AND NOT EXISTS "
-                                    "(SELECT 1 FROM commits c WHERE c.nonce = t.nonce) RETURNING 1", (record_id,)).fetchone()
-            released = released or dangling is not None
+            unresolved = conn.execute(
+                "SELECT nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount, record_id, "
+                "created_at FROM tool_reached t WHERE t.record_id = %s AND NOT EXISTS "
+                "(SELECT 1 FROM commits c WHERE c.nonce = t.nonce) FOR UPDATE", (record_id,)).fetchall()
+            for row in unresolved:
+                if executed:
+                    if row[6] is None:  # a legacy marker without a reservation cannot be recorded as spent
+                        raise ValueError("unresolved execution has no recorded amount; cannot confirm it")
+                    conn.execute(
+                        "INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, "
+                        "amount, record_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", row)
+                else:
+                    conn.execute("DELETE FROM tool_reached WHERE nonce = %s", (row[0],))
+            released = released or bool(unresolved)
+            detail = {"reviewer": reviewer}  # unchanged for a plain quarantine release
+            if unresolved or executed:
+                detail["executed"] = executed
+                detail["unresolved"] = [{"nonce": r[0], "amount": None if r[6] is None else str(r[6])}
+                                        for r in unresolved]
             self._audit(conn, "release_quarantine", record_id=record_id,
-                        decision="RELEASED" if released else "NOT_QUARANTINED", detail={"reviewer": reviewer})
+                        decision="RELEASED" if released else "NOT_QUARANTINED", detail=detail)
             return released
 
     # ------------------------------------------------------------------ review tokens
@@ -626,6 +648,11 @@ class Gate:
             return deny(_r("AP-EXP-06", "G2", "receipt expired"))
         if _quarantined(conn, p["record_id"]):
             return deny(_QUARANTINED)
+        # ADR-022: the request idempotency key may also be held by an unresolved execution (a marker with no commits
+        # row yet): a new receipt, even on another record, must not run the same logical request again.
+        if conn.execute("SELECT 1 FROM tool_reached WHERE idempotency_key = %s AND nonce <> %s",
+                        (p["idempotency_key"], p["nonce"])).fetchone():
+            return deny(_r("AP-REP-05", "G2", "idempotency key belongs to an unresolved execution; reconcile"))
 
         reviewer = None
         if p["decision"] == "REVIEW":
@@ -659,7 +686,7 @@ class Gate:
         except errors.UniqueViolation:
             return deny(_r("AP-REP-05", "G2", "nonce or idempotency key already used"))
 
-        total = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM commits WHERE actor = %s AND vendor_id = %s",
+        total = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM reservations WHERE actor = %s AND vendor_id = %s",
                              (req.actor, st.row[5])).fetchone()[0]
         if total > CAP:
             return deny(_r("AP-CUM-03", "G1", f"actor+{t.word} cumulative total exceeds 5000.00"))
@@ -686,8 +713,9 @@ class Gate:
         # If it cannot be written the raise rolls back and the tool is never reached (DENY AP-ERR-11).
         mark = self._conn_factory()
         try:
-            mark.execute("INSERT INTO tool_reached (nonce, record_id, created_at) VALUES (%s, %s, %s) "
-                         "ON CONFLICT DO NOTHING", (p["nonce"], p["record_id"], now))
+            mark.execute("INSERT INTO tool_reached (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, "
+                         "amount, record_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                         "ON CONFLICT (nonce) DO NOTHING", st.row)
             mark.commit()
         finally:
             mark.close()

@@ -81,6 +81,26 @@ CREATE TABLE IF NOT EXISTS tool_reached (
     created_at bigint NOT NULL CHECK (created_at >= 0)
 );
 
+-- ADR-022: the marker now carries the complete logical reservation, so an unresolved execution keeps counting
+-- against the caps and keeps its request idempotency key. Columns are nullable only so rows from the ADR-019 version
+-- of this table survive the migration; the gate always writes all of them (a NULL amount counts as zero).
+ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS idempotency_key text;
+ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS request_hash    text;
+ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS actor           text;
+ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS on_behalf_of    text;
+ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS vendor_id       text;
+ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS amount          numeric(18,2) CHECK (amount >= 0);
+CREATE UNIQUE INDEX IF NOT EXISTS tool_reached_idem ON tool_reached (idempotency_key);  -- G2 / AP-REP-05, NULLs allowed
+
+-- Everything that counts against a cap: committed (or burned) rows plus unresolved executions (a marker with no
+-- commits row). Exact numeric(18,2); the caps sum THIS, never commits alone.
+CREATE OR REPLACE VIEW reservations AS
+    SELECT nonce, idempotency_key, actor, on_behalf_of, vendor_id, amount, record_id FROM commits
+    UNION ALL
+    SELECT t.nonce, t.idempotency_key, t.actor, t.on_behalf_of, t.vendor_id, t.amount, t.record_id
+      FROM tool_reached t
+     WHERE t.amount IS NOT NULL AND NOT EXISTS (SELECT 1 FROM commits c WHERE c.nonce = t.nonce);
+
 -- MCP server (Task 5.4, deck slide 3 step 1). A REVIEW decision parks here until a human completes it in the
 -- console (review.complete_review). The signed receipt is stored server-side only and never returned to the agent.
 -- status: pending -> executed | denied | rejected ('approved' is reserved for a console that splits mint and commit).

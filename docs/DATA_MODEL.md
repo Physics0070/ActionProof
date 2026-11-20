@@ -184,13 +184,21 @@ Written every `AUDIT_CHECKPOINT_EVERY` entries (default 1).
 No signing key material, review token or receipt signature is ever stored in the audit tables, and no signing key
 material anywhere in the database (invariant 6, ADR-007).
 
-## tool_reached — tool call may have run (ADR-019)
+## tool_reached â€” unresolved executions: the logical reservation (ADR-019, ADR-022)
 | Column | Type | Constraint |
 |---|---|---|
 | nonce | text | PRIMARY KEY (the receipt) |
+| idempotency_key | text | UNIQUE (request idempotency key, across committed and unresolved executions) |
+| request_hash | text | the signed request hash |
+| actor, on_behalf_of | text | whose cap it counts against |
+| vendor_id | text | the counterparty (vendor or customer), as in `commits` |
+| amount | numeric(18,2) | CHECK `>= 0`; exact Decimal |
 | record_id | text | NOT NULL |
 | created_at | bigint | NOT NULL, CHECK `>= 0` (UTC epoch seconds) |
 
-Committed on its own connection just before `tool.execute`. A row whose nonce has no `commits` row means the process may
-have died after the tool ran: the record is treated as quarantined (AP-REP-05 / G2) until `Gate.release_quarantine`.
+The reservation columns are nullable only so ADR-019 rows survive migration; the gate always writes them (NULL amount
+counts as zero). Committed on its own connection just before `tool.execute`. A row whose nonce has no `commits` row is an
+**unresolved execution**: the process may have died after the tool ran. Until `Gate.release_quarantine(record, reviewer,
+executed)` it quarantines the record (AP-REP-05 / G2), keeps its idempotency key, and counts toward every cap.
+View `reservations` = `commits` UNION ALL unresolved markers (same columns); actor, person and refund-balance sums read it.
 Included in `db.reset`.
