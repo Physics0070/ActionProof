@@ -201,6 +201,16 @@ class ReviewRefused(Exception):
 
 _UNBOUND = Reason("AP-SCOPE-02", "G1", "identity not bound to caller")
 _QUARANTINED = Reason("AP-REP-05", "G2", "unknown outcome from a previous attempt; reconcile")
+
+
+
+def _quarantined(conn, record_id: str) -> bool:
+    """A burned record, or one whose tool call was reached but never recorded (a dangling tool_reached marker)."""
+    return conn.execute(
+        "SELECT 1 FROM quarantine WHERE record_id = %s UNION ALL SELECT 1 FROM tool_reached t WHERE t.record_id = %s "
+        "AND NOT EXISTS (SELECT 1 FROM commits c WHERE c.nonce = t.nonce)", (record_id, record_id)).fetchone() is not None
+
+
 _NOT_VERIFIED = VerifyResult(False, {}, [])
 
 
@@ -398,7 +408,7 @@ class Gate:
             return deny(_r("AP-STALE-07", "G2", f"target record is not {t.status} (already actioned)"), v=v)
 
         with self._conn_factory() as conn:
-            if conn.execute("SELECT 1 FROM quarantine WHERE record_id = %s", (record_id,)).fetchone():
+            if _quarantined(conn, record_id):
                 return deny(_QUARANTINED, v=v)
             if req.tool == REFUND_TOOL:  # advisory here; authoritative again inside the commit tx (ADR-009)
                 extra = _refund_mismatches(req, data, _refunded(conn, record_id))
@@ -475,6 +485,9 @@ class Gate:
         with self._conn_factory() as conn:
             released = conn.execute("DELETE FROM quarantine WHERE record_id = %s RETURNING record_id",
                                     (record_id,)).fetchone() is not None
+            dangling = conn.execute("DELETE FROM tool_reached t WHERE t.record_id = %s AND NOT EXISTS "
+                                    "(SELECT 1 FROM commits c WHERE c.nonce = t.nonce) RETURNING 1", (record_id,)).fetchone()
+            released = released or dangling is not None
             self._audit(conn, "release_quarantine", record_id=record_id,
                         decision="RELEASED" if released else "NOT_QUARANTINED", detail={"reviewer": reviewer})
             return released
@@ -608,7 +621,7 @@ class Gate:
         now = _now()
         if now >= p["exp"]:  # the receipt may have expired while waiting for the lane
             return deny(_r("AP-EXP-06", "G2", "receipt expired"))
-        if conn.execute("SELECT 1 FROM quarantine WHERE record_id = %s", (p["record_id"],)).fetchone():
+        if _quarantined(conn, p["record_id"]):
             return deny(_QUARANTINED)
 
         reviewer = None
@@ -665,6 +678,16 @@ class Gate:
         self._audit(conn, "commit", decision="EXECUTED", **_who(None, p), detail={
             "nonce": p["nonce"], "idempotency_key": p["idempotency_key"], "amount": req.args["amount"].value,
             "version": version, "reviewer": reviewer})
+        # Durable BEFORE the call, on its own connection: if this process dies after the tool ran, the rolled-back tx
+        # leaves no commits row, and without this marker a retry of the same receipt would call the tool again.
+        # If it cannot be written the raise rolls back and the tool is never reached (DENY AP-ERR-11).
+        mark = self._conn_factory()
+        try:
+            mark.execute("INSERT INTO tool_reached (nonce, record_id, created_at) VALUES (%s, %s, %s) "
+                         "ON CONFLICT DO NOTHING", (p["nonce"], p["record_id"], now))
+            mark.commit()
+        finally:
+            mark.close()
         st.invoked = True
         try:
             result = tool.execute(req, version, p["idempotency_key"], conn)

@@ -183,3 +183,14 @@ Written every `AUDIT_CHECKPOINT_EVERY` entries (default 1).
 ## Not here
 No signing key material, review token or receipt signature is ever stored in the audit tables, and no signing key
 material anywhere in the database (invariant 6, ADR-007).
+
+## tool_reached — tool call may have run (ADR-019)
+| Column | Type | Constraint |
+|---|---|---|
+| nonce | text | PRIMARY KEY (the receipt) |
+| record_id | text | NOT NULL |
+| created_at | bigint | NOT NULL, CHECK `>= 0` (UTC epoch seconds) |
+
+Committed on its own connection just before `tool.execute`. A row whose nonce has no `commits` row means the process may
+have died after the tool ran: the record is treated as quarantined (AP-REP-05 / G2) until `Gate.release_quarantine`.
+Included in `db.reset`.

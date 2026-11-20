@@ -72,6 +72,15 @@ CREATE TABLE IF NOT EXISTS quarantine (
     created_at bigint NOT NULL CHECK (created_at >= 0)
 );
 
+-- Written on its own connection (committed) just BEFORE the tool is called. A marker whose nonce has no commits row
+-- means the tool may have run and the gate died before recording it (crash, lost connection): the record counts as
+-- quarantined until Gate.release_quarantine. After a normal commit or a burn the commits row exists, so it blocks nothing.
+CREATE TABLE IF NOT EXISTS tool_reached (
+    nonce      text PRIMARY KEY,
+    record_id  text   NOT NULL,
+    created_at bigint NOT NULL CHECK (created_at >= 0)
+);
+
 -- MCP server (Task 5.4, deck slide 3 step 1). A REVIEW decision parks here until a human completes it in the
 -- console (review.complete_review). The signed receipt is stored server-side only and never returned to the agent.
 -- status: pending -> executed | denied | rejected ('approved' is reserved for a console that splits mint and commit).

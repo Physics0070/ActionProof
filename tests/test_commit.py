@@ -3,6 +3,7 @@ import copy
 import re
 from pathlib import Path
 
+import psycopg
 import pytest
 from gatekit import rules
 from psycopg import errors
@@ -208,7 +209,8 @@ def test_serialization_failure_after_execute_is_not_retried(kit):
                 setattr(self._c, name, value)
 
         def commit(self):
-            if not self._failed:
+            # Only the gate's SERIALIZABLE commit tx: the tool_reached marker uses its own connection (ADR-017).
+            if not self._failed and self._c.isolation_level == psycopg.IsolationLevel.SERIALIZABLE:
                 self._failed = True
                 self._c.rollback()
                 raise errors.SerializationFailure("could not serialize access")
