@@ -303,12 +303,15 @@ class _Attempt:
 
 
 class Gate:
-    def __init__(self, settings, signer, conn_factory, tool, docs_provider=None):
+    def __init__(self, settings, signer, conn_factory, tool, docs_provider=None, registry=None):
         """`tool`: {tool name: adapter} for every connector this gate serves, or a single invoice adapter.
         The adapter is chosen by req.tool; a tool with no adapter or no TARGETS entry is DENY (fail closed)."""
         self._settings = settings
         self._signer = signer
-        self._verify_key = signer.public_key_b64()
+        # Receipts are verified by the key of their kid. Default: only the signer's own key (unchanged behaviour).
+        self._registry = registry or signing.KeyRegistry.for_signer(signer)
+        if self._registry.public_keys().get(signer.kid) != signer.public_key_b64() or                 self._registry.status(signer.kid) != "active":
+            raise ValueError("key registry does not list the signer's kid as the active key")
         self._conn_factory = conn_factory
         self._tools = dict(tool) if isinstance(tool, dict) else {TOOL: tool}
         self._docs_provider = docs_provider
@@ -539,7 +542,7 @@ class Gate:
 
     def _open(self, receipt, req):
         """Signature, shape, expiry and request hash of a receipt. Returns (deny reason, payload, strict request)."""
-        if not signing.verify(receipt, self._verify_key):
+        if not self._registry.verify(receipt):
             return _r("AP-SIG-09", "G2", "receipt signature invalid"), None, None
         p = receipt["payload"]
         if set(p) != PAYLOAD_KEYS:

@@ -21,6 +21,8 @@ class Settings(BaseModel):
     tesseract_cmd: str
     signing_key_path: str
     signing_kid: str = "k1"
+    # Optional JSON registry of trusted receipt-signing public keys (rotation, revocation); unset = the signer only.
+    key_registry_path: str | None = None
     receipt_ttl_seconds: int = 300
     # `exp` of REVIEW receipts only: a human review can outlast RECEIPT_TTL_SECONDS (ALLOW keeps the short TTL).
     review_receipt_ttl_seconds: int = 3600

@@ -59,6 +59,7 @@ Rotate at a quiet point so nothing is verified with the wrong key:
 4. `python scripts/gen_key.py keys/signing.key.new`; record its public key as `keys/pub/k2.pub`.
 5. Replace the compose secret file, set `SIGNING_KID=k2`, `docker compose -f docker-compose.yml up -d api`.
 6. Make one decision so a `k2` checkpoint exists, then verify the full chain: `AUDIT_PUBLIC_KEYS_DIR=keys/pub python -m actionproof.audit verify` (k1 and k2 checkpoints each against their own key).
+Optional (ADR-020): with `KEY_REGISTRY_PATH` (JSON, public keys only, `k1` `retired`, `k2` `active`), a still-valid receipt signed by `k1` keeps verifying after the swap, so step 1 can be relaxed. Mark a compromised key `revoked`: its receipts fail and `registry.public_keys()` drops it, so its checkpoints stop verifying (retired keeps them verifying).
 **Remaining limit:** a leaked OLD key lets an attacker forge checkpoints that verify under its `kid`; retire it from the directory only after archiving the verified output line (step 2).
 
 ## 3. Backup and restore (Postgres, including the audit chain)

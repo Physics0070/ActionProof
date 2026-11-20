@@ -631,7 +631,7 @@ def create_app(gate, docs, conn_factory, settings: ConsoleSettings) -> FastAPI:
         try:
             with conn_factory() as conn:
                 conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-                n, m = audit.verify(conn, gate._verify_key)
+                n, m = audit.verify(conn, gate._registry.public_keys())
         except audit.AuditFailure as f:
             return AuditVerify(ok=False, entries=0, checkpoints=0, error=f"seq {f.seq}: {f.reason}")
         except Exception as e:

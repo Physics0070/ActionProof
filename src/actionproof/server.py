@@ -438,7 +438,7 @@ def build_app(settings, ssettings: ServerSettings, proxy_cmd: str | None = None)
     `proxy_cmd`: proxy mode (actionproof.proxy): only the PROXY_MAP_PATH tools exist, executed upstream."""
     from actionproof import db, proxy
     from actionproof.mocks import MockERP, MockPayments, MockRefunds
-    from actionproof.signing import Signer
+    from actionproof.signing import KeyRegistry, Signer
 
     pmap = None
     if proxy_cmd is not None:  # the map is validated before anything is started
@@ -475,7 +475,14 @@ def build_app(settings, ssettings: ServerSettings, proxy_cmd: str | None = None)
                     for name, s in pmap.tools.items()}
         tools = pmap.exposed()
     docs = DocStore(ssettings.docs_dir)
-    gate = Gate(settings, signer, factory, adapters)
+    registry = None
+    if settings.key_registry_path:
+        try:
+            registry = KeyRegistry.from_json(settings.key_registry_path)
+            Gate(settings, signer, factory, adapters, registry=registry)  # the signer must be its active key
+        except ValueError:
+            raise ConfigError("invalid or missing config: KEY_REGISTRY_PATH (unusable key registry)") from None
+    gate = Gate(settings, signer, factory, adapters, registry=registry)
     return App(gate, docs, factory, rate_limit_per_minute=ssettings.rate_limit_per_minute, tools=tools)
 
 

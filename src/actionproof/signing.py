@@ -4,6 +4,7 @@ Invariant 6 / ADR-007: this module is the ONLY place the private key is read or 
 The key is never returned, logged, put in an exception message, repr'd, or pickled.
 """
 import base64
+import json
 import os
 from pathlib import Path
 
@@ -93,3 +94,58 @@ def verify(receipt: dict, verify_key_b64: str) -> bool:
         return True
     except Exception:  # BadSignatureError, bad base64, bad key length, non-JSON payload, ...
         return False
+
+
+_STATUSES = ("active", "retired", "revoked")
+
+
+class KeyRegistry:
+    """kid -> trusted PUBLIC key + status. A receipt is verified with the key of ITS kid, never another's.
+
+    active: the one key that signs now. retired: stopped signing, history still verifies (rotation). revoked:
+    distrusted (compromise): its receipts and checkpoints no longer verify. Unknown kid: fails. No private key
+    here (invariant 6). A malformed registry raises ValueError at load (fail closed)."""
+
+    def __init__(self, keys):
+        self._keys: dict[str, tuple[str, str]] = {}
+        for kid, (pub, status) in dict(keys).items():
+            if not isinstance(kid, str) or not kid or status not in _STATUSES:
+                raise ValueError("key registry entry is malformed")
+            try:
+                VerifyKey(base64.b64decode(pub, validate=True))
+            except Exception:
+                raise ValueError("key registry holds an invalid public key") from None
+            self._keys[kid] = (pub, status)
+        if sum(st == "active" for _, st in self._keys.values()) > 1:
+            raise ValueError("key registry has more than one active key")
+
+    @classmethod
+    def for_signer(cls, signer: "Signer") -> "KeyRegistry":
+        return cls({signer.kid: (signer.public_key_b64(), "active")})
+
+    @classmethod
+    def from_json(cls, path) -> "KeyRegistry":
+        """{"keys": {"<kid>": {"pub": "<base64>", "status": "active|retired|revoked"}}}"""
+        try:
+            raw = json.loads(Path(path).read_text(encoding="utf-8"))
+            return cls({kid: (e["pub"], e["status"]) for kid, e in raw["keys"].items()})
+        except ValueError:
+            raise
+        except Exception:
+            raise ValueError("key registry file is unreadable or malformed") from None
+
+    def status(self, kid: str) -> str | None:
+        e = self._keys.get(kid)
+        return e[1] if e else None
+
+    def verify(self, receipt) -> bool:
+        """True only for a well-formed receipt whose kid is a trusted (active or retired) key that signed it."""
+        try:
+            e = self._keys.get(receipt["kid"])
+        except Exception:
+            return False
+        return e is not None and e[1] != "revoked" and verify(receipt, e[0])
+
+    def public_keys(self, include_revoked: bool = False) -> dict[str, str]:
+        """kid -> public key, the mapping audit.verify takes. Revoked keys are left out unless asked for."""
+        return {k: pub for k, (pub, st) in self._keys.items() if include_revoked or st != "revoked"}
