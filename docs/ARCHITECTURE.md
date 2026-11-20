@@ -279,3 +279,19 @@ from the MCP/agent surface. Endpoints, auth and errors: docs/API.md "Review cons
 | Console | Next.js + React | source-span review UI |
 
 Updated again in Phases 3, 5, 7.
+
+## Assurance additions (ADR-019 to ADR-023)
+- **Reservation before the call.** Step 8c of the commit writes `tool_reached` (nonce, request idempotency key, request hash,
+  actor, on_behalf_of, counterparty, `numeric(18,2)` amount, record, time) on its own connection. View `reservations` =
+  `commits` plus markers with no commits row; the actor, person and refund-balance sums read it. The person key is not
+  stored: it is resolved through the `people` directory at read time, like for `commits` (ADR-016).
+- **Unknown outcome.** The reservation, its idempotency key and the record quarantine persist until
+  `Gate.release_quarantine(record, reviewer, executed)`; `executed=True` records the spend as a commit, `False` frees it.
+  The audit chain never holds an `EXECUTED` entry for it (the marker's connection cannot append: the commit tx holds the
+  audit lock); it holds the denied retries and the reconciliation.
+- **Receipt keys.** `signing.KeyRegistry` maps kid to a public key and a status. `signature_valid` is cryptography only
+  (history, forensics); `verify` is authorization and fails closed for revoked and unknown kids. One public key under two
+  kids is refused at load; a kid never resolves to another kid's key.
+- **Anchor.** `anchor.LocalAnchor` is a hash-linked JSON-lines file of signed checkpoints. `publish` and `entries` hold an
+  exclusive cross-process lock (`<file>.lock`), so concurrent publishers cannot fork or tear the chain.
+  `audit verify --anchor F [--strict]` compares the database with it.

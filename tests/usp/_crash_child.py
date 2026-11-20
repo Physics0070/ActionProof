@@ -1,7 +1,7 @@
 """Child process for the genuine-termination test, and the downstream it talks to.
 
 The downstream's side-effect log is a FILE (append + fsync), so it is independent of the database, of the gate and of
-the process: it survives the child being killed. Run as a script: reads {receipt, request} JSON, commits through a real
+the process: it survives the child being killed. Run as a script (`mode` crash|retry): reads {receipt, request} JSON, commits through a real
 Gate on the real database, and the tool terminates the whole process with os._exit right after its effect is logged
 (no Python cleanup, the OS drops the Postgres connection): a hard crash after the money moved.
 """
@@ -39,7 +39,7 @@ class FilePSP(MockPayments):
         return self.log_path.read_text().splitlines() if self.log_path.exists() else []
 
 
-def main(payload_path: str, log_path: str) -> int:
+def main(payload_path: str, log_path: str, mode: str = "crash") -> int:
     from actionproof import db
     from actionproof.config import load_settings
     from actionproof.gate import Gate, Principal
@@ -52,12 +52,13 @@ def main(payload_path: str, log_path: str) -> int:
     def factory():
         return db.connect(url=settings.database_url)
 
-    psp = FilePSP(MockERP(factory), factory, log_path, crash=True)
+    psp = FilePSP(MockERP(factory), factory, log_path, crash=(mode == "crash"))
     gate = Gate(settings, signer, factory, {"payments.approve_invoice": psp})
     p = json.loads(Path(payload_path).read_text())
-    gate.commit(p["receipt"], p["request"], principal=Principal("agent-7", "user-123"))
-    return 0  # only reached if the tool did not crash the process
+    res = gate.commit(p["receipt"], p["request"], principal=Principal("agent-7", "user-123"))
+    print(json.dumps({"outcome": res.outcome, "rules": [r.rule for r in res.reasons]}))
+    return 0  # crash mode never gets here when the tool runs; retry mode reports the outcome
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1], sys.argv[2]))
+    sys.exit(main(*sys.argv[1:4]))

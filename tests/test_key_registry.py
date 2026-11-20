@@ -95,6 +95,47 @@ def test_from_json_roundtrip_and_corruption(tmp_path):
         KeyRegistry.from_json(tmp_path / "missing.json")
 
 
+def test_same_public_key_under_two_kids_is_refused(tmp_path):
+    """One key listed as both k1 (retired) and k2 (active) would let a revoked/old kid launder trust."""
+    k1 = _signer(tmp_path, "k1")
+    with pytest.raises(ValueError):
+        KeyRegistry({"k1": (k1.public_key_b64(), "retired"), "k2": (k1.public_key_b64(), "active")})
+    with pytest.raises(ValueError):
+        KeyRegistry({"k1": (k1.public_key_b64(), "revoked"), "k2": (k1.public_key_b64(), "retired")})
+
+
+def test_from_json_refuses_duplicate_fingerprints(tmp_path):
+    k1 = _signer(tmp_path, "k1")
+    p = tmp_path / "keys.json"
+    p.write_text(json.dumps({"keys": {"k1": {"pub": k1.public_key_b64(), "status": "retired"},
+                                      "k2": {"pub": k1.public_key_b64(), "status": "active"}}}))
+    with pytest.raises(ValueError):
+        KeyRegistry.from_json(p)
+
+
+def test_kid_substitution_every_direction_fails(tmp_path):
+    """Relabelling a receipt's kid never borrows another kid's trust: not active<-retired, not retired<-revoked,
+    not to an unknown kid, and a revoked kid cannot be swapped for the active one."""
+    k1, k2, k3 = _signer(tmp_path, "k1"), _signer(tmp_path, "k2"), _signer(tmp_path, "k3")
+    reg = _registry(k1=(k1, "revoked"), k2=(k2, "retired"), k3=(k3, "active"))
+    for signer, claimed in ((k1, "k3"), (k1, "k2"), (k2, "k3"), (k3, "k2"), (k3, "k1"), (k2, "k9")):
+        forged = {**signer.sign(PAYLOAD), "kid": claimed}
+        assert reg.signature_valid(forged) is False and reg.verify(forged) is False, (signer.kid, claimed)
+
+
+def test_signature_validity_is_separate_from_trust(tmp_path):
+    """signature_valid answers 'did the key of this kid sign it' (history, forensics); verify answers 'may it
+    authorize now' and fails closed for revoked and unknown kids."""
+    k1, k2, k9 = _signer(tmp_path, "k1"), _signer(tmp_path, "k2"), _signer(tmp_path, "k9")
+    reg = _registry(k1=(k1, "revoked"), k2=(k2, "retired"))
+    assert reg.signature_valid(k1.sign(PAYLOAD)) is True and reg.verify(k1.sign(PAYLOAD)) is False   # revoked
+    assert reg.signature_valid(k2.sign(PAYLOAD)) is True and reg.verify(k2.sign(PAYLOAD)) is True    # retired
+    assert reg.signature_valid(k9.sign(PAYLOAD)) is False and reg.verify(k9.sign(PAYLOAD)) is False  # unknown
+    bad = {**k2.sign(PAYLOAD), "payload": {**PAYLOAD, "amount": "1.00"}}
+    assert reg.signature_valid(bad) is False and reg.verify(bad) is False                            # tampered
+    assert reg.status("k1") == "revoked" and reg.status("k2") == "retired" and reg.status("zz") is None
+
+
 # ---- through the gate: rotation while older receipts exist
 
 def _receipt_from_old_key(kit, tmp_path, status):

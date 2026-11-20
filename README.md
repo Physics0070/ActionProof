@@ -43,7 +43,9 @@ ActionProof closes them with two guarantees, each backed by named tests:
 - **Policy with named reasons.** OPA/Rego decides ALLOW, REVIEW or DENY, and every reason names its rule id and guarantee (G1 or G2).
 - **Signed, single-use receipts.** The commit re-checks state in one serializable transaction, with cumulative caps per actor and per person, then calls the tool at most once.
 - **Review console.** A human sees the source span highlighted on the PDF page and approves or rejects with a typed reason. The reviewer must be a different person than the requester.
-- **Tamper-evident audit.** A hash-chained log with signed checkpoints and a verifier CLI that needs only the database and a public key.
+- **Tamper-evident audit.** A hash-chained log with signed checkpoints and a verifier CLI that needs only the database and a public key. An optional local anchor (`audit anchor`, `audit verify --anchor --strict`) catches a tail deleted together with its checkpoints; a same-machine file is not WORM storage, copy it off-box.
+- **Crash-safe single use.** Before the downstream call the gate durably records the full reservation (amount, idempotency key, counterparty). If the process dies after the call, a retry, a new receipt with the same key and the cumulative caps all still see it, until a human reconciles it. Not an outbox and not exactly-once: that needs provider idempotency.
+- **Key rotation.** Receipts are verified by their own `kid` (active, retired, revoked); duplicate public keys across kids are refused at load.
 - **Drop-in.** An MCP proxy in front of any tool server, a LangChain adapter, and a second connector (refunds) through the same gate.
 - **Measured, not claimed.** An evaluation harness compares ActionProof against four baselines on 211 attacks and 120 benign cases.
 
@@ -193,8 +195,8 @@ Proposed targets (not results): at most 0 held-out successes, false-block rate a
 
 - An independent attack generator (ours was blocked, see below), so the held-out result can be independent.
 - Real connectors (an ERP, a payment provider) in place of the mocks.
-- Per-actor commit locks and an outbox, so throughput isn't limited by one commit lane.
-- An external anchor for the audit chain, so deleting the newest entries together with their checkpoints is detectable.
+- Per-actor commit locks and a real outbox with automatic reconciliation (today an unknown outcome waits for a human), so throughput isn't limited by one commit lane.
+- A remote or WORM anchor for the audit chain (the local file anchor exists, but it shares the host's trust domain).
 - Run the Docker stack, the Playwright end-to-end specs and Lighthouse on a real machine.
 
 ## Honest disclosures

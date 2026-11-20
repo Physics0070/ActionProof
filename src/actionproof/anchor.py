@@ -3,6 +3,7 @@
 The in-database checkpoints cannot reveal an attacker who deletes the newest audit entries together with their
 checkpoints. An anchor holding the latest checkpoint elsewhere can: the database head must reach it and match it.
 
+Concurrency: publish and entries take an exclusive file lock (`<file>.lock`), so separate processes serialize.
 File format: JSON lines, each {"checkpoint": {payload:{seq,head_hash,ts}, sig, kid}, "prev": sha256(previous raw line)}.
 The `prev` links make a deleted, reordered or edited line detectable; every checkpoint is re-verified against the
 trusted public key(s). Publishing is idempotent (same seq + head = no-op) and monotonic (older or conflicting = error).
@@ -12,13 +13,20 @@ database AND this file, or drop the file's last lines (a shortened chain still v
 trust domain the file must be copied to append-only / WORM storage or another machine after each publish.
 # ponytail: local file only; a remote HTTP / transparency-log anchor is the upgrade path (same publish/verify shape).
 """
+import contextlib
 import hashlib
 import json
 import os
+import time
 from collections.abc import Mapping
 from pathlib import Path
 
 from actionproof import signing
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 GENESIS = "0" * 64
 
@@ -44,12 +52,53 @@ def _check_signed(env, keys: "str | Mapping[str, str]") -> dict:
     return env
 
 
+@contextlib.contextmanager
+def _locked(path: Path, timeout: float = 10.0):
+    """Exclusive cross-process lock (a `<file>.lock` sidecar; msvcrt on Windows, flock elsewhere). Serializes the
+    read-validate-append of publish and the reads of entries, so two publishers can never fork the chain."""
+    fd = os.open(path.with_name(path.name + ".lock"), os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0), 0o600)
+    try:
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                if os.name == "nt":
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() > deadline:
+                    raise AnchorError("anchor is locked by another process (timeout)") from None
+                time.sleep(0.005)
+        try:
+            yield
+        finally:
+            if os.name == "nt":
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
 class LocalAnchor:
     def __init__(self, path):
         self.path = Path(path)
 
     def entries(self, keys) -> list[dict]:
-        """Every anchored checkpoint, oldest first, after verifying links, signatures and monotonic seq."""
+        """Every anchored checkpoint, oldest first, after verifying links, signatures and monotonic seq.
+        Read under the publish lock, so a half-written tail line is never seen."""
+        if not self.path.exists():
+            return []
+        try:
+            with _locked(self.path):
+                return self._read(keys)
+        except PermissionError:  # a read-only anchor directory (verify-only user): read without the lock
+            return self._read(keys)
+
+    def _read(self, keys) -> list[dict]:
         try:
             raw = self.path.read_bytes() if self.path.exists() else b""
         except OSError:
@@ -75,23 +124,25 @@ class LocalAnchor:
         return es[-1]["checkpoint"] if es else None
 
     def publish(self, env, keys) -> bool:
-        """Append `env`. True if appended, False if it was already anchored. Raises AnchorError on conflict."""
+        """Append `env`. True if appended, False if it was already anchored. Raises AnchorError on conflict.
+        The whole read-validate-append runs under the cross-process lock."""
         cp = _check_signed(env, keys)
-        es = self.entries(keys)
-        if es:
-            last = es[-1]["checkpoint"]["payload"]
-            if cp["payload"]["seq"] == last["seq"]:
-                if cp["payload"]["head_hash"] != last["head_hash"]:
-                    raise AnchorError("conflicting checkpoint for an already anchored seq")
-                return False
-            if cp["payload"]["seq"] < last["seq"]:
-                raise AnchorError("older checkpoint than the latest anchor")
-        line = json.dumps({"checkpoint": cp, "prev": es[-1]["hash"] if es else GENESIS},
-                          sort_keys=True, separators=(",", ":")).encode() + b"\n"
-        fd = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_BINARY", 0), 0o600)
-        try:
-            os.write(fd, line)
-            os.fsync(fd)
-        finally:
-            os.close(fd)
-        return True
+        with _locked(self.path):
+            es = self._read(keys)
+            if es:
+                last = es[-1]["checkpoint"]["payload"]
+                if cp["payload"]["seq"] == last["seq"]:
+                    if cp["payload"]["head_hash"] != last["head_hash"]:
+                        raise AnchorError("conflicting checkpoint for an already anchored seq")
+                    return False
+                if cp["payload"]["seq"] < last["seq"]:
+                    raise AnchorError("older checkpoint than the latest anchor")
+            line = json.dumps({"checkpoint": cp, "prev": es[-1]["hash"] if es else GENESIS},
+                              sort_keys=True, separators=(",", ":")).encode() + b"\n"
+            fd = os.open(self.path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_BINARY", 0), 0o600)
+            try:
+                os.write(fd, line)
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+            return True

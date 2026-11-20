@@ -202,3 +202,7 @@ counts as zero). Committed on its own connection just before `tool.execute`. A r
 executed)` it quarantines the record (AP-REP-05 / G2), keeps its idempotency key, and counts toward every cap.
 View `reservations` = `commits` UNION ALL unresolved markers (same columns); actor, person and refund-balance sums read it.
 Included in `db.reset`.
+
+## Anchor file (not a table): `LocalAnchor`
+JSON lines, `{"checkpoint": {payload:{seq, head_hash, ts}, sig, kid}, "prev": sha256(previous raw line)}`, plus a
+`<file>.lock` sidecar that serializes publishers. See ADR-021 and ADR-023. The file is outside the database by design.

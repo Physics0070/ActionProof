@@ -147,10 +147,14 @@ def test_real_process_kill_after_the_effect(kit, opa_url, signing_key_path, tmp_
     assert kit.commits() == 0                                      # and the database rolled back
     assert kit.sql("SELECT amount FROM tool_reached")[0][0] == Decimal("4900.00")
 
-    psp = FilePSP(kit.erp, kit.factory, log)                       # a new process, same receipt, same downstream
-    kit.gate._tools[INVOICE_TOOL] = psp
-    assert kit.gate.commit(r.receipt, req).outcome != "EXECUTED"
+    # Recovery in a NEWLY INITIALISED Gate process (new interpreter, new DB connections), same receipt, same downstream
+    retry = subprocess.run([sys.executable, str(Path(__file__).with_name("_crash_child.py")), str(payload), str(log),
+                            "retry"], env=env, cwd=ROOT, capture_output=True, timeout=120)
+    assert retry.returncode == 0, retry.stderr.decode()[-400:]
+    out = json.loads(retry.stdout.decode().strip().splitlines()[-1])
+    assert out["outcome"] != "EXECUTED" and out["rules"] == ["AP-REP-05"]
     assert log.read_text().splitlines() == ["idem-kill"]          # no second effect
+    kit.gate._tools[INVOICE_TOOL] = FilePSP(kit.erp, kit.factory, log)
     req2, r2 = _next(kit, "INV-9202", "250.00", "idem-kill-2")     # and the cap still sees the $4,900
     if r2.decision != "DENY":
         assert rules(kit.gate.commit(r2.receipt, req2)) == ["AP-CUM-03"]

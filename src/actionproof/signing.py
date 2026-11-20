@@ -4,6 +4,7 @@ Invariant 6 / ADR-007: this module is the ONLY place the private key is read or 
 The key is never returned, logged, put in an exception message, repr'd, or pickled.
 """
 import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -108,13 +109,18 @@ class KeyRegistry:
 
     def __init__(self, keys):
         self._keys: dict[str, tuple[str, str]] = {}
+        seen: set[str] = set()
         for kid, (pub, status) in dict(keys).items():
             if not isinstance(kid, str) or not kid or status not in _STATUSES:
                 raise ValueError("key registry entry is malformed")
             try:
-                VerifyKey(base64.b64decode(pub, validate=True))
+                raw = bytes(VerifyKey(base64.b64decode(pub, validate=True)))
             except Exception:
                 raise ValueError("key registry holds an invalid public key") from None
+            fp = hashlib.sha256(raw).hexdigest()
+            if fp in seen:  # one key under two kids would let an old or revoked kid borrow another's status
+                raise ValueError("key registry lists the same public key under two kids")
+            seen.add(fp)
             self._keys[kid] = (pub, status)
         if sum(st == "active" for _, st in self._keys.values()) > 1:
             raise ValueError("key registry has more than one active key")
@@ -138,13 +144,22 @@ class KeyRegistry:
         e = self._keys.get(kid)
         return e[1] if e else None
 
-    def verify(self, receipt) -> bool:
-        """True only for a well-formed receipt whose kid is a trusted (active or retired) key that signed it."""
+    def signature_valid(self, receipt) -> bool:
+        """CRYPTOGRAPHY ONLY: the key registered for the receipt's kid (any status) signed this payload. Says nothing
+        about whether that key may still authorize anything: use it for history and forensics, never to authorize."""
         try:
             e = self._keys.get(receipt["kid"])
         except Exception:
             return False
-        return e is not None and e[1] != "revoked" and verify(receipt, e[0])
+        return e is not None and verify(receipt, e[0])
+
+    def verify(self, receipt) -> bool:
+        """AUTHORIZATION: signature_valid AND the kid is currently trusted (active or retired; revoked and unknown
+        fail closed). A kid is never resolved to another kid's key."""
+        try:
+            return self.status(receipt["kid"]) in ("active", "retired") and self.signature_valid(receipt)
+        except Exception:
+            return False
 
     def public_keys(self, include_revoked: bool = False) -> dict[str, str]:
         """kid -> public key, the mapping audit.verify takes. Revoked keys are left out unless asked for."""
