@@ -31,6 +31,7 @@ def _review(kit, inv="INV-RTR2", idem=None):
 
 def _reset(kit):
     kit.sql("DELETE FROM commits")
+    kit.sql("DELETE FROM tool_reached")  # markers of the wiped commits (ADR-019)
     kit.sql("DELETE FROM review_tokens")
     kit.tool.calls.clear()
     kit.tool._results.clear()

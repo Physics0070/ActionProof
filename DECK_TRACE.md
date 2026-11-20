@@ -82,3 +82,10 @@ Slide-5 `where built` file names that do not exist (e.g. tests/test_checks_args.
 | S10.3 | 10 | "The gate is a target: the signing key must stay out of the agent's reach, and the gateway needs hardening." | README, web, RUNBOOK | text check; verbatim in README.md, docs/RUNBOOK.md, web/lib/site-copy.ts, docs/THREAT_MODEL.md; tests/usp/test_key_isolation.py (grep-verified) | done |
 | S10.4 | 10 | "Safety, not judgment: it stops unauthorized actions. It doesn't guarantee a good business decision." | README, web | text check; verbatim in README.md, docs/RUNBOOK.md, web/lib/site-copy.ts (grep-verified) | done |
 | S10.5 | 10 | "Prove the action before the system executes it." | README closing, demo, site | text check; README.md closing; docs/DEMO.md closing beat; web/lib/site-copy.ts | done |
+
+## Assurance additions (not deck rows; added 2026-11-20, existing rows above unchanged)
+| ID | Claim | Where built | Proof | Status |
+|---|---|---|---|---|
+| A1 | A crash after the tool call cannot let a retry of the same receipt call the tool again (G2) | src/actionproof/gate.py (`tool_reached`, `_quarantined`), schema.sql, docs/DECISIONS.md ADR-019 | tests/usp/test_exec_faults.py | done |
+| A2 | A receipt is verified with the key of its kid; retired verifies, revoked and unknown fail (G2) | src/actionproof/signing.py (`KeyRegistry`), gate.py, ADR-020 | tests/test_key_registry.py | done |
+| A3 | Audit tail deleted with its checkpoints, or a database restored older than the anchor, is detected; strict mode fails on an unanchored tail | src/actionproof/anchor.py, audit.py (`verify --anchor --strict`), ADR-021 | tests/test_anchor.py | done (local file; not WORM) |

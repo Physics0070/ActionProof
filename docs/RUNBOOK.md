@@ -62,6 +62,8 @@ Rotate at a quiet point so nothing is verified with the wrong key:
 Optional (ADR-020): with `KEY_REGISTRY_PATH` (JSON, public keys only, `k1` `retired`, `k2` `active`), a still-valid receipt signed by `k1` keeps verifying after the swap, so step 1 can be relaxed. Mark a compromised key `revoked`: its receipts fail and `registry.public_keys()` drops it, so its checkpoints stop verifying (retired keeps them verifying).
 **Remaining limit:** a leaked OLD key lets an attacker forge checkpoints that verify under its `kid`; retire it from the directory only after archiving the verified output line (step 2).
 
+Anchor (ADR-021): `AUDIT_ANCHOR_PATH=anchor.jsonl python -m actionproof.audit anchor` appends the latest signed checkpoint (idempotent); run it after each batch of decisions and copy the file off the host (append-only bucket, another machine). `python -m actionproof.audit verify --anchor anchor.jsonl --strict` then fails if the database is older than the anchor, its history was rewritten, the anchor file was edited, or the newest entries are not anchored yet (non-strict reports `anchored through seq A; unanchored A+1..N`). The file on the same host as the database is no protection against someone who controls that host.
+
 ## 3. Backup and restore (Postgres, including the audit chain)
 The audit chain (`audit_log`, `audit_checkpoints`) lives in the same database, so one dump covers it.
 ```bash

@@ -78,6 +78,13 @@ def checkpoint(conn, signer) -> int:
     return seq
 
 
+def latest_checkpoint(conn) -> dict | None:
+    """The newest signed checkpoint as a receipt-shaped envelope, or None."""
+    row = conn.execute("SELECT seq, head_hash, ts, sig, kid FROM audit_checkpoints ORDER BY seq DESC LIMIT 1").fetchone()
+    return None if row is None else {"payload": {"seq": row[0], "head_hash": row[1], "ts": row[2]}, "sig": row[3],
+                                     "kid": row[4]}
+
+
 def verify(conn, keys: "str | Mapping[str, str]") -> tuple[int, int]:
     """(entries, checkpoints) if the chain and every checkpoint check out, else raises AuditFailure.
     `keys`: one base64 public key (checks every checkpoint, whatever its kid) or a kid -> key map (unknown kid fails).
@@ -109,18 +116,47 @@ def verify(conn, keys: "str | Mapping[str, str]") -> tuple[int, int]:
     return n, m
 
 
-def run_verify(database_url: str, keys: "str | Mapping[str, str]") -> tuple[int, str]:
-    """(exit code, output line). Read-only, one consistent snapshot of both tables. Fails closed."""
+def _anchor_report(conn, anchor, keys, n: int, strict: bool) -> str:
+    """Compare the (already chain-verified) database with the external anchor. Raises AuditFailure."""
+    from actionproof import anchor as anchor_mod
+
+    try:
+        latest = anchor_mod.LocalAnchor(anchor).latest(keys)
+    except anchor_mod.AnchorError as e:
+        raise AuditFailure(0, f"anchor unusable: {e}") from None
+    if latest is None:
+        if strict:
+            raise AuditFailure(0, "no checkpoint has been anchored (strict)")
+        return f"anchor: none published (0 of {n} entries anchored)"
+    a = latest["payload"]["seq"]
+    if n < a:
+        raise AuditFailure(a, f"database holds {n} entries but the anchor reached seq {a}: it is older than the "
+                              "external anchor (rolled back, or its tail was deleted)")
+    row = conn.execute("SELECT entry_hash FROM audit_log WHERE seq = %s", (a,)).fetchone()
+    if row is None or row[0] != latest["payload"]["head_hash"]:
+        raise AuditFailure(a, "anchored head hash does not match the database entry (history rewritten)")
+    if n > a:
+        if strict:
+            raise AuditFailure(a + 1, f"unanchored tail: seq {a + 1}..{n} is not covered by the external anchor")
+        return f"anchor: OK, anchored through seq {a}; unanchored {a + 1}..{n} (not externally protected)"
+    return f"anchor: OK, anchored through seq {a} (fully anchored)"
+
+
+def run_verify(database_url: str, keys: "str | Mapping[str, str]", anchor=None, strict: bool = False) -> tuple[int, str]:
+    """(exit code, output line). Read-only, one consistent snapshot of both tables. Fails closed.
+    `anchor`: path of a LocalAnchor file; the database must reach and match it. `strict`: also fail when the newest
+    entries are not yet anchored (and when there is no anchor at all)."""
     try:
         with psycopg.connect(database_url, connect_timeout=5) as conn:
             conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
             conn.read_only = True
             n, m = verify(conn, keys)
+            extra = _anchor_report(conn, anchor, keys, n, strict) if anchor is not None else None
     except AuditFailure as f:
         return 1, f"audit: FAILED at seq {f.seq}: {f.reason}"
     except Exception as e:  # unreachable DB, missing tables, ...: not verified = failed
         return 1, f"audit: FAILED at seq 0: cannot read the audit log ({type(e).__name__})"
-    return 0, f"audit: OK ({n} entries, {m} checkpoints)"
+    return 0, f"audit: OK ({n} entries, {m} checkpoints)" + (f"; {extra}" if extra else "")
 
 
 def _public_key(arg: str | None, env) -> str:
@@ -157,16 +193,38 @@ def main(argv=None, env=os.environ) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("verify", help="verify the hash chain and the signed checkpoints")
     v.add_argument("--public-key", help="base64 Ed25519 public key (default: file at AUDIT_PUBLIC_KEY_PATH)")
+    v.add_argument("--anchor", help="local anchor file (default: env AUDIT_ANCHOR_PATH); the database must match it")
+    v.add_argument("--strict", action="store_true", help="also fail if the newest entries are not anchored yet")
+    a = sub.add_parser("anchor", help="append the latest signed checkpoint to the anchor file (idempotent)")
+    a.add_argument("--public-key", help="as for verify")
+    a.add_argument("--anchor", help="local anchor file (default: env AUDIT_ANCHOR_PATH)")
     args = ap.parse_args(argv)
     try:
         pub = _public_keys(args.public_key, env)
         url = env.get("DATABASE_URL", "").strip()
         if not url:
             raise ValueError("DATABASE_URL is not set")
+        path = args.anchor or env.get("AUDIT_ANCHOR_PATH", "").strip() or None
+        if (args.cmd == "anchor" or getattr(args, "strict", False)) and not path:
+            raise ValueError("set --anchor or AUDIT_ANCHOR_PATH")
     except ValueError as e:
         print(f"audit: config error: {e}", file=sys.stderr)
         return 2
-    code, line = run_verify(url, pub)
+    if args.cmd == "anchor":
+        from actionproof import anchor as anchor_mod
+
+        try:
+            with psycopg.connect(url, connect_timeout=5) as conn:
+                cp = latest_checkpoint(conn)
+            if cp is None:
+                raise anchor_mod.AnchorError("no checkpoint to anchor")
+            done = anchor_mod.LocalAnchor(path).publish(cp, pub)
+        except Exception as e:
+            print(f"audit: anchor FAILED ({type(e).__name__}: {e})")
+            return 1
+        print(f"audit: anchored seq {cp['payload']['seq']}" + ("" if done else " (already anchored)"))
+        return 0
+    code, line = run_verify(url, pub, anchor=path, strict=args.strict)
     print(line)
     return code
 
