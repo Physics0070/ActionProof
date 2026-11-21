@@ -1,0 +1,7 @@
+# API only (the web app is on Vercel): expose /api/* and nothing else.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	@notapi not path /api/*
+	respond @notapi 404
+	reverse_proxy api:8766
+}

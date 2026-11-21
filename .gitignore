@@ -4,6 +4,7 @@ __pycache__/
 .env
 *.key
 keys/
+backups/
 node_modules/
 .next/
 web/out/

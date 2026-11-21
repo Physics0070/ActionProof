@@ -1,0 +1,44 @@
+# Layered on docker-compose.yml. Adds Caddy (automatic Let's Encrypt TLS) in front of the stack and passes the
+# first-boot seeding variables to the API. Use it through the helper scripts, or by hand:
+#   docker compose -f docker-compose.yml -f deploy/oracle/compose.caddy.yml --env-file deploy/oracle/.env up -d
+# (never the auto-loaded docker-compose.override.yml: that one is dev only and would publish postgres and opa).
+#
+# Two modes, chosen by CADDYFILE in deploy/oracle/.env:
+#   Caddyfile.full  Caddy -> web (Next.js, which proxies /api to the API). Everything on this VM.
+#   Caddyfile.api   Caddy -> api only, and only /api/*. The web app runs on Vercel and proxies /api here.
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in deploy/oracle/.env}
+    volumes:
+      - ./deploy/oracle/${CADDYFILE:-Caddyfile.api}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+
+  # First boot only: SEED_ON_BOOT=1 upserts the demo data and the console users and parks the hero review (idempotent, never
+  # resets the audit chain). The passwords come from deploy/oracle/.env, never from the image.
+  api:
+    environment:
+      SEED_ON_BOOT: ${SEED_ON_BOOT:-0}
+      CONSOLE_PASSWORD_REV_ALICE: ${CONSOLE_PASSWORD_REV_ALICE:-}
+      CONSOLE_PASSWORD_REV_BOB: ${CONSOLE_PASSWORD_REV_BOB:-}
+      CONSOLE_PASSWORD_SUB_USER123: ${CONSOLE_PASSWORD_SUB_USER123:-}
+      CONSOLE_PASSWORD_ADMIN_OPS: ${CONSOLE_PASSWORD_ADMIN_OPS:-}
+
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-}
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

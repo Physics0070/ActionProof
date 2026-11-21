@@ -1,0 +1,5 @@
+# Everything on this VM: Caddy terminates TLS and forwards to the Next.js app, which proxies /api to the API.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	reverse_proxy web:5173
+}
