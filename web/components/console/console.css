@@ -358,7 +358,7 @@
 /* ---------------------------------------------------------------- console v2: cards, verdict, decision bar */
 .c-main h1 {
   font-size: clamp(2rem, 1rem + 3.2vw, 3.75rem);
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   line-height: 0.98;
 }
 .c-brand,
@@ -401,7 +401,7 @@
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 1.25rem;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 .q-filters summary:hover,
 .r-more summary:hover {
@@ -449,7 +449,7 @@
 }
 .q-head {
   font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem);
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
 }
 .q-why {
   font-size: 1.125rem;
@@ -516,11 +516,19 @@
 .k-item[data-active="true"] {
   border-color: var(--c-ink);
 }
+.k-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.k-where {
+  color: var(--c-muted);
+}
 .k-value {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: clamp(2rem, 1.2rem + 2.4vw, 3.25rem);
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   line-height: 1;
 }
 .r-more {
@@ -534,6 +542,191 @@
 }
 .r-more details[open] > summary {
   margin-bottom: var(--s-4);
+}
+
+/* What you are approving + history */
+.a-split {
+  margin-top: var(--s-7);
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--s-7);
+}
+.a-panel {
+  display: grid;
+  gap: var(--s-4);
+  align-content: start;
+  padding-top: var(--s-4);
+  border-top: 2px solid var(--c-ink);
+}
+.a-grid {
+  margin: 0;
+  display: grid;
+  gap: 0;
+}
+.a-grid > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr);
+  gap: var(--s-4);
+  padding-block: var(--s-3);
+  border-bottom: 1px solid var(--c-line);
+}
+.a-grid dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--c-muted);
+  text-transform: lowercase;
+}
+.a-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.a-change {
+  display: flex;
+  gap: var(--s-3);
+  align-items: baseline;
+}
+.a-change strong {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-stretch: 66%;
+}
+.a-note {
+  font-size: var(--fs-small);
+}
+.a-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--c-line);
+  display: grid;
+  gap: var(--s-4);
+}
+.a-history li {
+  display: grid;
+  gap: 2px;
+  padding-left: var(--s-4);
+  position: relative;
+}
+.a-history li::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 0.45em;
+  width: 10px;
+  height: 10px;
+  background: var(--c-ink);
+}
+.a-history li[data-open="true"]::before {
+  background: var(--c-ground);
+  border: 2px solid var(--c-ink);
+}
+@media (max-width: 899px) {
+  .a-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-6);
+  }
+}
+
+/* Audit explorer: the log as a linked chain */
+.x-chain {
+  margin-top: var(--s-6);
+  display: grid;
+  gap: var(--s-3);
+}
+.x-note {
+  font-size: var(--fs-small);
+}
+.x-strip {
+  list-style: none;
+  margin: 0;
+  padding: var(--s-3) 0 var(--s-4);
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+}
+.x-cell {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+.x-link {
+  width: 28px;
+  height: 2px;
+  background: var(--c-ink);
+}
+.x-link[data-gap="true"] {
+  background: repeating-linear-gradient(90deg, var(--c-ink) 0 4px, transparent 4px 8px);
+}
+.x-chain[data-verified="yes"] .x-link {
+  height: 4px;
+}
+.x-chain[data-verified="no"] .x-link {
+  background: var(--sig-deny);
+}
+.x-block {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  min-width: 132px;
+  padding: var(--s-3) var(--s-4);
+  background: var(--c-paper);
+  border: 2px solid var(--c-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.x-block[data-dec="DENY"] {
+  border-color: var(--sig-deny);
+}
+.x-block[data-dec="REVIEW"] {
+  border-style: dashed;
+}
+.x-block[data-sel="true"] {
+  background: var(--c-ink);
+  color: var(--c-ground);
+}
+.x-seq {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 800;
+  font-stretch: 66%;
+  line-height: 1;
+}
+.x-hash {
+  opacity: 0.7;
+}
+.x-detail {
+  margin-top: var(--s-5);
+  padding: var(--s-5);
+  border: 2px solid var(--c-ink);
+  display: grid;
+  gap: var(--s-3);
+}
+.x-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+.x-facts {
+  margin: 0;
+  display: grid;
+}
+.x-facts > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 8rem) minmax(0, 1fr);
+  gap: var(--s-4);
+  padding-block: var(--s-2);
+  border-bottom: 1px solid var(--c-line);
+}
+.x-facts dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--c-muted);
+}
+.x-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* Sticky decision bar */
@@ -550,11 +743,13 @@
   --c-paper: var(--carbon-raised);
   --c-muted: var(--carbon-muted);
   --c-line: var(--carbon-line);
-  --c-focus: var(--c-accent);
+  --c-accent: var(--carbon-text);
+  --c-accent-ink: var(--carbon);
+  --c-focus: var(--carbon-text);
   --sig-allow: var(--sig-allow-lamp);
   --sig-review: var(--sig-review-lamp);
   --sig-deny: var(--sig-deny-lamp);
-  border-top: 4px solid var(--c-accent);
+  border-top: 4px solid var(--carbon-text);
 }
 .d-bar .c-field input,
 .d-bar .c-field select,
@@ -657,46 +852,54 @@
   }
 }
 
-/* Login: the home palette with the corridor and door motif (CSS and SVG only) */
+/* Login: obsidian, two columns. The statement on the left, the form on the right. No decoration. */
 .c-main:has(.login-stage) {
   max-width: none;
   padding: 0;
 }
 .login-stage {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   min-height: calc(100vh - 56px);
   display: grid;
-  place-items: center;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  align-items: center;
+  gap: clamp(32px, 6vw, 112px);
   padding: var(--s-8) var(--grid-margin);
   background: var(--carbon);
 }
-.login-motif {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  width: 100%;
-  height: 100%;
-  opacity: 0.8;
+.login-intro {
+  display: grid;
+  gap: var(--s-5);
 }
-.login-stage .c-login {
-  width: min(460px, 100%);
-  max-width: none;
-  gap: var(--s-4);
+.login-eyebrow {
+  color: var(--c-muted);
 }
-.login-title {
-  font-size: clamp(2.5rem, 1.2rem + 4vw, 4.5rem);
-  letter-spacing: -0.045em;
-  line-height: 0.95;
+.c-main .login-title {
+  font-size: clamp(3.2rem, 1rem + 9vw, 9rem);
+  font-stretch: 60%;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  line-height: 0.88;
 }
 .login-lede {
   color: var(--c-muted);
   font-size: 1.1875rem;
+  max-width: 34ch;
+}
+.login-rule {
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--c-line);
+  max-width: 44ch;
+  color: var(--c-muted);
+  font-size: var(--fs-small);
+}
+.login-stage .c-login {
+  width: min(460px, 100%);
+  max-width: none;
+  justify-self: start;
 }
 .login-stage .card {
-  border: 2px solid var(--c-line);
-  border-top: 8px solid var(--c-accent);
+  border: 1px solid var(--c-line);
+  border-top: 2px solid var(--c-accent);
   padding: var(--s-6);
 }
 .login-stage .c-field input {
@@ -706,8 +909,10 @@
 .login-stage .c-field input:focus-visible {
   border-color: var(--c-accent);
 }
-.login-stage .c-login {
-  background: color-mix(in srgb, var(--carbon) 90%, transparent);
-  padding: var(--s-5);
-  outline: 1px solid var(--carbon-line);
+@media (max-width: 899px) {
+  .login-stage {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    padding-block: var(--s-7);
+  }
 }

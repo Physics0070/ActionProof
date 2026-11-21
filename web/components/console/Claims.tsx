@@ -7,7 +7,7 @@ import { Signal } from "@/components/ui/Signal";
 
 type Claim = Schemas["ClaimView"];
 
-function Where({ c }: { c: Claim }) {
+export function Where({ c }: { c: Claim }) {
   if (c.derivation) {
     return (
       <MonoLabel>
@@ -109,9 +109,17 @@ export function KeyValues({ claims, active, onActive }: { claims: Claim[]; activ
           onFocus={() => onActive(c.name)}
           onBlur={() => onActive(null)}
         >
-          <span className="mono-label t-muted">{c.name}</span>
+          <span className="k-head">
+            <span className="mono-label t-muted">{c.name}</span>
+            <span className="c-badge mono-label" data-claim={c.claim}>
+              {c.claim}
+            </span>
+          </span>
           <span className="k-value">{moneyStr(c.value) ?? c.value}</span>
           {c.verification?.ok ? <Signal state="ALLOW" label="verified" /> : <Signal state="DENY" label="not verified" />}
+          <span className="k-where">
+            <Where c={c} />
+          </span>
         </li>
       ))}
     </ul>

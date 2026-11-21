@@ -9,9 +9,11 @@ Stack: Next.js 16 App Router, React 19, TypeScript, Turbopack. `three` + `@react
 `gsap` (ScrollTrigger) + `lenis` for scroll, `zustand` for the story driver. No new dependency was added for this
 direction (all of the above were already in `package.json`). Plain CSS tokens; no UI library.
 
-**Status.** The home page (`/`) is on this direction. `/evaluation` and the `/console` screens still use the previous
-"Airlock" look (spruce and pink); they are the next stages, listed in `AUDIT.md`. Until then the site is visibly two
-systems. That is a known inconsistency, not a decision.
+**Status.** The whole site is on this direction. The palette, type and signals live in `app/globals.css` (tokens), so
+`/evaluation`, `/console/*` and the 404 inherit them; the home page adds its scene and layout in `app/(site)/assay.css`.
+Screens with their own composition: home, login, the review workspace (provenance on each value, an "exactly what you are
+approving" panel, a history), and the audit explorer (the log as a linked chain). The queue and `/evaluation` changed
+palette and type only. Contrast of every token pairing: `npm run contrast` (28 pairings pass).
 
 ## Three concepts (awwwards, phase 1)
 | | A. Assay (chosen) | B. Survey line | C. Cipher wall |
@@ -103,4 +105,9 @@ The scene sits fixed behind everything; copy scrolls over it on the dark left; t
   The canvas is `aria-hidden`; nothing is conveyed by the scene alone.
 
 ## What is not done yet
-`/evaluation`, `/console` (queue, request review, audit explorer) and `/console/login` keep the Airlock look. See `AUDIT.md`.
+* No live dashboard route, and no "request more evidence" action: the backend has neither (no metrics, execution states or
+  connector/worker health; the decision API is approve or reject). They are not drawn.
+* The audit explorer shows the chain of the entries the API returns (newest page) and the server's own verification
+  result. It does not show per-entry checkpoints or the anchored/unanchored range: no API route exposes them.
+* `/evaluation` and the queue are restyled, not recomposed. The evaluation bars separate arms by length and label only.
+* The in-browser checks were scripted outside the repo; the repo has no JS test runner and its Playwright specs are unrun.

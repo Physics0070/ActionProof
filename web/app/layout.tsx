@@ -1,12 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Anybody, Archivo, Bricolage_Grotesque, Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
+import { Anybody, Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import { SITE_URL } from "@/lib/config";
 import "./globals.css";
 
 // Self-hosted at build by next/font (no runtime request to Google).
-const bricolage = Bricolage_Grotesque({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-bricolage", display: "swap" });
-const archivo = Archivo({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-archivo", display: "swap" });
-// The home page's own type (the "assay" direction): Anybody is a variable-width display face, so headlines can be set
+// The site's type (the "assay" direction): Anybody is a variable-width display face, so headlines can be set
 // extra-condensed and the wordmark extra-expanded from one file; Hanken Grotesk is the quiet body face.
 const anybody = Anybody({ subsets: ["latin"], axes: ["wdth"], variable: "--font-anybody", display: "swap" });
 const hanken = Hanken_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-hanken", display: "swap" });
@@ -29,11 +27,11 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "ActionProof: before an AI agent acts, prove it should", description: DESCRIPTION, images: ["/og.png"] },
 };
 
-export const viewport: Viewport = { themeColor: "#0a2b26" };
+export const viewport: Viewport = { themeColor: "#07090a" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${archivo.variable} ${plexMono.variable} ${anybody.variable} ${hanken.variable}`}>
+    <html lang="en" className={`${plexMono.variable} ${anybody.variable} ${hanken.variable}`}>
       <body>
         <a className="skip-link" href="#main">
           Skip to content

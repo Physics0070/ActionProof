@@ -15,7 +15,7 @@
   --c-muted: var(--as-steel);
   --c-line: var(--as-line);
   --c-accent: var(--as-bone);
-  --c-on-accent: var(--as-ground);
+  --c-accent-ink: var(--as-ground);
   --c-focus: #ffffff;
   --sig-allow: var(--as-allow);
   --sig-review: var(--as-review);

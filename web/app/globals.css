@@ -1,40 +1,41 @@
-/* ActionProof tokens ("Airlock"). Source of truth: web/DESIGN.md (palette by role, type, motion, signals).
+/* ActionProof tokens ("Assay"). Source of truth: web/DESIGN.md (palette by role, type, motion, signals).
    Contrast of every pairing: `npm run contrast` (scripts/contrast.mjs). Sharp corners everywhere. */
 
 :root,
 .band-mist {
-  /* Light surfaces (console, evaluation details): pale mint ground */
-  --c-ground: #e7f2ec;
-  --c-paper: #ffffff;
-  --c-ink: #0a2b26;
-  --c-muted: #416257;
-  --c-line: #b7d0c5;
-  --c-accent: #ff3d9a;
-  --c-accent-ink: #0a2b26;
-  --c-focus: #0a2b26;
+  /* Light surfaces (console, evaluation details): bone ground, graphite ink */
+  --c-ground: #ece9e1;
+  --c-paper: #f7f5ef;
+  --c-ink: #0b0e10;
+  --c-muted: #4b5a62;
+  --c-line: #cbc5b5;
+  --c-accent: #0b0e10;
+  --c-accent-ink: #ece9e1;
+  --c-focus: #0b0e10;
+  --c-mark: #0b0e10; /* the cited span on a source page */
 
-  /* Spruce (the airlock): applied by .band-carbon, which is most of the public site */
-  --carbon: #0a2b26;
-  --carbon-raised: #11403a;
-  --carbon-text: #eef8f3;
-  --carbon-muted: #a4c9be;
-  --carbon-line: #2d6157;
+  /* Obsidian (the dark band): applied by .band-carbon, which is most of the public site */
+  --carbon: #07090a;
+  --carbon-raised: #0e1316;
+  --carbon-text: #ece9e1;
+  --carbon-muted: #8d9da6;
+  --carbon-line: #2a3236;
 
-  /* Signals. lamp = light on spruce (3D, marks on dark); ink = words and marks on light.
+  /* Signals. lamp = light on obsidian (3D, marks on dark); ink = words and marks on light.
      Never colour alone: <Signal> always pairs colour + shape + word. */
-  --sig-allow-lamp: #34f0c2;
-  --sig-review-lamp: #ffd11a;
-  --sig-deny-lamp: #ff7d52;
-  --sig-allow-ink: #00604d;
-  --sig-review-ink: #6b4f00;
+  --sig-allow-lamp: #b8ffe0;
+  --sig-review-lamp: #ffb020;
+  --sig-deny-lamp: #ff4a24;
+  --sig-allow-ink: #0a5c3f;
+  --sig-review-ink: #7a4f00;
   --sig-deny-ink: #b3260a;
   --sig-allow: var(--sig-allow-ink);
   --sig-review: var(--sig-review-ink);
   --sig-deny: var(--sig-deny-ink);
 
   /* Type */
-  --font-display: var(--font-bricolage), "Arial Narrow", Arial, sans-serif;
-  --font-body: var(--font-archivo), "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-anybody), "Arial Narrow", Impact, sans-serif;
+  --font-body: var(--font-hanken), system-ui, "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Consolas, monospace;
   --fs-mono: 0.8125rem;
   --fs-small: 0.9375rem;
@@ -43,8 +44,8 @@
   --fs-h3: clamp(1.5rem, 1.25rem + 1.1vw, 2.25rem);
   --fs-h2: clamp(2.5rem, 1.4rem + 4.6vw, 6rem);
   --fs-display: clamp(3.25rem, 1.2rem + 9vw, 9.5rem); /* up to 9vw-ish */
-  --track-display: -0.045em;
-  --track-h2: -0.035em;
+  --track-display: 0;
+  --track-h2: -0.01em;
   --track-mono: 0.02em;
   --lh-display: 0.9;
   --lh-head: 1;
@@ -79,7 +80,9 @@
   --c-ink: var(--carbon-text);
   --c-muted: var(--carbon-muted);
   --c-line: var(--carbon-line);
-  --c-focus: var(--c-accent);
+  --c-accent: var(--carbon-text);
+  --c-accent-ink: var(--carbon);
+  --c-focus: var(--carbon-text);
   --sig-allow: var(--sig-allow-lamp);
   --sig-review: var(--sig-review-lamp);
   --sig-deny: var(--sig-deny-lamp);
@@ -128,6 +131,7 @@ h2,
 h3 {
   font-family: var(--font-display);
   font-weight: 800;
+  font-stretch: 66%; /* Anybody is a variable-width face: headings are set condensed */
   line-height: var(--lh-head);
   text-wrap: balance;
 }
@@ -193,6 +197,7 @@ textarea {
   font-family: var(--font-display);
   font-size: var(--fs-display);
   font-weight: 800;
+  font-stretch: 60%;
   letter-spacing: var(--track-display);
   line-height: var(--lh-display);
 }
@@ -203,7 +208,7 @@ textarea {
 }
 .t-h3 {
   font-size: var(--fs-h3);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.005em;
 }
 .t-lede {
   font-size: var(--fs-lede);
@@ -335,10 +340,11 @@ textarea {
   font-size: 0.9375rem;
 }
 .button-primary::before {
-  background: var(--c-ink);
+  background: var(--c-ground);
 }
 .button-primary:hover,
 .button-primary:focus-visible {
+  color: var(--c-ink);
   border-color: var(--c-ink);
 }
 .button:disabled {

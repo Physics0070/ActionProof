@@ -8,6 +8,7 @@ import { formatUtc, HASH_RE, headline, toDecision, whyPaused } from "@/lib/conso
 import { Card } from "@/components/ui/Card";
 import { MonoLabel } from "@/components/ui/MonoLabel";
 import { Signal } from "@/components/ui/Signal";
+import { ApprovalPanel, History } from "./Approval";
 import { Claims, KeyValues } from "./Claims";
 import { DecisionForm } from "./DecisionForm";
 import { Dict, ErrorState, Loading, PermissionDenied, ReasonList } from "./Parts";
@@ -80,6 +81,11 @@ export function RequestView({ hash }: { hash: string }) {
           <h2 className="t-h3">Source page</h2>
           <SourcePages hash={d.request_hash} claims={d.claims} active={active} onActive={setActive} />
         </div>
+      </div>
+
+      <div className="a-split">
+        <ApprovalPanel d={d} />
+        <History d={d} />
       </div>
 
       <div className="r-more">
