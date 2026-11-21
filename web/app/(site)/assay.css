@@ -1,0 +1,387 @@
+/* The home page, "assay" direction (web/DESIGN.md). Scoped to .assay so the console and /evaluation keep their tokens.
+   Palette by role: obsidian ground, bone ink, cold-steel muted, graphite line; vermilion = refused, amber = needs a
+   person, pale mint = allowed. Colour is never the only signal (shape + word travel with it). */
+.assay {
+  --as-ground: #07090a;
+  --as-bone: #ece9e1;
+  --as-steel: #8d9da6;
+  --as-line: #2a3236;
+  --as-deny: #ff4a24;
+  --as-review: #ffb020;
+  --as-allow: #b8ffe0;
+  --c-ground: var(--as-ground);
+  --c-paper: #0e1316;
+  --c-ink: var(--as-bone);
+  --c-muted: var(--as-steel);
+  --c-line: var(--as-line);
+  --c-accent: var(--as-bone);
+  --c-on-accent: var(--as-ground);
+  --c-focus: #ffffff;
+  --sig-allow: var(--as-allow);
+  --sig-review: var(--as-review);
+  --sig-deny: var(--as-deny);
+  --as-display: var(--font-anybody), "Arial Narrow", Impact, sans-serif;
+  --as-body: var(--font-hanken), system-ui, sans-serif;
+  --as-pad: clamp(20px, 5vw, 72px);
+  background: var(--as-ground);
+  color: var(--as-bone);
+  font-family: var(--as-body);
+  position: relative;
+  overflow-x: clip;
+}
+.assay-story {
+  position: relative;
+}
+.assay-story > :not(.canvas-wrap):not(.rail) {
+  position: relative;
+  z-index: 1;
+}
+
+/* ------------------------------------------------------------ hero: a poster at rest */
+.as-hero {
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: end;
+  padding: 120px var(--as-pad) clamp(28px, 6vh, 64px);
+}
+.as-hero-inner {
+  max-width: min(100%, 62rem);
+}
+.as-kicker {
+  font-family: var(--font-mono);
+  font-size: clamp(0.8rem, 1.1vw, 0.95rem);
+  letter-spacing: 0.04em;
+  color: var(--as-steel);
+  max-width: 38ch;
+  margin-bottom: clamp(16px, 3vh, 28px);
+}
+.as-display {
+  font-family: var(--as-display);
+  font-weight: 800;
+  font-stretch: 60%;
+  font-size: clamp(3.2rem, 10.6vw, 10.2rem);
+  line-height: 0.88;
+  letter-spacing: 0.005em;
+  word-spacing: 0.08em;
+  text-transform: uppercase;
+  max-width: 11ch;
+  text-wrap: balance;
+}
+.as-sub {
+  margin-top: clamp(18px, 3vh, 32px);
+  max-width: 34ch;
+  font-size: clamp(1.05rem, 1.5vw, 1.3rem);
+  line-height: 1.5;
+  color: var(--as-steel);
+}
+.as-motto {
+  margin-top: clamp(28px, 7vh, 72px);
+  font-family: var(--as-display);
+  font-weight: 700;
+  font-stretch: 150%;
+  font-size: clamp(1.2rem, 4.6vw, 4.6rem);
+  line-height: 1.1;
+  height: 1.1em; /* fixed box: the web font swapping in must not move the hero (CLS) */
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--as-line);
+  user-select: none;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ the beats */
+.beat {
+  min-height: 120vh;
+  display: flex;
+  align-items: center;
+  padding: clamp(72px, 12vh, 140px) var(--as-pad);
+}
+.beat-copy {
+  width: min(100%, 35rem);
+  display: grid;
+  gap: clamp(14px, 2.2vh, 22px);
+}
+.beat-index {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--as-steel);
+  padding-top: 14px;
+  border-top: 1px solid var(--as-line);
+}
+.beat-title {
+  font-family: var(--as-display);
+  font-weight: 800;
+  font-stretch: 62%;
+  font-size: clamp(2.3rem, 5.2vw, 4.6rem);
+  line-height: 0.95;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.beat-lede {
+  font-size: clamp(1.02rem, 1.35vw, 1.2rem);
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--as-bone) 86%, transparent);
+  max-width: 34rem;
+}
+.beat-note {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--as-steel);
+  max-width: 34rem;
+}
+.beat-fact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  font-size: 0.92rem;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--as-steel);
+}
+.beat-bounce {
+  padding-left: 12px;
+  border-left: 2px solid var(--as-deny);
+}
+
+/* the three amounts of INV-2048: numbers set large, the gap singled out */
+.slips {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  gap: 14px clamp(18px, 3vw, 40px);
+}
+.slips dt {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--as-steel);
+}
+.slips dd {
+  font-family: var(--as-display);
+  font-weight: 700;
+  font-stretch: 70%;
+  font-size: clamp(1.7rem, 3.4vw, 3rem);
+  line-height: 1.1;
+}
+.slips [data-hot="true"] dd {
+  color: var(--as-deny);
+  text-decoration: underline wavy;
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 2px;
+}
+
+/* the three kinds of claim, drawn as the line each would be in the scene: solid, ringed, dashed */
+.kinds {
+  display: grid;
+  gap: 14px;
+}
+.kinds > div {
+  padding-left: 14px;
+  border-left: 2px solid var(--as-bone);
+}
+.kinds [data-kind="DERIVED"] {
+  border-left-style: double;
+  border-left-width: 5px;
+}
+.kinds [data-kind="ASSERTED"] {
+  border-left-style: dashed;
+  border-color: var(--as-steel);
+}
+.kinds dt {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+}
+.kinds dd {
+  margin-top: 4px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--as-bone) 80%, transparent);
+}
+
+.claim-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+.claim-table caption {
+  text-align: left;
+  color: var(--as-steel);
+  padding-bottom: 8px;
+}
+.claim-table th,
+.claim-table td {
+  text-align: left;
+  font-weight: 400;
+  padding: 7px 10px 7px 0;
+  border-top: 1px solid var(--as-line);
+  vertical-align: top;
+}
+.claim-table thead th {
+  color: var(--as-steel);
+}
+.claim-table [data-kind="ASSERTED"] {
+  color: var(--as-steel);
+}
+
+.reasons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.reasons li {
+  display: grid;
+  gap: 2px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+/* ------------------------------------------------------------ who it is for */
+.as-after {
+  padding: clamp(72px, 12vh, 140px) var(--as-pad) clamp(64px, 10vh, 120px);
+  border-top: 1px solid var(--as-line);
+  background: var(--as-ground);
+}
+.as-after-title {
+  font-family: var(--as-display);
+  font-weight: 800;
+  font-stretch: 62%;
+  font-size: clamp(2rem, 4.4vw, 3.8rem);
+  line-height: 1;
+  max-width: 18ch;
+  margin-bottom: clamp(28px, 5vh, 56px);
+}
+.as-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(28px, 4vw, 64px);
+}
+.as-cols h3 {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--as-steel);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--as-line);
+}
+.as-cols .rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.as-cols .rows li {
+  display: grid;
+  gap: 2px;
+  padding-block: 14px;
+  border-bottom: 1px solid var(--as-line);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.as-cols .rows strong {
+  font-weight: 600;
+}
+.as-cols .rows span {
+  color: color-mix(in srgb, var(--as-bone) 78%, transparent);
+}
+
+/* ------------------------------------------------------------ live: the scene is behind, copy scrolls over it */
+.assay-story[data-live="true"] .canvas-wrap {
+  z-index: 0;
+}
+@media (max-width: 899px) {
+  .assay-story[data-live="true"] .beat {
+    align-items: flex-end;
+  }
+  .assay-story[data-live="true"] .beat-copy {
+    padding: 56px 18px 18px;
+    margin-inline: calc(var(--as-pad) * -1 + 0px);
+    width: calc(100% + var(--as-pad) * 2);
+    background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--as-ground) 92%, transparent) 38%);
+  }
+  .as-cols {
+    grid-template-columns: 1fr;
+  }
+  .slips {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 900px) {
+  .assay-story[data-live="true"] .beat-copy {
+    padding: 28px 28px 28px 0;
+    background: linear-gradient(to right, color-mix(in srgb, var(--as-ground) 78%, transparent), transparent);
+  }
+}
+
+/* scroll-driven entrance where supported (progressive enhancement; the copy is fully visible without it) */
+@supports (animation-timeline: view()) {
+  .assay-story[data-live="true"] .beat-copy > * {
+    animation: as-rise linear both;
+    animation-timeline: view();
+    animation-range: entry 4% entry 48%;
+  }
+  @keyframes as-rise {
+    from {
+      opacity: 0;
+      translate: 0 28px;
+    }
+    to {
+      opacity: 1;
+      translate: 0 0;
+    }
+  }
+}
+
+/* ------------------------------------------------------------ no scene (reduced motion, no WebGL, failure) */
+.assay-story[data-live="false"] .beat {
+  min-height: 0;
+  padding-block: clamp(56px, 9vh, 96px);
+  border-top: 1px solid var(--as-line);
+}
+/* the hero keeps the same box in every mode: the live/static decision is made after hydration and must not move it */
+/* the static drawing is only for the no-scene version */
+.beat-glyph {
+  display: none;
+}
+.assay-story[data-live="false"] .beat {
+  display: grid;
+  grid-template-columns: minmax(0, 35rem) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 80px);
+  align-items: center;
+}
+.assay-story[data-live="false"] .beat-glyph {
+  display: block;
+  width: min(100%, 30rem);
+  justify-self: center;
+}
+@media (max-width: 899px) {
+  .assay-story[data-live="false"] .beat {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .assay-story .rail {
+    display: none;
+  }
+}
+@media (max-width: 520px) {
+  .slips {
+    grid-template-columns: 1fr;
+  }
+  .as-motto {
+    font-size: 1.3rem;
+  }
+}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { REPO_URL } from "@/lib/config";
 import "./site.css";
+import "./assay.css";
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (

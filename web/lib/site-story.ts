@@ -1,10 +1,11 @@
-// The ONE driver module of the home story: scroll progress in zustand, one GSAP clock.
-//  - Lenis is stepped by gsap.ticker (no own rAF); the R3F scene is advanced from the same ticker (GateScene).
-//  - ScrollTrigger writes `hero` / `gate` (0..1) and the active chapter into the store.
+// The ONE driver module of the home story (the assay track): scroll progress in zustand, one GSAP clock.
+//  - Lenis is stepped by gsap.ticker (no own rAF); the R3F scene is advanced from the same ticker (AssayScene).
+//  - ScrollTrigger writes `hero` / `track` (0..1), the active beat and the active chapter into the store.
 //  - The scene reads the store with getState() inside useFrame (no React subscription, no re-render per frame).
 //  - The real INV-2048 decision lives here too, fetched once from /api/public/replay/inv-2048.
 import { create } from "zustand";
 import { ApiError, apiGet } from "./api";
+import { beatAt } from "./assay";
 import { derivations, type Replay } from "./site-data";
 
 export type ReplayState =
@@ -18,8 +19,10 @@ export type Caps = { ready: boolean; webgl: boolean; reducedMotion: boolean; tou
 
 type Story = {
   hero: number;
-  /** 0..1 over the pinned gate sequence. Read in useFrame via getState(). */
-  gate: number;
+  /** 0..1 over the pinned assay track. Read in useFrame via getState() (no React subscription per frame). */
+  track: number;
+  /** Active beat of the track (changes rarely, so React may subscribe). */
+  beat: number;
   chapter: number;
   caps: Caps;
   replay: ReplayState;
@@ -31,7 +34,8 @@ type Story = {
 
 export const useStory = create<Story>()((set, get) => ({
   hero: 0,
-  gate: 0,
+  track: 0,
+  beat: 0,
   chapter: 0,
   caps: { ready: false, webgl: false, reducedMotion: false, touch: false, narrow: false },
   replay: { kind: "idle" },
@@ -94,9 +98,17 @@ export async function startDriver(root: HTMLElement): Promise<() => void> {
     if (hero) {
       ScrollTrigger.create({ trigger: hero, start: "top top", end: "bottom top", onUpdate: (s) => useStory.setState({ hero: s.progress }) });
     }
-    const gate = document.getElementById("gate");
-    if (gate) {
-      ScrollTrigger.create({ trigger: gate, start: "top top", end: "bottom bottom", onUpdate: (s) => useStory.setState({ gate: s.progress }) });
+    const track = document.getElementById("assay-track");
+    if (track) {
+      ScrollTrigger.create({
+        trigger: track,
+        start: "top 50%",
+        end: "bottom 50%",
+        onUpdate: (st) => {
+          const beat = beatAt(st.progress);
+          useStory.setState(useStory.getState().beat === beat ? { track: st.progress } : { track: st.progress, beat });
+        },
+      });
     }
     document.querySelectorAll<HTMLElement>("[data-chapter]").forEach((el) => {
       const i = Number(el.dataset.chapter);

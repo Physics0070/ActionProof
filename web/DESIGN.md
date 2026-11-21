@@ -1,153 +1,106 @@
-# ActionProof web: design system ("Airlock")
+# ActionProof web: design system ("Assay")
 
-Product: a gate in front of an AI agent's writes. **Proof before permission**: no value authorizes a write unless its
-derivation re-checks (G1), and no approval can be replayed (G2). Audiences: developers shipping agents, finance and
-ops reviewers, security and compliance. Three jobs: say the idea in 3 seconds (hero), show the evidence
-(`/evaluation`, every number fetched from `/api/public/eval`), run the review console (`/console`).
+Product: a gate in front of an AI agent's writes. **Prove before execution.** No value authorizes a write unless its
+derivation re-checks (G1), and no approval can be replayed (G2). Audiences: developers shipping agents, finance and ops
+reviewers, security and compliance. Three jobs: say the idea in three seconds (hero), show the mechanism with the real
+decision (the scroll story), run the review console (`/console`).
 
 Stack: Next.js 16 App Router, React 19, TypeScript, Turbopack. `three` + `@react-three/fiber` for the one scene,
-`gsap` (ScrollTrigger) + `lenis` for scroll, `zustand` for the story driver and console state. Plain CSS tokens in
-`app/globals.css`; no UI library.
+`gsap` (ScrollTrigger) + `lenis` for scroll, `zustand` for the story driver. No new dependency was added for this
+direction (all of the above were already in `package.json`). Plain CSS tokens; no UI library.
 
-## What changed and why
-The first site (navy and amber "Interlock") read as dense: eight chapters of small grey text, tables as the main
-content, a small particle sphere, a decision buried at the bottom of the console. The rebuild keeps every claim
-exactly as worded in `lib/site-copy.ts` and changes layout, type, colour, motion and order only: 5 chapters instead
-of 8, one scroll-driven 3D moment that IS the five steps, big type (display up to 9.5rem, body 18px), one call to
-action. `/evaluation` is one headline, a three-number strip, five comparison rows and `<details>`. The console leads
-with a plain verdict and a sticky decision bar; ids, hashes and diffs moved into expandable sections.
-Kept from the old system because they are about correctness: signals = colour + shape + word, AA contrast,
-reduced-motion and no-WebGL fallbacks, 0 hardcoded numbers (invariant 7).
+**Status.** The home page (`/`) is on this direction. `/evaluation` and the `/console` screens still use the previous
+"Airlock" look (spruce and pink); they are the next stages, listed in `AUDIT.md`. Until then the site is visibly two
+systems. That is a known inconsistency, not a decision.
 
-## Three concepts (awwwards Phase 1)
-| | A. Airlock (chosen) | B. Customs desk | C. Patch bay |
+## Three concepts (awwwards, phase 1)
+| | A. Assay (chosen) | B. Survey line | C. Cipher wall |
 |---|---|---|---|
-| Idea | The gate is a bulkhead door in a corridor; a request packet must re-derive its numbers before the door moves. | Every action is a passport: stamped, refused or sent to a booth. | The audit chain is a switchboard; calls plug in and out. |
-| Territory | the product's mechanism (door, latch, one-use token) | the profession's material (stamps, queues) | place and metaphor (telephone exchange) |
-| Signature | Scroll INTO the gate: packet, re-derivation at the door, door opens to the decision light, a replayed receipt bounces. | A stamp slams onto a document at scroll. | Cables snap into sockets as sections arrive. |
-| Emotion | calm pressure, then release | bureaucratic certainty | tactile order |
-| Originality / fit / feasibility / portability (lower better) | 4 / 5 / 4 / 2 | 3 / 3 / 5 / 3 | 4 / 3 / 3 / 3 |
-| Anchor | the gate really has one door, one-use receipts, and an audit entry for the bounce | reviewers really approve or reject | the audit log really is hash-linked |
+| Idea | An assay office: nothing is hallmarked until it has been tested. A request is a point of light that must survive each test before the die strikes its receipt. | A surveyor's route: stakes, tolerances and closing errors; each station is a measurement. | A wall of hex that resolves into a verified value. |
+| Territory | the profession's material (assay, hallmark, strike) | place and craft (surveying) | a formal system (cryptography as texture) |
+| Signature | The die drops on the packet and strikes a hallmark; a replayed receipt bounces off the closed latch. | A theodolite sweep reads each value into place. | Noise collapses into the verified number. |
+| Emotion | calm pressure, then a hard, quiet certainty | patient precision | hypnotic, abstract |
+| Originality / fit / feasibility / portability (lower better) | 4 / 5 / 4 / 2 | 3 / 4 / 4 / 3 | 3 / 2 / 5 / 5 |
+| Anchor | the gate really has one receipt, one latch, one audit entry per bounce | the route is real: request to commit | cryptography is real but decorative here |
 
-**Chosen: A.** It is the only concept where the signature moment is the product's real behaviour (G1 before the door
-moves, G2 on the replay), and it can be driven by data fetched from the gate.
+**Chosen: A.** It is the only concept whose signature moment is the product's real behaviour (G2: a spent receipt is
+refused, recorded at an audit entry), and the scene can be driven by the recorded decision.
 
 ### Concept card
 ```
-Idea:        Nothing an agent writes passes the door until its numbers re-derive on screen.
-Metaphor:    an industrial airlock: a corridor, station rings, a bulkhead door, signal light behind it
-Signature:   scroll into the gate (home chapter 3): packet -> re-derive $4,800 - $4,300 = $500 -> door opens ->
-             a copy of the receipt returns and bounces off the closed door in the DENY colour
-Emotion:     pressure that releases; a quiet machine with loud light
-Motion verb: latch (a bolt slides, then stops hard; nothing floats or bounces)
-Screenshot:  spruce corridor, a hot pink packet at a shut door, the equation large on the left
+Idea:        A request is a point of light on a long route; it only advances as each proof clears.
+Metaphor:    an assay office: test, then strike the hallmark; nothing is trusted before it is tested
+Signature:   the strike (beat 4): a die drops, the hallmark is stamped, the latch closes behind the packet, and a
+             ghost copy of the receipt, when the gate really recorded a replay, bounces off it in vermilion
+Emotion:     dust and uncertainty at the start; a hard, quiet certainty at the strike
+Motion verb: strike (fast attack, dead stop, a small ring of light; nothing floats or bounces by itself)
+Screenshot:  bone-white wireframe packet inside three amber rings, the REVIEW decision in plain type beside it
 ```
 
-## Palette by role
-Colours are CSS custom properties in `app/globals.css`. `.band-carbon` (spruce) re-points the role names for the dark
-public site; `.band-mist` and `:root` are the light set (console, problem chapter). Components never branch on theme.
+## Real versus decorative (read this before changing the scene)
+Everything on the home page that looks like a statement is either fetched or labelled.
+* **Fetched, from `GET /api/public/replay/inv-2048`:** the three amounts, the claims and their kinds and checks, the
+  decision and its rule ids, the status and reviewer, the replay bounce (rule, audit entry number), the audit range and
+  the request hash. The 3D scene is built from the same object (`components/site/assay/scene/model.ts`): one node per
+  claim, the ring colour is the decision, the chain length is the audit range, the vermilion block is the entry that
+  recorded the bounce, the hallmark pattern is drawn from the request hash.
+* **Never invented:** with no recorded decision the scene shows a neutral illustration and every beat says so; there is no
+  ghost, no verdict colour and no audit range in its place.
+* **Decorative (and only that):** the dust cloud, the route ticks, the idle motion, the camera path.
+* **Not shown because it is not live:** nothing on the page streams events. A denial produced right now would appear in
+  the scene the next time the page loads the decision; there is no live event feed on the public site.
 
-| Role | Token | Light (mint) | Spruce (dark) |
-|---|---|---|---|
-| ground | `--c-ground` | `#e7f2ec` mint | `#0a2b26` spruce |
-| raised surface | `--c-paper` | `#ffffff` | `#11403a` pine |
-| ink | `--c-ink` | `#0a2b26` | `#eef8f3` frost |
-| muted | `--c-muted` | `#416257` | `#a4c9be` sage |
-| line | `--c-line` | `#b7d0c5` | `#2d6157` moss |
-| accent ("packet pink") | `--c-accent` | `#ff3d9a`, ink text `#0a2b26` | same |
-| ALLOW | `--sig-allow` | `#00604d` (ink) | `#34f0c2` (lamp) |
-| REVIEW | `--sig-review` | `#6b4f00` (ink) | `#ffd11a` (lamp) |
-| DENY | `--sig-deny` | `#b3260a` (ink) | `#ff7d52` (lamp) |
-
-Why these: spruce is industrial safety-wall green, a colour nobody photographs; pink is the one hue no plant uses, so
-the request (the packet, the CTA, the unexplained $500) is unmistakable; the three signals are aqua, sun yellow and
-flare orange so they stay apart from the pink and from each other. Not the purple-blue AI gradient, not cream and
-terracotta, not acid green on black (the ground is a rich green and ALLOW is an aqua light). Pink is never shaped like
-a signal; a CTA is a rectangle with a word.
-
-## Signal system
-One colour per decision, never colour alone: `<Signal state>` renders colour + shape + word.
-ALLOW = circle, REVIEW = triangle, DENY = square. In 3D the same three light up behind the door (REVIEW, then ALLOW
-when the recorded request executed; DENY on the bounce). Every DENY or REVIEW shown carries its rule id and guarantee.
-On `/evaluation` the same marks read Yes or Met (circle), Partial or Not measured (triangle), No or Missed (square).
+## Palette by role (`app/(site)/assay.css`, scoped to `.assay`)
+| Role | Token | Value |
+|---|---|---|
+| ground | `--as-ground` | `#07090a` obsidian |
+| ink | `--as-bone` | `#ece9e1` bone |
+| muted | `--as-steel` | `#8d9da6` cold steel |
+| line | `--as-line` | `#2a3236` graphite |
+| refused | `--as-deny` | `#ff4a24` vermilion |
+| needs a person | `--as-review` | `#ffb020` amber |
+| allowed | `--as-allow` | `#b8ffe0` pale mint |
+White-hot (`#fff`) is the proven state of the packet. Colour is never the only signal: every decision carries its word and
+shape (`components/ui/Signal`). The scene reads these tokens from the page, so the CSS is the single source.
 
 ## Type
-next/font, self-hosted at build. **Bricolage Grotesque** 700/800 for display and headings, **Archivo** 400/500/600 for
-body (18px, 1.55), **IBM Plex Mono** 400/500 for labels, rule ids, hashes.
+* Display: **Anybody** (Google, variable `wdth` axis, via `next/font`): hero set at width 60% in capitals, beat titles at
+  62%, the outlined motto at 150%. One file gives both the extra-condensed and the extra-expanded setting.
+* Body: **Hanken Grotesk** 400/500/600. Data and labels: **IBM Plex Mono** (already loaded).
+* Fluid scale with `clamp()`; display tracking set per size; body 16 to 19 px at 1.5 to 1.6.
+* The hero's motto box has a fixed height so the web font swapping in cannot move the hero (measured CLS 0).
 
-| Role | Size | Tracking | Leading |
-|---|---|---|---|
-| display (hero h1) | clamp 52px to 152px (9vw) | -0.045em | 0.9 |
-| h2 | clamp 40px to 96px | -0.035em | 0.95 |
-| h3 | clamp 24px to 36px | -0.02em | 1 |
-| lede | clamp 20px to 28px | 0 | 1.35 |
-| body | 18px | 0 | 1.55, max 62ch |
-| mono label | 13px | +0.02em | 1.4 |
-
-## Layout and chapters (home)
-1. **Start**: server-rendered hero (USP, title, sub, one CTA). The scene shows through on the right.
-2. **The problem**: three slips (invoice, purchase order, the pink unexplained slip), then the three gaps. Amounts come from the fetched claims.
-3. **The gate**: a 560vh pinned (CSS sticky) stage. Five stations = the five deck steps; each shows its deck line and a readout from the real INV-2048 record. Step 2 re-derives the amount in the browser (BigInt cents) and the door only opens if every DERIVED value matched (`verified` in the store).
-4. **Claims**: pink full-bleed chapter, DIRECT / DERIVED / ASSERTED as three cards, then the taint rule.
-5. **Proof**: USP line, one CTA ("See a real decision", /console), a quiet link to /evaluation, who benefits, impact, the four limits, the closing line.
-
-A slim chapter rail on the right (labels on hover or focus); the skip link is first in tab order.
+## Composition
+```
+hero            beat (x6, equal height)               after
++--------------+--------------+          +--------------+--------------+        three columns of hairline lists
+| KICKER       |              |          | 01/06 LABEL  |   [scene]    |        (who benefits, impact, limits)
+| HUGE H1      |   [packet]   |          | Title        |              |
+| sub  [CTA]   |              |          | copy + facts |              |
+| outlined motto              |          +--------------+--------------+
++--------------+--------------+
+```
+The scene sits fixed behind everything; copy scrolls over it on the dark left; the picture is shifted right with
+`camera.setViewOffset` on wide screens. On phones the copy takes the lower part over a scrim and the scene stays above.
 
 ## Motion
-- Verb: **latch**. One easing family `--ease-latch` cubic-bezier(0.2,0,0,1); snap 120ms, latch 220ms, travel 480ms.
-- Buttons: a fill bolt slides in from the left and stops (transform only); press drops 2px; links get a sliding underline bar; cards step 6 to 8px. Every target has hover, focus-visible (3px ring) and active states.
-- One driver: `lib/site-story.ts` (zustand `hero`, `gate`, `chapter`, `verified`) plus `lib/gate-timeline.ts` (a pure map from `gate` 0..1 to camera, packet, door, light, bounce). Lenis is stepped by `gsap.ticker`; the R3F loop (`frameloop="never"`) is advanced from the same ticker, only while the hero or the gate is on screen. No own rAF, no scroll listeners.
-- Idle: the packet bobs and loops in the hero, rings and the door seam breathe, trail points drift (same clock).
-- Procedural only: lines, boxes, one halo shader. No textures or models. The scene mounts 400ms after hydration (dynamic import, ssr:false); the hero text never waits for it.
+* One clock: the GSAP ticker advances Lenis, ScrollTrigger and the R3F loop (and only while the story is on screen).
+* One driver: `lib/site-story.ts` writes `track` (0..1), `beat`, `chapter`; `lib/assay.ts` (pure) maps scroll to the
+  packet's place on the route, with a dwell at every station. Beats are equal-height sections, so beat `i` is centred at
+  `(i + 0.5) / 6`.
+* The strike easing is a cubic fall to a dead stop; everything else is smoothstep. Copy enters with a CSS scroll-driven
+  animation where supported (progressive enhancement; the copy is visible without it).
+* Idle: dust drifts, rings turn, the packet breathes (all on the clock, off screen they stop).
 
-## Fallbacks (designed on purpose)
-- **prefers-reduced-motion**: no Lenis, no scrub, no canvas. All five stations are shown expanded with their readouts next to a still SVG poster of the same story (`StaticGate`). Checked at 1440 and 390.
-- **No WebGL or WebGL failure**: identical to reduced motion (the scene boundary flips `caps.webgl`).
-- **390px phone**: single column; the gate stage keeps the door in the top half and the active station card at the bottom (only the active station is shown); the 3D uses 1x DPR, a wider lens and a shorter corridor; no horizontal overflow on any page.
+## Performance, fallbacks, accessibility (measured on the production build, 2026-11-21)
+* The scene is `next/dynamic` with `ssr:false`, mounted after load at idle; first-load JS before the scene is 148 KB,
+  459 KB once the scene has loaded. Phones get fewer particles (900 vs 2600), `dpr` 1 and a wider field of view.
+* Real browser (Chromium, software WebGL, so frame times are pessimistic): CLS 0 on desktop and on a 4x CPU phone
+  profile; LCP is the hero text. Repeat the measurement on real hardware before quoting numbers.
+* Reduced motion, no WebGL, or a WebGL failure: no canvas, no smooth scroll; the same six beats on a plain ground, each
+  with a static drawing of its station (`Glyphs.tsx`). Verified at 1440 and 390 with zero console errors.
+* Keyboard: skip link, the rail is a real list of anchors with `aria-current`, focus styles come from the shared global tokens (`--c-focus`; not re-audited on this page).
+  The canvas is `aria-hidden`; nothing is conveyed by the scene alone.
 
-## Contrast (WCAG 2.x, computed by `npm run contrast`)
-| Pairing | Colours | Ratio | Required | Result |
-|---|---|---|---|---|
-| ink on mint ground | `#0a2b26` on `#e7f2ec` | 13.21 | 4.5 | pass |
-| muted on mint ground | `#416257` on `#e7f2ec` | 5.89 | 4.5 | pass |
-| ink on white paper | `#0a2b26` on `#ffffff` | 15.15 | 4.5 | pass |
-| muted on white paper | `#416257` on `#ffffff` | 6.75 | 4.5 | pass |
-| ALLOW ink word on mint | `#00604d` on `#e7f2ec` | 6.59 | 4.5 | pass |
-| REVIEW ink word on mint | `#6b4f00` on `#e7f2ec` | 6.67 | 4.5 | pass |
-| DENY ink word on mint | `#b3260a` on `#e7f2ec` | 5.72 | 4.5 | pass |
-| ALLOW ink word on white | `#00604d` on `#ffffff` | 7.55 | 4.5 | pass |
-| REVIEW ink word on white | `#6b4f00` on `#ffffff` | 7.65 | 4.5 | pass |
-| DENY ink word on white | `#b3260a` on `#ffffff` | 6.57 | 4.5 | pass |
-| frost text on spruce | `#eef8f3` on `#0a2b26` | 13.96 | 4.5 | pass |
-| sage muted on spruce | `#a4c9be` on `#0a2b26` | 8.42 | 4.5 | pass |
-| sage muted on pine | `#a4c9be` on `#11403a` | 6.42 | 4.5 | pass |
-| frost on pine | `#eef8f3` on `#11403a` | 10.65 | 4.5 | pass |
-| pink on spruce (USP line, closing line) | `#ff3d9a` on `#0a2b26` | 4.61 | 4.5 | pass |
-| spruce ink on pink (CTA, claims chapter, $500 slip) | `#0a2b26` on `#ff3d9a` | 4.61 | 4.5 | pass |
-| frost on spruce card (claims cards on pink) | `#eef8f3` on `#0a2b26` | 13.96 | 4.5 | pass |
-| ALLOW lamp word on spruce | `#34f0c2` on `#0a2b26` | 10.38 | 4.5 | pass |
-| REVIEW lamp word on spruce | `#ffd11a` on `#0a2b26` | 10.38 | 4.5 | pass |
-| DENY lamp word on spruce | `#ff7d52` on `#0a2b26` | 5.99 | 4.5 | pass |
-| ALLOW lamp word on pine | `#34f0c2` on `#11403a` | 7.91 | 4.5 | pass |
-| REVIEW lamp word on pine | `#ffd11a` on `#11403a` | 7.91 | 4.5 | pass |
-| DENY lamp word on pine | `#ff7d52` on `#11403a` | 4.57 | 4.5 | pass |
-| spruce word on ALLOW lamp plate | `#0a2b26` on `#34f0c2` | 10.38 | 4.5 | pass |
-| spruce word on REVIEW lamp plate | `#0a2b26` on `#ffd11a` | 10.38 | 4.5 | pass |
-| spruce word on DENY lamp plate | `#0a2b26` on `#ff7d52` | 5.99 | 4.5 | pass |
-| pink focus ring on spruce (non-text) | `#ff3d9a` on `#0a2b26` | 4.61 | 3 | pass |
-| ink focus ring on mint (non-text) | `#0a2b26` on `#e7f2ec` | 13.21 | 3 | pass |
-| spruce focus ring on pink (non-text) | `#0a2b26` on `#ff3d9a` | 4.61 | 3 | pass |
-| moss hairline on spruce (decorative) | `#2d6157` on `#0a2b26` | 2.13 | 1 | pass |
-
-Hairlines (moss on spruce 2.13) are decorative; every control also has a border or a word.
-
-## Console (presentation only; every function and guard kept)
-- **Queue**: a short list of cards. Plain headline per request ("Approve invoice for $4,800.00", "Refund $250.00 to a customer card"; the queue payload has no invoice id, so the id appears on the request page), a signal chip, who asked and how long ago, the first policy reason in plain words, one primary action. Filters sit behind a "Filter" disclosure. Arrow keys still move between the actions.
-- **Request**: leads with a plain 3-line verdict (why it paused, recomputed from the claims: "the invoice is $500.00 above the purchase order"; how many cited values re-verified; what Approve and Reject do), then the 2 or 3 values that matter next to the highlighted source page. A sticky decision bar holds the typed reason, Approve or Reject, a confirm step and the real outcome (no optimistic UI). The label line is unchanged: "requested by X for Y · approved by Z (different person)". Evidence (every claim, ASSERTED "not evidence", methods), Policy reasons and Technical details (hash, diff, before, card) are native `<details>`.
-- **Audit**: one large "Verify chain" button and one result sentence; entries below.
-- Auth, CSRF, role gating, the 8 to 500 character reason, the confirm step, double-submit lock and the aria-live outcome are untouched.
-
-## Data rule
-README.md invariant 7: every number on screen is fetched (`lib/api.ts`, types generated from `web/openapi.json`).
-The site embeds no eval result, latency or amount in source; the home story replays `GET /api/public/replay/inv-2048`
-and `/evaluation` reads `GET /api/public/eval`, both with honest empty and error states.
+## What is not done yet
+`/evaluation`, `/console` (queue, request review, audit explorer) and `/console/login` keep the Airlock look. See `AUDIT.md`.
