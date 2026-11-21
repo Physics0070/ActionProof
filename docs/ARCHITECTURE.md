@@ -303,3 +303,7 @@ Updated again in Phases 3, 5, 7.
 - **Anchor.** `anchor.LocalAnchor` is a hash-linked JSON-lines file of signed checkpoints. `publish` and `entries` hold an
   exclusive cross-process lock (`<file>.lock`), so concurrent publishers cannot fork or tear the chain.
   `audit verify --anchor F [--strict]` compares the database with it.
+- **Operator view of the same flow.** Start-up (`scripts/apply_schema.py`, `server.build_app`) validates the reservations and
+  warns about legacy unresolved markers; `python -m actionproof.reconcile check` is the explicit validation step. While one
+  exists, step 4c of the commit (and the matching check in `prepare`) denies every cap-sensitive write (AP-CUM-03 / G1).
+  `python -m actionproof.reconcile release` (= `Gate.release_quarantine`) is the only way out, and it is audited.

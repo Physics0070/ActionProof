@@ -211,6 +211,7 @@ person and refund-balance sums read it, never `commits` alone.
 it is NOT treated as zero. While one exists, every cap-sensitive write (prepare and commit, any actor, any record)
 fails closed with AP-CUM-03 / G1. Confirming it executed needs the human to supply the missing facts
 (`reservation={...}`), and the supplied values are written to the audit entry; attesting it did not execute deletes it.
+Detect with `db.legacy_markers(conn)` / `python -m actionproof.reconcile check`; reconcile with `python -m actionproof.reconcile release` (RUNBOOK).
 Included in `db.reset`.
 
 ## Anchor file (not a table): `LocalAnchor`

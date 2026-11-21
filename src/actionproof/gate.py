@@ -34,6 +34,7 @@ from psycopg import errors
 
 from actionproof import audit, extract, policy, signing
 from actionproof.contracts import MONEY, ActionRequest, ContractError, parse_request, request_hash
+from actionproof.db import LEGACY_MARKER_FROM
 from actionproof.verify import Reason, VerifyResult, direct_spans, verify_request
 
 TOOL = "payments.approve_invoice"
@@ -214,9 +215,7 @@ def _quarantined(conn, record_id: str) -> bool:
 
 _LEGACY = Reason("AP-CUM-03", "G1", "unresolved execution with an unknown amount (legacy marker): "
                                      "cumulative caps cannot be proven; reconcile")
-_LEGACY_SQL = ("SELECT 1 FROM tool_reached t WHERE (t.idempotency_key IS NULL OR t.request_hash IS NULL OR "
-               "t.actor IS NULL OR t.on_behalf_of IS NULL OR t.vendor_id IS NULL OR t.amount IS NULL) "
-               "AND NOT EXISTS (SELECT 1 FROM commits c WHERE c.nonce = t.nonce) LIMIT 1")
+_LEGACY_SQL = f"SELECT 1 {LEGACY_MARKER_FROM} LIMIT 1"
 
 
 def _legacy_unresolved(conn) -> bool:

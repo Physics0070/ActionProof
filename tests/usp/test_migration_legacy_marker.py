@@ -14,13 +14,23 @@ from actionproof import audit, db
 
 NEW_COLS = ("idempotency_key", "request_hash", "actor", "on_behalf_of", "vendor_id", "amount")
 
+# The exact tool_reached table of the ADR-019 schema (before ADR-022): the fixture a pre-ADR-022 database holds.
+PRE_ADR022_TOOL_REACHED = """
+    DROP VIEW IF EXISTS reservations;
+    DROP TABLE tool_reached;
+    CREATE TABLE tool_reached (
+        nonce      text PRIMARY KEY,
+        record_id  text   NOT NULL,
+        created_at bigint NOT NULL CHECK (created_at >= 0)
+    );
+"""
+
 
 def _to_pre_adr022(kit):
-    """Put tool_reached back in its ADR-019 shape: nonce, record_id, created_at only; no view, no unique index."""
-    kit.sql("DROP VIEW IF EXISTS reservations")
-    kit.sql("DROP INDEX IF EXISTS tool_reached_idem")
-    for c in NEW_COLS:
-        kit.sql(f"ALTER TABLE tool_reached DROP COLUMN IF EXISTS {c}")
+    """Replace tool_reached with its ADR-019 definition: no reservation columns, no unique key index, no view."""
+    kit.db.execute(PRE_ADR022_TOOL_REACHED)
+    kit.db.commit()
+    assert _cols(kit) == {"nonce", "record_id", "created_at"}
 
 
 def _legacy_db(kit, record="invoice:INV-LEG"):
@@ -126,3 +136,84 @@ def test_a_marker_with_any_null_reservation_field_is_legacy(kit):
     kit.set_scope("5000.00")
     req, docs = kit.json_request("INV-LEG6", "100.00")
     assert rules(kit.gate.prepare(req, docs)) == ["AP-CUM-03"]
+
+
+# ---- explicit validation step, startup warning and the operator CLI (ADR-024)
+
+def _cli_env(kit, opa_url, signing_key_path):
+    from pathlib import Path
+    docs = Path(__file__).resolve().parents[2] / "fixtures" / "out"
+    return {"DATABASE_URL": kit.pg, "OPA_URL": opa_url, "SIGNING_KEY_PATH": str(signing_key_path),
+            "SIGNING_KID": kit.settings.signing_kid, "TESSERACT_CMD": kit.settings.tesseract_cmd,
+            "DOCS_DIR": str(docs)}
+
+
+def test_validation_lists_incomplete_unresolved_markers(kit):
+    assert db.legacy_markers(kit.db) == []
+    kit.db.commit()
+    _legacy_db(kit)
+    assert db.legacy_markers(kit.db) == [("legacy-n1", "invoice:INV-LEG")]
+    kit.db.commit()
+
+
+def test_validation_ignores_a_complete_or_resolved_marker(kit):
+    """A complete marker (all reservation columns) and a marker whose nonce has a commits row are not legacy."""
+    kit.sql("INSERT INTO tool_reached (nonce, record_id, created_at, idempotency_key, request_hash, actor, "
+            "on_behalf_of, vendor_id, amount) VALUES ('full', 'invoice:INV-F', 1, 'kf', 'h', 'agent-7', 'user-123', "
+            "'V-ACME', 5.00)")
+    assert db.legacy_markers(kit.db) == []
+    kit.db.commit()
+
+
+def test_cli_check_fails_until_reconciled(kit, opa_url, signing_key_path, capsys):
+    from actionproof import reconcile
+    env = _cli_env(kit, opa_url, signing_key_path)
+    assert reconcile.main(["check"], env=env) == 0
+    _legacy_db(kit)
+    assert reconcile.main(["check"], env=env) == 1
+    assert "legacy-n1" in capsys.readouterr().out
+    assert reconcile.main(["release", "--record", "invoice:INV-LEG", "--reviewer", "rev-alice"], env=env) == 0
+    assert reconcile.main(["check"], env=env) == 0
+    assert kit.sql("SELECT decision FROM audit_log WHERE kind = 'release_quarantine'") == [("RELEASED",)]
+
+
+def test_cli_release_executed_needs_a_valid_reservation(kit, opa_url, signing_key_path):
+    import json
+
+    from actionproof import reconcile
+    env = _cli_env(kit, opa_url, signing_key_path)
+    _legacy_db(kit)
+    base = ["release", "--record", "invoice:INV-LEG", "--reviewer", "rev-alice", "--executed"]
+    assert reconcile.main(base, env=env) == 2                                          # no reservation: refused
+    assert reconcile.main(base + ["--reservation", "{not json"], env=env) == 2
+    assert reconcile.main(base + ["--reservation", json.dumps({"amount": "1.00"})], env=env) == 2
+    assert kit.sql("SELECT count(*) FROM tool_reached")[0][0] == 1                     # nothing changed
+    res = {"idempotency_key": "cli-idem", "request_hash": "cd" * 32, "actor": "agent-7",
+           "on_behalf_of": "user-123", "vendor_id": "V-ACME", "amount": "75.00"}
+    assert reconcile.main(base + ["--reservation", json.dumps(res)], env=env) == 0
+    assert kit.sql("SELECT amount FROM commits WHERE nonce = 'legacy-n1'") == [(Decimal("75.00"),)]
+
+
+def test_apply_schema_script_warns_loudly(kit):
+    import subprocess
+    import sys
+    from pathlib import Path
+    _legacy_db(kit)
+    r = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[2] / "scripts" / "apply_schema.py")],
+                       env={**__import__("os").environ, "DATABASE_URL": kit.pg}, capture_output=True, text=True,
+                       timeout=60)
+    assert r.returncode == 0 and "schema applied" in r.stdout          # boot continues: reconciliation needs the API
+    assert "WARNING" in r.stderr and "legacy" in r.stderr.lower() and "reconcile" in r.stderr.lower()
+
+
+def test_server_start_logs_the_legacy_marker(kit, caplog):
+    import logging
+    from pathlib import Path
+
+    from actionproof import server
+    _legacy_db(kit)
+    ss = server.load_server_settings({"DOCS_DIR": str(Path(__file__).resolve().parents[2] / "fixtures" / "out")},
+                                     need_principal=False)
+    with caplog.at_level(logging.WARNING):
+        assert server.build_app(kit.settings, ss) is not None
+    assert any("legacy" in r.getMessage().lower() and r.levelno >= logging.WARNING for r in caplog.records)

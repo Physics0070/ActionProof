@@ -20,6 +20,7 @@ import argparse
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import sys
@@ -459,6 +460,12 @@ def build_app(settings, ssettings: ServerSettings, proxy_cmd: str | None = None)
             conn.execute("SELECT 1 FROM pending_reviews LIMIT 1")
     except Exception as e:
         raise ConfigError(f"invalid or missing config: DATABASE_URL (database unusable: {type(e).__name__})") from None
+    with factory() as conn:
+        legacy = db.legacy_markers(conn)
+    if legacy:  # ADR-024: not a boot failure (reconciliation needs the API), but never silent
+        logging.getLogger("actionproof").warning(
+            "%d legacy unresolved execution marker(s) with an unknown amount: every cap-sensitive write is blocked "
+            "(AP-CUM-03) until reconciled: python -m actionproof.reconcile check", len(legacy))
     # ponytail: the mocks are the only adapters; a real ERP/PSP adapter implements the same 4-method contract.
     erp = MockERP(factory)
     adapters = {TOOL: MockPayments(erp, factory), REFUND_TOOL: MockRefunds(erp, factory)}

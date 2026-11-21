@@ -13,6 +13,19 @@ TABLES = ("records", "delegations", "commits", "review_tokens", "quarantine", "t
           "console_users", "console_sessions")
 AUDIT_TABLES = ("audit_log", "audit_checkpoints")
 
+# ADR-024: an unresolved marker (no commits row) from before ADR-022 lacks part of its reservation, so its spend is
+# unknown. One definition, shared by Gate (fail-closed barrier), `actionproof.reconcile check` and server start.
+LEGACY_MARKER_FROM = (
+    "FROM tool_reached t WHERE (t.idempotency_key IS NULL OR t.request_hash IS NULL OR t.actor IS NULL OR "
+    "t.on_behalf_of IS NULL OR t.vendor_id IS NULL OR t.amount IS NULL) "
+    "AND NOT EXISTS (SELECT 1 FROM commits c WHERE c.nonce = t.nonce)")
+
+
+def legacy_markers(conn) -> list[tuple[str, str]]:
+    """The explicit migration validation step: [(nonce, record_id)] of every incomplete unresolved marker."""
+    return [tuple(r) for r in conn.execute(
+        f"SELECT t.nonce, t.record_id {LEGACY_MARKER_FROM} ORDER BY t.created_at, t.nonce").fetchall()]
+
 
 class _NoFloatDumper(Dumper):
     """Python floats are refused as query parameters: a float can never reach a money column."""

@@ -83,6 +83,14 @@
 - Not verified: Docker images/compose, CI on GitHub, any remote anchor, a real (non-mock) provider, behaviour on a shared network filesystem (anchor lock), a crash BEFORE the tool call (indistinguishable from after: holds its reservation until released).
 - USP: G1 holds across a migration (an unknown spend is never assumed zero) and G2 across a crash; every way out of an unresolved execution is a human, audited step.
 
+## Assurance final cleanup: validation step, start-up warning, reconcile CLI (2026-11-20, ADR-024 addendum)
+- Built: `db.legacy_markers(conn)` is the single definition of an incomplete unresolved marker (the gate barrier uses it too); `python -m actionproof.reconcile check` is the explicit validation step (exit 1 if any); `scripts/apply_schema.py` and `server.build_app` log a WARNING at start-up (boot is not refused: reconciliation needs the API); `python -m actionproof.reconcile release [--executed --reservation JSON]` is the audited reconciliation. The barrier itself (every cap-sensitive prepare/commit DENY AP-CUM-03 / G1 while a legacy marker exists) was already in 9b9a792 and is unchanged.
+- Tests: `tests/usp/test_migration_legacy_marker.py` now migrates a REAL pre-ADR-022 `tool_reached` table (exact ADR-019 DDL, no reservation columns) through `db.apply_schema`; 13 tests cover the migration, the block, both release paths, bad input, the validation function, the CLI, the apply_schema warning and the start-up log.
+- Docs: stale "NULL amount counts as zero" removed (schema.sql comment, ADR-022 superseded by ADR-024); RUNBOOK describes the CLI instead of "no CLI wrapper yet"; DATA_MODEL, ARCHITECTURE (operator view), THREAT_MODEL (legacy-marker row) updated; DECK_TRACE row A11 added, existing rows untouched.
+- Check (real runs, standing local OPA for test_infra): full suite `806 passed in 716.53s`; `tests/usp` `138 passed`; `opa test policy` `PASS: 46/46`; `bash demo.sh` exit 0 `PASS: every beat produced its expected outcome`.
+- Not verified: Docker images/compose, GitHub CI, a remote anchor, a real provider, a legacy marker on a production-sized database, anchor lock on a network filesystem.
+- USP: an unknown spend is detected, reported and blocked, never assumed zero, and only an audited human step releases it.
+
 ## Open issues (honest list)
 - Independent attack generator blocked; held-out set is handwritten2 (NOT independent).
 - Docker compose never run here; no green CI run exists yet.

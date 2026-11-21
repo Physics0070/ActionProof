@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS tool_reached (
 
 -- ADR-022: the marker now carries the complete logical reservation, so an unresolved execution keeps counting
 -- against the caps and keeps its request idempotency key. Columns are nullable only so rows from the ADR-019 version
--- of this table survive the migration; the gate always writes all of them (a NULL amount counts as zero).
+-- of this table survive the migration; the gate always writes all of them. An unresolved row with ANY NULL column is a legacy marker: its spend is
+-- unknown, so the gate blocks every cap-sensitive write until it is reconciled (ADR-024); the view excludes it, never as zero.
 ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS idempotency_key text;
 ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS request_hash    text;
 ALTER TABLE tool_reached ADD COLUMN IF NOT EXISTS actor           text;

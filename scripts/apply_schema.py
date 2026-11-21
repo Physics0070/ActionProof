@@ -15,4 +15,10 @@ if __name__ == "__main__":
         sys.exit("DATABASE_URL is not set")
     with psycopg.connect(url, connect_timeout=10) as conn:
         db.apply_schema(conn)
+        legacy = db.legacy_markers(conn)
     print("schema applied")
+    if legacy:  # ADR-024: boot continues (reconciliation needs the API) but the barrier is on and this is loud
+        print(f"WARNING: {len(legacy)} legacy unresolved execution marker(s) with an unknown amount; every "
+              "cap-sensitive write is blocked (AP-CUM-03) until reconciled. List: python -m actionproof.reconcile "
+              "check. Reconcile: python -m actionproof.reconcile release --record <id> --reviewer <login> "
+              "[--executed --reservation '{...}']", file=sys.stderr)

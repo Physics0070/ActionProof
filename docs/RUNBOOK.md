@@ -107,10 +107,23 @@ decided in the console. 5) Find how it left (the key is mounted only into `api`;
 failing seq and reason (table above). Compare with the last good line and the last backup; restore only after the
 evidence copy exists. Do not "repair" rows by hand: that is the tampering the chain exists to expose.
 
-**Quarantine release.** A commit whose upstream tool call was burned/rolled back quarantines its record (ADR-014). A
-human first checks the tool's real outcome, then calls `Gate.release_quarantine(record_id, reviewer)` (admin side; it
-writes a `release_quarantine` audit entry in the same transaction, and returns whether a row was released):
-There is no CLI wrapper yet: in `docker compose ... run --rm api python`, build the gate with `actionproof.server.build_app(load_settings(), load_server_settings(need_principal=False)).gate` and call `release_quarantine`. Never release without confirming the upstream outcome.
+**Quarantine release.** A commit whose upstream tool call was burned/rolled back quarantines its record (ADR-014), and a
+process that died after the tool call leaves an unresolved execution that keeps its reservation, idempotency key and record
+quarantine (ADR-019, ADR-022). A human first checks the tool's real outcome, then reconciles it. The audited path is
+`Gate.release_quarantine(record_id, reviewer, executed=False, reservation=None)` (admin side; it writes a
+`release_quarantine` audit entry in the same transaction), and the operator CLI wraps it, same environment as the API:
+
+```
+python -m actionproof.reconcile release --record invoice:INV-1 --reviewer rev-alice            # it did NOT execute
+python -m actionproof.reconcile release --record invoice:INV-1 --reviewer rev-alice --executed  # it did (new markers)
+```
+
+**Legacy markers after an upgrade (ADR-024).** A database that ran the ADR-019 version may hold an unresolved marker with
+no amount, actor, counterparty or key. Its spend is unknown, so every cap-sensitive prepare and commit is denied (AP-CUM-03)
+until it is reconciled. Detect it: `python -m actionproof.reconcile check` (exit 1 and the list if any; `scripts/apply_schema.py`
+and the API start-up also print a WARNING). Reconcile it: `release ... ` without `--executed` if the human verified it did not
+run, or `release ... --executed --reservation '{"idempotency_key":"...","request_hash":"...","actor":"...","on_behalf_of":"...","vendor_id":"...","amount":"4900.00"}'`
+with the facts from the downstream's own records; the supplied values go into the audit entry. Do not edit `tool_reached` by hand.
 
 **Stuck pending reviews.** Check `GET /api/queue?status=pending` (console) or `SELECT request_hash, created_at FROM pending_reviews WHERE status='pending'`.
 Reviews expire with their receipt and token (`REVIEW_TOKEN_TTL_SECONDS`); an expired one cannot be approved, the agent
