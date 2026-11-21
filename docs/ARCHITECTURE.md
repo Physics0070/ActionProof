@@ -28,6 +28,7 @@ sequenceDiagram
   participant V as Verify
   participant O as OPA
   participant D as Postgres
+  participant M as Marker conn (own connection)
   participant T as Tool
   A->>G: ActionRequest
   G->>V: re-extract DIRECT, recompute DERIVED, taint
@@ -37,12 +38,18 @@ sequenceDiagram
   G->>T: read record + version, dry-run diff
   G-->>A: signed receipt {request_hash, decision, diff_hash, version, nonce, exp}
   A->>G: commit(receipt, [review token])
-  G->>D: SERIALIZABLE tx: sig, exp, hash, principal, quarantine, nonce+idem UNIQUE (G2), cumulative re-check, FOR UPDATE version
+  G->>D: SERIALIZABLE tx: sig (by the receipt's kid), exp, hash, principal, quarantine + unresolved executions + legacy markers, idempotency key not held by a marker, nonce+idem UNIQUE (G2), cumulative re-check over reservations (commits + unresolved), FOR UPDATE version
   G->>O: fresh policy decision from current state (ADR-014)
   D-->>G: ok or rollback (DENY)
-  G->>D: audit append EXECUTED + signed checkpoint (same tx, before the tool)
-  G->>T: execute once
-  G->>D: COMMIT (entry and effect land together, or neither)
+  G->>D: audit append EXECUTED + signed checkpoint (same tx, before the tool; rolls back with it)
+  G->>M: INSERT tool_reached = the full reservation (nonce, idem key, request hash, actor, on_behalf_of, counterparty, amount, record) and COMMIT
+  Note over G,M: if this write fails the tool is never called (DENY AP-ERR-11). The marker is durable BEFORE the effect.
+  G->>T: execute once (downstream effect)
+  alt tx commits
+    G->>D: COMMIT (audit entry, commits row, effect land together); the marker now has a commits row, so it blocks nothing
+  else process dies, or the tx rolls back
+    Note over D: no commits row, no EXECUTED entry; the marker stays = an UNRESOLVED execution that still counts against the caps, holds its idempotency key and quarantines the record until an audited release_quarantine (ADR-019, ADR-022)
+  end
 ```
 
 ## Phase 3 status: gate as built (`src/actionproof/gate.py`)
@@ -84,6 +91,7 @@ request's `actor`/`on_behalf_of` must equal it exactly, else AP-SCOPE-02 / G1. I
 | 4 | REVIEW needs a token | AP-REV-10 G2 |
 | — | open one connection, SERIALIZABLE; `LOCK TABLE commits IN SHARE ROW EXCLUSIVE MODE` before any snapshot | |
 | 4b | record not in `quarantine` and no unresolved execution on it (ADR-014, ADR-019); request idempotency key not held by another unresolved execution (ADR-022) | AP-REP-05 G2 |
+| 4c | no legacy unresolved marker with an unknown amount anywhere (ADR-024): the caps could not be proven | AP-CUM-03 G1 |
 | 5 | REVIEW: atomic `UPDATE review_tokens ... used_at IS NULL AND exp > now RETURNING` | AP-REV-10 (other hash / unknown), AP-REP-05 (used), AP-EXP-06 (expired) |
 | 5b | REVIEW: re-read `people` `FOR SHARE` for the token's `minted_by` and the bound Principal; reviewer role + different person (ADR-008) | AP-SEP-12 G2 (rollback, token unused) |
 | 6 | `INSERT INTO commits` (UNIQUE nonce, idempotency_key) | AP-REP-05 G2 |

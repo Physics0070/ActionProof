@@ -4,16 +4,16 @@
 
 Sources: `README.md`, `DECK_TRACE.md`, `spec/attack-classes.md`, `spec/actionrequest.md`, `docs/ARCHITECTURE.md`.
 
-Status legend: **built** = code and test exist in the repo today. **planned (Phase N)** = not built yet; phase numbers follow `DECK_TRACE.md` S8.1-S8.4 (W1 Claims = Phase 2, W2 Gate = Phase 3, W3 Surface = Phase 5 and 7, W4 Proof = Phase 6 and 8).
+Status legend: **built** = code and test exist in the repo today. **planned (Phase N)** = not built yet (nothing below is still planned: every control in sections 1, 3 and 4 is built and has a passing test in the repo today); phase numbers follow `DECK_TRACE.md` S8.1-S8.4 (W1 Claims = Phase 2, W2 Gate = Phase 3, W3 Surface = Phase 5 and 7, W4 Proof = Phase 6 and 8).
 
 ## 1. Assets
 
 | Asset | Why it matters | Protection | Status |
 |---|---|---|---|
-| Money-moving writes (e.g. `payments.approve_invoice`) | Executing one wrongly moves money | No ALLOW without a re-checked derivation (G1); commit re-checks state before the tool runs (G1) | planned (Phase 3) |
-| Signing key (Ed25519, PyNaCl) | Whoever holds it can forge receipts and checkpoints | Key lives only in the gateway; unreachable from agent-callable code (invariant 6, ADR-007) | planned (Phase 3) |
+| Money-moving writes (e.g. `payments.approve_invoice`) | Executing one wrongly moves money | No ALLOW without a re-checked derivation (G1); commit re-checks state before the tool runs (G1) | built (`tests/usp/test_gap_execution.py`, `tests/test_commit.py`) |
+| Signing key (Ed25519, PyNaCl) | Whoever holds it can forge receipts and checkpoints | Key lives only in the gateway; unreachable from agent-callable code (invariant 6, ADR-007) | built (`tests/usp/test_key_isolation.py`); receipts verified per kid (ADR-020, `tests/test_key_registry.py`) |
 | Audit chain (hash-chained log, signed checkpoints) | The record of what was allowed, reviewed or denied | Append-only triggers; edits, deletes, reorders, a truncated tail and forged checkpoints are detected by `python -m actionproof.audit verify` (public key only) | built (`tests/test_audit.py`) |
-| Approval tokens (signed receipts, human review tokens) | Each one is permission to write | Single use (DB UNIQUE), expire, bound to `request_hash` and record version (invariant 5, G2) | planned (Phase 3) |
+| Approval tokens (signed receipts, human review tokens) | Each one is permission to write | Single use (DB UNIQUE), expire, bound to `request_hash` and record version (invariant 5, G2); an unresolved execution keeps its reservation, key and record quarantine until an audited reconciliation (ADR-019, ADR-022, ADR-024) | built (`tests/usp/test_replay.py`, `tests/usp/test_exec_faults.py`, `tests/usp/test_exec_reservations.py`, `tests/usp/test_migration_legacy_marker.py`) |
 
 ## 2. Actors
 
@@ -30,17 +30,17 @@ Status legend: **built** = code and test exist in the repo today. **planned (Pha
 ### Gap 01: Evidence
 - **What breaks:** a tool argument holds a value with no source field and no document citation behind it.
 - **Control:** `verify.py` re-extracts each DIRECT value at its cited page and box and checks the document hash. DERIVED values are recomputed by allowlisted pure functions. ASSERTED values never fill an authority field. The contract shape part (DIRECT needs `src` and `doc_sha256`) is **built**: `tests/test_contracts.py`.
-- **Proving test:** `tests/usp/test_gap_evidence.py` (must fail without the gate). Planned (Phase 2).
+- **Proving test:** `tests/usp/test_gap_evidence.py` (must fail without the gate). Built.
 
 ### Gap 02: Policy
 - **What breaks:** a valid tool name still carries an amount, target or actor outside the caller's scope.
-- **Control:** `policy/actionproof.rego` rule AP-SCOPE-02 checks `on_behalf_of` scope. OPA default-denies. Planned (Phase 3).
-- **Proving test:** `tests/usp/test_gap_policy.py` and `opa test`. Planned (Phase 3).
+- **Control:** `policy/actionproof.rego` rule AP-SCOPE-02 checks `on_behalf_of` scope. OPA default-denies. Built.
+- **Proving test:** `tests/usp/test_gap_policy.py` and `opa test`. Built.
 
 ### Gap 03: Execution
 - **What breaks:** retries, stale records and check-then-commit races repeat or invalidate an approved write.
-- **Control:** `gate.commit` runs a SERIALIZABLE transaction: signature, expiry, hash, nonce and idempotency UNIQUE constraints (G2), cumulative re-check (ADR-006), `FOR UPDATE` on the version. Planned (Phase 3).
-- **Proving test:** `tests/usp/test_gap_execution.py` (retry, stale, race). Planned (Phase 3).
+- **Control:** `gate.commit` runs a SERIALIZABLE transaction: signature, expiry, hash, nonce and idempotency UNIQUE constraints (G2), cumulative re-check (ADR-006), `FOR UPDATE` on the version; a durable reservation is written before the tool call so a crash after it cannot cause a second call or widen the caps (ADR-019, ADR-022). Built.
+- **Proving test:** `tests/usp/test_gap_execution.py` (retry, stale, race), `tests/usp/test_exec_faults.py` and `tests/usp/test_exec_reservations.py` (crash, ambiguous timeout, real killed process). Built.
 
 ## 4. Attack classes
 
@@ -48,13 +48,13 @@ Expected result for every attack case: the tool executes **0 times** (`spec/atta
 
 | # | Class | Exact control | Test path | Guarantee | Status |
 |---|---|---|---|---|---|
-| 1 | Prompt injection | Taint labels; document text never fills authority fields | `tests/attacks/test_prompt_injection.py` | G1 | planned (Phase 2) |
-| 2 | Argument tampering | Claims re-verified at the cited span; any change after `prepare` changes `request_hash` and invalidates the receipt | `tests/attacks/test_tampering.py` | G1 | planned (Phase 3) |
-| 3 | Evidence forgery | Span re-extraction and document hash match | `tests/attacks/test_forgery.py` | G1 | planned (Phase 2) |
-| 4 | Confused deputy | `on_behalf_of` scope checked in policy (AP-SCOPE-02); actor/on_behalf_of bound to the transport Principal (ADR-012) | `tests/attacks/test_confused_deputy.py` | G1 | planned (Phase 3) |
-| 5 | Split payments | Cumulative limits per actor and vendor, and per person behind on_behalf_of and vendor (AP-CUM-03, `gate.commit`, ADR-006/016) | `tests/attacks/test_split_payments.py` | G1 | planned (Phase 3) |
-| 6 | Replay | One-use token and idempotency key enforced by DB UNIQUE constraints | `tests/attacks/test_replay.py`, `tests/usp/test_replay.py` | G2 | planned (Phase 3) |
-| 7 | Race (TOCTOU) | Version precondition checked under `FOR UPDATE` at commit | `tests/attacks/test_race.py` | G1 | planned (Phase 3) |
+| 1 | Prompt injection | Taint labels; document text never fills authority fields | `tests/attacks/test_prompt_injection.py` | G1 | built |
+| 2 | Argument tampering | Claims re-verified at the cited span; any change after `prepare` changes `request_hash` and invalidates the receipt | `tests/attacks/test_tampering.py` | G1 | built |
+| 3 | Evidence forgery | Span re-extraction and document hash match | `tests/attacks/test_forgery.py` | G1 | built |
+| 4 | Confused deputy | `on_behalf_of` scope checked in policy (AP-SCOPE-02); actor/on_behalf_of bound to the transport Principal (ADR-012) | `tests/attacks/test_confused_deputy.py` | G1 | built |
+| 5 | Split payments | Cumulative limits per actor and vendor, and per person behind on_behalf_of and vendor (AP-CUM-03, `gate.commit`, ADR-006/016) | `tests/attacks/test_split_payments.py` | G1 | built |
+| 6 | Replay | One-use token and idempotency key enforced by DB UNIQUE constraints | `tests/attacks/test_replay.py`, `tests/usp/test_replay.py` | G2 | built |
+| 7 | Race (TOCTOU) | Version precondition checked under `FOR UPDATE` at commit | `tests/attacks/test_race.py` | G1 | built |
 
 ## 4b. Red-team findings and fixes (Phase 3)
 
@@ -165,7 +165,7 @@ Quoted from deck slide 10:
 | Risk | Effect | Mitigation | Status |
 |---|---|---|---|
 | Stale or cross-document read served from a cache (latency work, ADR-018) | A cached OCR/text read for document A is reused for a different document or a later request and authorizes a write | The cache lives inside one request (`extract.request_scope`, a ContextVar closed with the request) and is keyed by sha256 of the document bytes plus page, box and OCR config; verify checks the claimed hash against the bytes before any read; failures are cached as failures; warm OCR processes read exactly one image and exit | `tests/test_extract_scope.py` |
-| OCR misreads cause false blocks | A correct document fails verification, so a legitimate write is denied | Two independent readers must agree (pdfplumber and raster/OCR, ADR-002); disagreement fails closed. This costs availability, not safety. ADR-017: when the text layer is money-shaped and OCR disagrees, the same box is OCRed ONCE more with a money-only config (whitelist `0123456789$,.-`, psm 7, 400 dpi) and accepted only if it then equals the text layer; the re-read never sees the text layer, so agreement is still between two independent readers, and a forged text layer still needs the pixels to say the same number. The benign corpus is not edited to dodge misreads (the `$4,419.49` tweak was reverted); remaining misreads count as false blocks | planned (Phase 2) |
+| OCR misreads cause false blocks | A correct document fails verification, so a legitimate write is denied | Two independent readers must agree (pdfplumber and raster/OCR, ADR-002); disagreement fails closed. This costs availability, not safety. ADR-017: when the text layer is money-shaped and OCR disagrees, the same box is OCRed ONCE more with a money-only config (whitelist `0123456789$,.-`, psm 7, 400 dpi) and accepted only if it then equals the text layer; the re-read never sees the text layer, so agreement is still between two independent readers, and a forged text layer still needs the pixels to say the same number. The benign corpus is not edited to dodge misreads (the `$4,419.49` tweak was reverted); remaining misreads count as false blocks (1/120 benign cases is a genuine false block, measured in `eval/results.json`) | built (`tests/test_extract.py`, `tests/usp/test_extract_fail_closed.py`) |
 | Reviewer collusion | Two DIFFERENT people (e.g. the user-123 operator and rev-bob) agree to approve each other's bad write | ADR-008 stops one person approving their own request (AP-SEP-12), not two people colluding. Every token records `minted_by` + `minted_by_person` for the audit trail | accepted (prototype) |
 | Reviewer session hijack | An attacker who holds a reviewer's console session mints as that reviewer | The reviewer identity is only the server-side session subject, never a request field (ADR-008); console sessions: server-side, sha256-only, httpOnly + SameSite=Strict + Secure, rotation at login, CSRF double-submit, expiry (section 4e). Separation is only as strong as console authentication and the `people` data | accepted (prototype) |
 | `people` directory tampering | An admin maps a reviewer login to a different person to pass AP-SEP-12 | Commit re-reads `people` inside the tx, so edits after a mint are caught; every mint entry records `reviewer_login` + `reviewer_person`, so a remap is visible in the chain. The edit itself is not an audit entry until the console backend has an admin edit path | open (console backend) |

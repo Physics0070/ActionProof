@@ -21,7 +21,7 @@ Enforces: `version` is bound into the receipt and re-read `FOR UPDATE` at commit
 
 Payment records (ADR-009, refund connector): `data = {customer_id, amount, method_id, status: "captured",
 refunded?}`. `customer_id` is the refund's AP-CUM-03 counterparty, `method_id` the only value `refund_to` may take,
-`amount` minus the refunds committed against the payment (`commits.record_id`) is the refundable balance. A refund
+`amount` minus the refunds reserved against the payment is the refundable balance: `SUM(amount)` over view `reservations` by `record_id` = committed (or burned) refunds in `commits` PLUS unresolved executions in `tool_reached` (ADR-022). A refund
 adds to `refunded` and bumps the version (mock tool). Seeded by `db.seed_refunds` (`db.PAYMENTS`: PAY-7731
 CUST-311 450.00 pm_card_4242, PAY-8101 CUST-420 1500.00, PAY-8102 CUST-512 300.00); the demo's fully refunded
 PAY-7001..7004 by `scripts/demo_seed.py`.
@@ -53,11 +53,11 @@ Index `commits_actor_vendor (actor, vendor_id)`; index `commits_record (record_i
 `payments.approve_invoice`, the payment customer for `payments.refund_payment`; `record_id` (`invoice:` /
 `payment:`) tells which tool wrote the row.
 Enforces: UNIQUE `nonce` / `idempotency_key` = a receipt or key can commit once; a duplicate insert raises
-`UniqueViolation` → **AP-REP-05 (G2)**. `SUM(amount)` by actor+counterparty inside the commit tx = **AP-CUM-03 (G1,
-ADR-006)**; a second `SUM(amount)` by person+counterparty (`commits LEFT JOIN people ON login = on_behalf_of`, key
+`UniqueViolation` → **AP-REP-05 (G2)**. `SUM(amount)` by actor+counterparty inside the commit tx (over `reservations`, not `commits` alone, ADR-022) = **AP-CUM-03 (G1,
+ADR-006)**; a second `SUM(amount)` by person+counterparty (`reservations LEFT JOIN people ON login = on_behalf_of`, key
 `COALESCE(person_id, on_behalf_of)`, matched against the same key of the request's on_behalf_of) = AP-CUM-03 per
-person (ADR-016; no new column). `SUM(amount)` by `record_id` (other rows) inside the commit tx = the refunds already committed against a
-payment, so `amount <= payment.amount − that sum` (**AP-VER-01, G1**, ADR-009).
+person (ADR-016; no new column). `SUM(amount)` by `record_id` (other rows) inside the commit tx, over `reservations` (commits + unresolved
+executions), = the refunds already reserved against a payment, so `amount <= payment.amount − that sum` (**AP-VER-01, G1**, ADR-009).
 
 ## review_tokens — human-minted, one-use approvals for REVIEW decisions
 | Column | Type | Constraint |
@@ -184,23 +184,33 @@ Written every `AUDIT_CHECKPOINT_EVERY` entries (default 1).
 No signing key material, review token or receipt signature is ever stored in the audit tables, and no signing key
 material anywhere in the database (invariant 6, ADR-007).
 
-## tool_reached — unresolved executions: the logical reservation (ADR-019, ADR-022)
+## tool_reached — unresolved executions: the logical reservation (ADR-019, ADR-022, ADR-024)
 | Column | Type | Constraint |
 |---|---|---|
 | nonce | text | PRIMARY KEY (the receipt) |
 | idempotency_key | text | UNIQUE (request idempotency key, across committed and unresolved executions) |
 | request_hash | text | the signed request hash |
-| actor, on_behalf_of | text | whose cap it counts against |
+| actor, on_behalf_of | text | whose cap it counts against (the person key is resolved through `people` at read time, as for `commits`; not stored) |
 | vendor_id | text | the counterparty (vendor or customer), as in `commits` |
 | amount | numeric(18,2) | CHECK `>= 0`; exact Decimal |
 | record_id | text | NOT NULL |
 | created_at | bigint | NOT NULL, CHECK `>= 0` (UTC epoch seconds) |
 
-The reservation columns are nullable only so ADR-019 rows survive migration; the gate always writes them (NULL amount
-counts as zero). Committed on its own connection just before `tool.execute`. A row whose nonce has no `commits` row is an
-**unresolved execution**: the process may have died after the tool ran. Until `Gate.release_quarantine(record, reviewer,
-executed)` it quarantines the record (AP-REP-05 / G2), keeps its idempotency key, and counts toward every cap.
-View `reservations` = `commits` UNION ALL unresolved markers (same columns); actor, person and refund-balance sums read it.
+**Committed vs unresolved.** A reservation is *committed* once its nonce has a `commits` row (a normal commit, or a
+burn after a rolled-back tool call): the `commits` row is then the one that counts, and the marker blocks nothing. A
+reservation is *unresolved* while its nonce has NO `commits` row: the process may have died after the tool ran. An
+unresolved reservation counts toward every cap (through view `reservations`), holds its idempotency key, and quarantines
+its record (AP-REP-05 / G2) until `Gate.release_quarantine(record, reviewer, executed, reservation)`: `executed=True`
+turns it into a `commits` row (amount stays counted), `executed=False` deletes it (amount and key freed); both are audited.
+
+**View `reservations`** = `commits` UNION ALL the unresolved markers with a non-NULL amount (same columns). Actor,
+person and refund-balance sums read it, never `commits` alone.
+
+**Legacy markers (ADR-024).** Columns are nullable only so rows written by the ADR-019 version survive the migration
+(`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`). An unresolved row with ANY NULL reservation column has an unknown spend:
+it is NOT treated as zero. While one exists, every cap-sensitive write (prepare and commit, any actor, any record)
+fails closed with AP-CUM-03 / G1. Confirming it executed needs the human to supply the missing facts
+(`reservation={...}`), and the supplied values are written to the audit entry; attesting it did not execute deletes it.
 Included in `db.reset`.
 
 ## Anchor file (not a table): `LocalAnchor`

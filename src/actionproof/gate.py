@@ -212,6 +212,19 @@ def _quarantined(conn, record_id: str) -> bool:
         "AND NOT EXISTS (SELECT 1 FROM commits c WHERE c.nonce = t.nonce)", (record_id, record_id)).fetchone() is not None
 
 
+_LEGACY = Reason("AP-CUM-03", "G1", "unresolved execution with an unknown amount (legacy marker): "
+                                     "cumulative caps cannot be proven; reconcile")
+_LEGACY_SQL = ("SELECT 1 FROM tool_reached t WHERE (t.idempotency_key IS NULL OR t.request_hash IS NULL OR "
+               "t.actor IS NULL OR t.on_behalf_of IS NULL OR t.vendor_id IS NULL OR t.amount IS NULL) "
+               "AND NOT EXISTS (SELECT 1 FROM commits c WHERE c.nonce = t.nonce) LIMIT 1")
+
+
+def _legacy_unresolved(conn) -> bool:
+    """ADR-024: an unresolved marker from before ADR-022 has no amount/actor/counterparty/key. Its spend is UNKNOWN,
+    not zero, so every cap-sensitive write fails closed until a human reconciles it (release_quarantine)."""
+    return conn.execute(_LEGACY_SQL).fetchone() is not None
+
+
 _NOT_VERIFIED = VerifyResult(False, {}, [])
 
 
@@ -414,6 +427,8 @@ class Gate:
         with self._conn_factory() as conn:
             if _quarantined(conn, record_id):
                 return deny(_QUARANTINED, v=v)
+            if _legacy_unresolved(conn):
+                return deny(_LEGACY, v=v)
             if req.tool == REFUND_TOOL:  # advisory here; authoritative again inside the commit tx (ADR-009)
                 extra = _refund_mismatches(req, data, _refunded(conn, record_id))
                 if extra:
@@ -477,20 +492,33 @@ class Gate:
 
     # ------------------------------------------------------------------ quarantine
 
-    def release_quarantine(self, record_id: str, reviewer: str, executed: bool = False) -> bool:
+    def release_quarantine(self, record_id: str, reviewer: str, executed: bool = False,
+                           reservation: dict | None = None) -> bool:
         """Reconcile path (admin, not tool-facing): a human checked the tool's real outcome for a record whose
         commit was burned or whose execution is unresolved (ADR-019/022) and lifts the block. Returns whether
         anything was released. Raises on bad input.
         `executed`: the human confirms an unresolved execution DID happen: its reservation becomes a commits row
         (the amount stays counted, the idempotency key stays used). Default False: it did not happen, the
-        reservation and its key are freed. The release and its audit entry commit together; if the entry cannot
-        be written, nothing is released and the error propagates."""
+        reservation and its key are freed.
+        `reservation` (only with executed=True, and required for a LEGACY marker, ADR-024): the facts the old marker
+        never recorded: {idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount (2dp string)}.
+        The release and its audit entry commit together; if the entry cannot be written, nothing is released and the
+        error propagates."""
         if not isinstance(record_id, str) or not record_id:
             raise ValueError("record_id is required")
         if not isinstance(reviewer, str) or not reviewer.strip():
             raise ValueError("reviewer is required")
         if not isinstance(executed, bool):
             raise ValueError("executed must be a bool")
+        if reservation is not None:
+            if not executed:
+                raise ValueError("a reservation is only accepted when confirming an execution")
+            keys = ("idempotency_key", "request_hash", "actor", "on_behalf_of", "vendor_id", "amount")
+            if not isinstance(reservation, dict) or set(reservation) != set(keys) \
+                    or not all(isinstance(reservation[k], str) and reservation[k].strip() for k in keys) \
+                    or not MONEY.match(reservation["amount"]):
+                raise ValueError("reservation needs idempotency_key, request_hash, actor, on_behalf_of, vendor_id "
+                                 "and a 2dp amount string")
         with self._conn_factory() as conn:
             released = conn.execute("DELETE FROM quarantine WHERE record_id = %s RETURNING record_id",
                                     (record_id,)).fetchone() is not None
@@ -498,10 +526,19 @@ class Gate:
                 "SELECT nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount, record_id, "
                 "created_at FROM tool_reached t WHERE t.record_id = %s AND NOT EXISTS "
                 "(SELECT 1 FROM commits c WHERE c.nonce = t.nonce) FOR UPDATE", (record_id,)).fetchall()
+            legacy = [r for r in unresolved if any(v is None for v in r[1:7])]
+            if executed and (len(legacy) > 1 or (reservation is not None and len(unresolved) != 1)):
+                raise ValueError("one reservation confirms exactly one unresolved execution")
             for row in unresolved:
                 if executed:
-                    if row[6] is None:  # a legacy marker without a reservation cannot be recorded as spent
-                        raise ValueError("unresolved execution has no recorded amount; cannot confirm it")
+                    if row in legacy:
+                        if reservation is None:  # unknown amount: never guessed, never zero
+                            raise ValueError("legacy marker has no recorded reservation; supply `reservation`")
+                        row = (row[0], reservation["idempotency_key"], reservation["request_hash"],
+                               reservation["actor"], reservation["on_behalf_of"], reservation["vendor_id"],
+                               Decimal(reservation["amount"]), row[7], row[8])
+                    elif reservation is not None:
+                        raise ValueError("a reservation is only for a legacy marker")
                     conn.execute(
                         "INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, "
                         "amount, record_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", row)
@@ -513,6 +550,8 @@ class Gate:
                 detail["executed"] = executed
                 detail["unresolved"] = [{"nonce": r[0], "amount": None if r[6] is None else str(r[6])}
                                         for r in unresolved]
+            if reservation is not None:
+                detail["reservation_supplied"] = dict(reservation)
             self._audit(conn, "release_quarantine", record_id=record_id,
                         decision="RELEASED" if released else "NOT_QUARANTINED", detail=detail)
             return released
@@ -648,6 +687,8 @@ class Gate:
             return deny(_r("AP-EXP-06", "G2", "receipt expired"))
         if _quarantined(conn, p["record_id"]):
             return deny(_QUARANTINED)
+        if _legacy_unresolved(conn):
+            return deny(_LEGACY)
         # ADR-022: the request idempotency key may also be held by an unresolved execution (a marker with no commits
         # row yet): a new receipt, even on another record, must not run the same logical request again.
         if conn.execute("SELECT 1 FROM tool_reached WHERE idempotency_key = %s AND nonce <> %s",
