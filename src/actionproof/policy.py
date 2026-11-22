@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import time
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
@@ -31,8 +31,9 @@ _client = httpx.Client(trust_env=False)
 class Decision:
     outcome: str
     reasons: list[Reason]
-    revision: str = ""  # sha256 of the decision policy OPA had loaded for this decision (ADR-028)
-    opa_version: str = ""
+    # Provenance (ADR-028) is not part of what a decision IS: excluded from equality so `Decision("ALLOW", [])` still holds.
+    revision: str = field(default="", compare=False)  # sha256 of the decision policy OPA had loaded
+    opa_version: str = field(default="", compare=False)
 
 
 def _fail(msg: str) -> Decision:
