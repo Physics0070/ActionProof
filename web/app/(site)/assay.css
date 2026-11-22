@@ -41,54 +41,102 @@
 .as-hero {
   min-height: 100svh;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: end;
-  padding: 120px var(--as-pad) clamp(28px, 6vh, 64px);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(24px, 5vw, 72px);
+  align-items: center;
+  padding: 120px var(--as-pad) clamp(40px, 8vh, 80px);
 }
 .as-hero-inner {
-  max-width: min(100%, 62rem);
+  max-width: 44rem;
 }
 .as-kicker {
   font-family: var(--font-mono);
-  font-size: clamp(0.8rem, 1.1vw, 0.95rem);
-  letter-spacing: 0.04em;
-  color: var(--as-steel);
-  max-width: 38ch;
-  margin-bottom: clamp(16px, 3vh, 28px);
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--as-allow);
+  margin-bottom: clamp(14px, 2.5vh, 24px);
 }
 .as-display {
   font-family: var(--as-display);
   font-weight: 800;
-  font-stretch: 60%;
-  font-size: clamp(3.2rem, 10.6vw, 10.2rem);
-  line-height: 0.88;
-  letter-spacing: 0.005em;
-  word-spacing: 0.08em;
+  font-stretch: 70%;
+  font-size: clamp(2.6rem, 6.4vw, 6rem);
+  line-height: 0.95;
   text-transform: uppercase;
-  max-width: 11ch;
   text-wrap: balance;
 }
 .as-sub {
-  margin-top: clamp(18px, 3vh, 32px);
-  max-width: 34ch;
-  font-size: clamp(1.05rem, 1.5vw, 1.3rem);
-  line-height: 1.5;
+  margin-top: clamp(16px, 3vh, 28px);
+  max-width: 44ch;
+  font-size: clamp(1.05rem, 1.4vw, 1.25rem);
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--as-bone) 78%, transparent);
+}
+.gate-card {
+  background: color-mix(in srgb, var(--as-ground) 82%, #1a2226);
+  border: 1px solid var(--as-line);
+  border-top: 2px solid var(--as-review);
+  padding: clamp(16px, 2.2vw, 28px);
+  font-size: 0.92rem;
+}
+.gate-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--as-steel);
+  margin-bottom: 14px;
+}
+.gate-head code {
+  color: var(--as-bone);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.gate-claims {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+}
+.gate-claims li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "n v" "k c";
+  gap: 2px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--as-line);
+}
+.gate-name { grid-area: n; }
+.gate-val { grid-area: v; font-family: var(--font-mono); text-align: right; }
+.gate-kind {
+  grid-area: k;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--as-steel);
 }
-.as-motto {
-  margin-top: clamp(28px, 7vh, 72px);
-  font-family: var(--as-display);
-  font-weight: 700;
-  font-stretch: 150%;
-  font-size: clamp(1.2rem, 4.6vw, 4.6rem);
-  line-height: 1.1;
-  height: 1.1em; /* fixed box: the web font swapping in must not move the hero (CLS) */
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  color: transparent;
-  -webkit-text-stroke: 1px var(--as-line);
-  user-select: none;
-  overflow: hidden;
+.gate-kind[data-kind="ASSERTED"] { color: var(--as-deny); }
+.gate-check { grid-area: c; text-align: right; font-size: 0.75rem; color: var(--as-steel); }
+.gate-claims li[data-ok="true"] .gate-check { color: var(--as-allow); }
+.gate-claims li[data-ok="false"] .gate-check { color: var(--as-deny); }
+.gate-verdict {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--as-line);
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.gate-verdict p { color: color-mix(in srgb, var(--as-bone) 85%, transparent); line-height: 1.45; }
+.gate-foot, .gate-note { margin-top: 12px; font-size: 0.8rem; color: var(--as-steel); }
+@media (max-width: 860px) {
+  .as-hero { grid-template-columns: minmax(0, 1fr); align-content: start; }
 }
 
 /* ------------------------------------------------------------ the beats */

@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { BEATS } from "@/lib/assay";
 import { BENEFITS, HERO, IMPACT, LIMITS } from "@/lib/site-copy";
 import { detectCaps, startDriver, useStory } from "@/lib/site-story";
+import { Signal } from "@/components/ui/Signal";
+import { moneyStr } from "@/lib/site-data";
 import { Beats } from "./Beats";
 
 const AssayScene = dynamic(() => import("./AssayScene"), { ssr: false });
@@ -31,15 +33,55 @@ function Rail() {
   );
 }
 
+function HeroGate() {
+  const replay = useStory((s) => s.replay);
+  if (replay.kind !== "ok") {
+    return (
+      <aside className="gate-card" aria-label="A recorded decision">
+        <p className="gate-note">{replay.kind === "error" ? "The recorded decision could not be loaded." : replay.kind === "none" ? "No decision has been recorded yet. Nothing is simulated here." : "Fetching the recorded decision from the gate."}</p>
+      </aside>
+    );
+  }
+  const d = replay.data;
+  const dec = d.decision === "ALLOW" || d.decision === "REVIEW" || d.decision === "DENY" ? d.decision : null;
+  return (
+    <aside className="gate-card" aria-label="A recorded decision">
+      <p className="gate-head">
+        <span>Agent asks</span>
+        <code>{d.tool}</code>
+      </p>
+      <ol className="gate-claims">
+        {d.claims.map((c) => (
+          <li key={c.name} data-ok={c.claim === "ASSERTED" ? "na" : c.verification ? String(c.verification.ok) : "na"}>
+            <span className="gate-name">{c.name}</span>
+            <span className="gate-kind" data-kind={c.claim}>
+              {c.claim}
+            </span>
+            <span className="gate-val">{moneyStr(c.value) ?? c.value}</span>
+            <span className="gate-check">{c.claim === "ASSERTED" ? "cannot authorize" : c.verification ? (c.verification.ok ? "re-checked" : "failed") : "not evidence"}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="gate-verdict">
+        {dec ? <Signal state={dec} solid /> : null}
+        <p>{d.reasons[0]?.msg ?? ""}</p>
+      </div>
+      <p className="gate-foot">Signed receipt. It works once and is bound to this exact request.</p>
+    </aside>
+  );
+}
+
 function Hero() {
   return (
     <section id="hero" data-chapter="0" className="as-hero" aria-labelledby="hero-title">
       <div className="as-hero-inner">
-        <p className="as-kicker">Your AI agent wants to execute an action. Make it prove why.</p>
+        <p className="as-kicker">Safety gate for AI agents</p>
         <h1 id="hero-title" className="as-display">
           {HERO.title}
         </h1>
-        <p className="as-sub">{HERO.sub}</p>
+        <p className="as-sub">
+          Agents can be fooled by a document. ActionProof re-checks every number an agent relies on against the source, and only then lets a write run, once.
+        </p>
         <p className="cta-row">
           <Link className="button button-primary" href="/console">
             See a real decision
@@ -49,9 +91,7 @@ function Hero() {
           </a>
         </p>
       </div>
-      <p className="as-motto" aria-hidden="true">
-        PROVE BEFORE EXECUTION
-      </p>
+      <HeroGate />
     </section>
   );
 }
