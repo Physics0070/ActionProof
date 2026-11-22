@@ -19,7 +19,7 @@ from actionproof import audit
 N = int(os.environ.get("STRESS_N", "150"))
 SEED = int(os.environ.get("STRESS_SEED", "1"))
 CAP = Decimal("5000.00")
-VENDORS = [f"V-S{i:02d}" for i in range(40)]
+VENDORS = [f"V-S{i:03d}" for i in range(int(os.environ.get("STRESS_VENDORS", "800")))]
 
 
 def _money(rng, lo=1, hi=1500) -> str:

@@ -665,6 +665,8 @@ class Gate:
         if not self._registry.verify(receipt):
             return _r("AP-SIG-09", "G2", "receipt signature invalid"), None, None
         p = receipt["payload"]
+        if set(p) == PAYLOAD_KEYS - {"policy_revision"}:  # validly signed, but issued before ADR-028
+            return _r("AP-STALE-07", "G2", "receipt predates policy provenance; re-prepare the request"), None, None
         if set(p) != PAYLOAD_KEYS:
             return _r("AP-SIG-09", "G2", "receipt payload malformed"), None, None
         if not isinstance(p["exp"], int) or _now() >= p["exp"]:

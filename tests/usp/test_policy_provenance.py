@@ -93,6 +93,7 @@ def test_old_receipt_shape_without_a_revision_is_refused(kit):
     del p["policy_revision"]
     c = kit.gate.commit(kit.gate._signer.sign(p), req)  # validly signed, but pre-ADR-028 shape
     assert c.outcome != "EXECUTED" and kit.tool.calls == []
+    assert rules(c) == ["AP-STALE-07"] and any("re-prepare" in r.msg for r in c.reasons)  # a clear reason, not "malformed"
 
 
 def test_audit_records_provenance_and_the_decision_can_be_reconstructed(kit, opa_url, tmp_path):
