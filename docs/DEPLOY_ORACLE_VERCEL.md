@@ -92,6 +92,9 @@ check `/console/audit`. A review can be approved only once; restarting the stack
 * **Resetting the demo** (wipes the audit chain, on purpose only): run `DEMO_SEED=1 docker compose ... up init` then set
   `SEED_ON_BOOT=1`, restart `api`, and set it back to 0. A normal restart never resets anything.
 * **Key rotation, anchoring, reconciliation:** docs/RUNBOOK.md, docs/DECISIONS.md (ADR-020, ADR-021, ADR-024).
+* **Remote anchor (ADR-030):** not part of this stack. An anchor on the same VM is not an independent trust domain;
+  run `python -m actionproof.anchor_publisher run` against an append-only service in another account (its own
+  `ANCHOR_REMOTE_TOKEN`, https), and `... check` from a separate monitoring host. Untested against any real provider.
 
 ## What is untested
 * The images (`Dockerfile.api`, `web/Dockerfile`) were never built here, and nothing ran on Arm. Base images are multi-arch

@@ -41,14 +41,17 @@ sequenceDiagram
   G->>D: SERIALIZABLE tx: sig (by the receipt's kid), exp, hash, principal, quarantine + unresolved executions + legacy markers, idempotency key not held by a marker, nonce+idem UNIQUE (G2), cumulative re-check over reservations (commits + unresolved), FOR UPDATE version
   G->>O: fresh policy decision from current state (ADR-014)
   D-->>G: ok or rollback (DENY)
-  G->>D: audit append EXECUTED + signed checkpoint (same tx, before the tool; rolls back with it)
-  G->>M: INSERT tool_reached = the full reservation (nonce, idem key, request hash, actor, on_behalf_of, counterparty, amount, record) and COMMIT
-  Note over G,M: if this write fails the tool is never called (DENY AP-ERR-11). The marker is durable BEFORE the effect.
+  G->>D: rehearse the audit EXECUTED entry in a savepoint, always rolled back (an audit store that cannot take it stops here: DENY AP-ERR-11)
+  G->>M: INSERT tool_reached = the full reservation (nonce, idem key, request hash, actor, on_behalf_of, counterparty, amount, record) + journal RESERVATION_CREATED + DISPATCH_STARTED, one COMMIT
+  Note over G,M: if this write fails the tool is never called (DENY AP-ERR-11). Marker and journal are durable BEFORE the effect. Lock order audit -> journal (ADR-029).
   G->>T: execute once (downstream effect)
-  alt tx commits
-    G->>D: COMMIT (audit entry, commits row, effect land together); the marker now has a commits row, so it blocks nothing
-  else process dies, or the tx rolls back
-    Note over D: no commits row, no EXECUTED entry; the marker stays = an UNRESOLVED execution that still counts against the caps, holds its idempotency key and quarantines the record until an audited release_quarantine (ADR-019, ADR-022)
+  alt tool returned
+    G->>M: journal EXECUTION_CONFIRMED (own connection, committed)
+    G->>D: audit append EXECUTED (references the CONFIRMED event) + COMMIT (commits row, effect); the marker now has a commits row, so it blocks nothing
+  else tool raised
+    G->>M: burn + quarantine; journal EXECUTION_FAILED (adapter DefiniteFailure only) else EXECUTION_UNKNOWN
+  else process dies, or the tx rolls back after the call
+    Note over D: no commits row, no EXECUTED entry; the marker stays = an UNRESOLVED execution that still counts against the caps, holds its idempotency key and quarantines the record; the journal shows DISPATCH_STARTED with no outcome (UNKNOWN) until an audited, journaled release_quarantine (human or evidence; ADR-019, ADR-022, ADR-029)
   end
 ```
 
@@ -177,11 +180,11 @@ What the gate writes:
 |---|---|---|---|
 | prepare ALLOW / REVIEW | `prepare` / ALLOW, REVIEW (+ rules, nonce) | own short tx, before the receipt is returned | DENY AP-ERR-11, no receipt |
 | prepare DENY | `prepare` / DENY | own short tx | still DENY (unchanged) |
-| commit executes | `commit` / EXECUTED (nonce, idempotency key, amount, version, reviewer) | **inside** the commit tx, after every check, **before** `tool.execute` | tx rolls back, tool never called: DENY AP-ERR-11 |
+| commit executes | `commit` / EXECUTED (nonce, idempotency key, amount, version, reviewer, `execution_id`, `journal {seq, entry_hash}` of EXECUTION_CONFIRMED) | **inside** the commit tx, only **after** `tool.execute` returned and CONFIRMED is journaled (ADR-029); rehearsed in a rolled-back savepoint before dispatch | before dispatch: tool never called, DENY AP-ERR-11; after: burn + quarantine, DENY AP-ERR-11, the journal still says CONFIRMED |
 | commit DENY (incl. burned) | `commit` / DENY + rules | own short tx after the rollback | still DENY |
 | mint success | `mint` / MINTED (reviewer login + person) | same tx as the token row | mint refused AP-ERR-11, no token |
 | mint refusal (AP-SEP-12, AP-SIG-09, ...) | `mint` / REFUSED + rule | own short tx | still refused |
-| release_quarantine | `release_quarantine` / RELEASED or NOT_QUARANTINED (reviewer) | same tx as the DELETE | nothing released, error raised |
+| release_quarantine | `release_quarantine` / RELEASED or NOT_QUARANTINED (reviewer; evidence; `journal` refs of RECONCILIATION_STARTED) | same tx as the DELETE, audit lock taken first | nothing released, error raised (journal reads RECONCILING) |
 
 Entries never hold key material, review tokens, receipt signatures, exception messages or tracebacks
 (`tests/test_audit.py::test_entries_hold_no_secrets`). Identity fields come from the signed receipt payload when
@@ -303,6 +306,13 @@ Updated again in Phases 3, 5, 7.
 - **Anchor.** `anchor.LocalAnchor` is a hash-linked JSON-lines file of signed checkpoints. `publish` and `entries` hold an
   exclusive cross-process lock (`<file>.lock`), so concurrent publishers cannot fork or tear the chain.
   `audit verify --anchor F [--strict]` compares the database with it.
+- **Remote anchor (ADR-030).** `anchor_remote.HttpAnchor` has the same shape (`CheckpointAnchor`) over a generic
+  append-only HTTP service (`GET /checkpoints`, `PUT /checkpoints/{seq}`: 201 appended, 200 identical, 409 conflict).
+  `python -m actionproof.anchor_publisher once|check|run` is a separate process: it lists and re-verifies the remote
+  (KeyRegistry, strictly increasing), reads the database in one short read-only transaction that it commits and closes,
+  and only then makes HTTP requests; it never takes the audit lock or writes. The Gate does not import it, so the
+  remote's availability never enters a decision. `check` reports conflicts, gaps, remote rollback, a rewound local
+  chain and publication lag (exit 1). The adapter is UNVERIFIED against a real provider (tested against a local stub).
 - **Operator view of the same flow.** Start-up (`scripts/apply_schema.py`, `server.build_app`) validates the reservations and
   warns about legacy unresolved markers; `python -m actionproof.reconcile check` is the explicit validation step. While one
   exists, step 4c of the commit (and the matching check in `prepare`) denies every cap-sensitive write (AP-CUM-03 / G1).

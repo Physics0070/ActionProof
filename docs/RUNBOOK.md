@@ -66,6 +66,18 @@ Optional (ADR-020): with `KEY_REGISTRY_PATH` (JSON, public keys only, `k1` `reti
 
 Anchor (ADR-021): `AUDIT_ANCHOR_PATH=anchor.jsonl python -m actionproof.audit anchor` appends the latest signed checkpoint (idempotent); run it after each batch of decisions and copy the file off the host (append-only bucket, another machine). `python -m actionproof.audit verify --anchor anchor.jsonl --strict` then fails if the database is older than the anchor, its history was rewritten, the anchor file was edited, or the newest entries are not anchored yet (non-strict reports `anchored through seq A; unanchored A+1..N`). The file on the same host as the database is no protection against someone who controls that host.
 
+Remote anchor (ADR-030): run the publisher as its own process, ideally under a different OS account from the API:
+`python -m actionproof.anchor_publisher run` (env: `DATABASE_URL` with a read-only role, `KEY_REGISTRY_PATH` public keys only,
+`ANCHOR_REMOTE_URL` https, `ANCHOR_REMOTE_TOKEN` a credential of the anchor service, not of the database,
+`ANCHOR_STATE_PATH`, optional `ANCHOR_MAX_LAG_SECONDS` 300, `ANCHOR_REMOTE_TIMEOUT_SECONDS` 5,
+`ANCHOR_PUBLISH_INTERVAL_SECONDS` 10). Monitor with `python -m actionproof.anchor_publisher check` from cron or the
+monitoring host: exit 1 means a conflicting head, a gap, a remote rollback, a rewound local chain, a broken local chain,
+an unreachable remote, or `LAG` (oldest unpublished checkpoint older than the budget); exit 2 is config. Recovery after
+an outage needs nothing: the next cycle publishes from the remote head upwards in order. A FAILED integrity line is an
+incident (do not delete the state file to silence it: that removes remote-rollback detection). Keep `ANCHOR_STATE_PATH`
+on the monitoring host, not the database host. Before relying on it, verify the provider's retention lock yourself;
+the adapter has only been tested against the local stub.
+
 ## 3. Backup and restore (Postgres, including the audit chain)
 The audit chain (`audit_log`, `audit_checkpoints`) lives in the same database, so one dump covers it.
 ```bash
@@ -119,6 +131,21 @@ quarantine (ADR-019, ADR-022). A human first checks the tool's real outcome, the
 python -m actionproof.reconcile release --record invoice:INV-1 --reviewer rev-alice            # it did NOT execute
 python -m actionproof.reconcile release --record invoice:INV-1 --reviewer rev-alice --executed  # it did (new markers)
 ```
+
+**Execution journal (ADR-029).** Every dispatched execution is in `execution_journal`. Find what needs a decision and
+check the chain:
+
+```
+python -m actionproof.reconcile journal list            # UNKNOWN / RECONCILING executions (--all for every one)
+python -m actionproof.reconcile journal verify          # exit 1 if an event was edited, deleted or reordered
+python -m actionproof.reconcile journal resolve --execution ex-... --reviewer rev-alice --not-executed   # or --executed
+python -m actionproof.reconcile journal resolve --execution ex-... --reviewer ops-1 --evidence \
+  '{"source":"psp.lookup_by_idempotency_key","idempotency_key":"...","status":"APPLIED","amount":"4900.00","counterparty":"V-ACME"}'
+```
+
+Evidence must match the execution's idempotency key, exact amount and counterparty, or nothing changes. A CONFIRMED
+execution (the downstream returned success) can only be released with `--executed`. Nothing resolves by waiting.
+Markers older than the journal have no events: use `release` above.
 
 **Legacy markers after an upgrade (ADR-024).** A database that ran the ADR-019 version may hold an unresolved marker with
 no amount, actor, counterparty or key. Its spend is unknown, so every cap-sensitive prepare and commit is denied (AP-CUM-03)

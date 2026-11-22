@@ -83,3 +83,9 @@ accepted, and its value must equal the system-of-record difference at prepare an
 `policy.py` uses one process-wide httpx client (timeout 0.2 s per phase, `trust_env=False`) and a 200 ms
 deadline checked per response chunk. `# ponytail`: a trickling server is bounded at ~2x the deadline;
 a hard wall clock needs a worker thread or async cancel.
+
+## Policy revision (ADR-028)
+Each decision carries the revision of the policy OPA had loaded: sha256 over the `package actionproof` modules as OPA
+reports them. It is in the signed receipt (`policy_revision`), re-checked at commit (a change is AP-STALE-07 / G2 and
+needs a fresh prepare), and recorded with the OPA version and exact input in the prepare audit entry. Archive each
+revision with `python scripts/policy_archive.py` and re-run a past decision with `actionproof.policy.reconstruct`.

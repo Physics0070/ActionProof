@@ -8,7 +8,7 @@ import copy
 import pytest
 from gatekit import AGENT, rules
 
-from actionproof.gate import Principal, ReviewRefused
+from actionproof.gate import Principal, ReviewRefused, token_digest
 
 SEP = ("AP-SEP-12", "G2")
 
@@ -33,9 +33,9 @@ def _refused(kit, receipt, req, login) -> tuple[str, str]:
 
 def _forged_token(kit, receipt, login, person) -> str:
     """A token that reached the table without the console's mint check (another path, or an old row)."""
-    kit.sql("INSERT INTO review_tokens (token, request_hash, submitter, minted_by, minted_by_person, minted_at, exp) "
-            "VALUES ('forged', %s, 'agent-7', %s, %s, 1, %s)",
-            (receipt["payload"]["request_hash"], login, person, receipt["payload"]["exp"]))
+    kit.sql("INSERT INTO review_tokens (token_hash, request_hash, submitter, minted_by, minted_by_person, minted_at, exp) "
+            "VALUES (%s, %s, 'agent-7', %s, %s, 1, %s)",
+            (token_digest("forged"), receipt["payload"]["request_hash"], login, person, receipt["payload"]["exp"]))
     return "forged"
 
 

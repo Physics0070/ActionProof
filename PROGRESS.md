@@ -98,3 +98,36 @@
 - COOP header slows first paint in headless Chromium.
 - benign-ref-var-05: genuine false block under the per-person cap (1/120).
 - Video minor flaws; the blind critic 7.2 was before fixes.
+
+## Hardening v2, Phase 1: review-token hashing, credential lifecycle, directory administration (2026-11-22, branch feat/security-hardening-v2, ADR-025/026/027)
+- Built: `review_tokens` stores sha256 only (migration keeps outstanding and used tokens, drops the plaintext column); `api_clients` gains id/label/issuer/scopes/expiry/revocation/last-use with `actionproof.credentials` (issue, list, revoke, rotate, audited) and tool-scope enforcement (AP-SCOPE-02 / G1) before the Gate; legacy credentials expire 30 days after migration; `actionproof.directory` + `PUT /api/admin/people/{login}` (admin + CSRF) audit every directory change with before/after, `people.disabled`, lock order audit -> people in commit, mint and directory edits. OpenAPI and web API types regenerated (no UI change).
+- Check (real runs): see the Phase 1 gate entry below once the full suite finishes.
+- Not verified: Docker, CI, the admin endpoints from the web UI, deadlock behaviour under heavy concurrent edit/commit load (lock order reasoned, not stress-tested).
+- USP: a stolen database no longer yields a usable approval token, an agent credential can only do what it was scoped and is still valid for, and a role change cannot be outrun by an old approval (G2/G1).
+
+## Hardening v2, Phase 2: policy provenance (2026-11-22, ADR-028)
+- Built: policy revision (sha256 of the `package actionproof` modules as OPA reports them) in `Decision`, in the signed receipt (`policy_revision`), checked again at commit (AP-STALE-07 on change, pending reviews do not survive), recorded with OPA version and input in the prepare audit entry; immutable `policy_archive/<revision>/` plus `policy.reconstruct`; authz.rego allows the two read-only GETs.
+- Check (real runs): tests/usp/test_policy_provenance.py `8 passed`. Core suites after the receipt-shape change: see the final regression run (full suite deferred to the end by instruction).
+- Not verified: signed policy bundles (not implemented), a hot reload racing the pre-decision read, the OPA GETs under the Render authz.rego, Docker.
+- USP: a decision can now be traced to, and re-run against, the exact policy that made it, and an approval cannot outlive that policy (G1/G2).
+
+## Hardening v2, Phase 4: live MCP agent integration (2026-11-23, ADR-031, H10)
+- Built: `examples/live_agent/agent.py` (Anthropic Messages API over httpx, HTTP MCP with a scoped bearer credential, INV-2048 + injected.pdf scenario, printed real requests/responses, JSONL traces with optional operator-side audit seq), `examples/live_agent/traces/` (git-ignored), `docs/LIVE_AGENT.md`, pointer in docs/DEMO.md.
+- Check (real runs): tests/e2e/test_live_agent_offline.py — see report-p4.md for the exact output.
+- Not verified: any live provider run (no credentials; UNTESTED LIVE), provider acceptance of the server's JSON schema ($defs) as a tool input_schema, Docker, CI.
+- USP: a model free to choose its own tool calls, holding only a scoped credential and the ActionProof tool surface, still cannot turn a document's instruction or a conflicting amount into an executed write, and never sees a receipt, token or key (G1/G2).
+
+## Hardening v2, Phase 5: TLA+ model (2026-11-23, ADR-032). Built formal/ActionProof.tla/.cfg/README/MAPPING. Check: NOT run (Java and TLC absent); the spec was reviewed by reading only. USP: the protocol behind G2 and the spending caps is now stated precisely enough to model-check; no guarantee is claimed until TLC passes.
+
+### Phase 6 (hardening v2): remote audit trust (ADR-030, H8-H9)
+- Added `anchor_remote.HttpAnchor` (generic append-only HTTP adapter) and `anchor_publisher` (async publisher/monitor: once, check, run); `anchor.CheckpointAnchor` protocol, KeyRegistry accepted by `_check_signed`.
+- Docs: ARCHITECTURE (remote anchor), RUNBOOK (operating the publisher), THREAT_MODEL (host owner row), DATA_MODEL (remote anchor + state file), DEPLOY_ORACLE_VERCEL (note).
+- Tests: tests/usp/test_anchor_remote.py 16 passed; tests/test_anchor.py and related suites see report-p6.md.
+- Not verified: any real append-only/WORM provider (stub only).
+- USP: checkpoints that left the host through the publisher cannot be silently rewritten, rolled back, gapped or forked without `check` failing (G1/G2 evidence of the audit trail), and the remote anchor can never block or alter an authorization decision because it is never on the decision path and never does I/O inside a database transaction.
+
+### Phase 3 (hardening v2): execution journal and truthful audit semantics (ADR-029, H5-H7)
+- New `src/actionproof/journal.py` and table `execution_journal` (append-only, own hash chain and verifier, journal-only advisory lock). The commit path journals RESERVATION_CREATED + DISPATCH_STARTED atomically with the `tool_reached` reservation before the call, CONFIRMED after the tool returned, FAILED (explicit DefiniteFailure) or UNKNOWN otherwise. The EXECUTED audit entry is written after confirmation and references it; it is rehearsed in a rolled-back savepoint before dispatch.
+- `release_quarantine` journals STARTED/COMPLETED, accepts downstream evidence that must match the execution, and refuses to free a CONFIRMED execution. CLI `reconcile journal verify|list|resolve`.
+- Tests: tests/usp/test_exec_journal.py (see report-p3.md for exact output).
+- USP: what this phase proved about G1/G2: a dispatched execution can no longer vanish: whatever happens after dispatch (success, definite failure, ambiguous error, a really killed process) leaves a tamper-evident journal entry naming the receipt, key, principal, counterparty and exact amount; the audit chain claims EXECUTED only after the downstream confirmed; an UNKNOWN keeps its money and key (G1 caps, G2 AP-REP-05) until trustworthy matching evidence or an audited human decision resolves it, and no amount of elapsed time does.

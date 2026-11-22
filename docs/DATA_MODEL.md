@@ -62,7 +62,7 @@ executions), = the refunds already reserved against a payment, so `amount <= pay
 ## review_tokens — human-minted, one-use approvals for REVIEW decisions
 | Column | Type | Constraint |
 |---|---|---|
-| token | text | PRIMARY KEY |
+| token_hash | text | PRIMARY KEY, CHECK `^[0-9a-f]{64}$` (`sha256(token)`, ADR-025; the raw token is shown once and never stored) |
 | request_hash | text | NOT NULL (token binds to exactly one request) |
 | submitter | text | NOT NULL (`req.actor` of the receipt's request) |
 | minted_by | text | NOT NULL (reviewer login = console session subject, ADR-008) |
@@ -71,9 +71,9 @@ executions), = the refunds already reserved against a payment, so `amount <= pay
 | exp | bigint | NOT NULL |
 | used_at, used_nonce | bigint, text | NULL until consumed; CHECK both NULL or both set |
 
-Enforces: consumed atomically by `UPDATE ... WHERE token AND request_hash AND used_at IS NULL AND exp > now RETURNING`;
+Enforces: consumed atomically by `UPDATE ... WHERE token_hash AND request_hash AND used_at IS NULL AND exp > now RETURNING`;
 a second use or a token for another request returns no row → **AP-REV-10 / AP-REP-05 (G2)**.
-`# ponytail: tokens stored as-is for the prototype; upgrade path is storing sha256(token).`
+Old databases migrate in `schema.sql` (plaintext `token` -> digest, column dropped; outstanding and used tokens keep their state).
 
 ## people — directory for reviewer separation (ADR-008)
 | Column | Type | Constraint |
@@ -81,6 +81,9 @@ a second use or a token for another request returns no row → **AP-REV-10 / AP-
 | login | text | PRIMARY KEY (console logins, on_behalf_of ids and agent ids share one namespace) |
 | person_id | text | NOT NULL (two logins of one human share it; an agent maps to its operator) |
 | roles | text[] | NOT NULL (`reviewer` may mint; `admin` may not; `team` = not a single person) |
+| disabled | boolean | NOT NULL DEFAULT false (ADR-027): a disabled identity is treated as absent by AP-SEP-12 and cannot log in |
+
+Written only through `directory.change` (admin session, audited `directory_change`, lock order audit -> people).
 
 Enforces **AP-SEP-12 (G2)**: the reviewer login needs `reviewer`, and its person must differ from the persons of
 `Principal.actor` and `Principal.on_behalf_of`; a missing row or a `team` submitter fails closed. Read at mint and
@@ -150,8 +153,12 @@ Both console tables are in `db.reset` (tests).
 | token_hash | text | PRIMARY KEY, CHECK `^[0-9a-f]{64}$` (`sha256(token)`; the token itself is never stored) |
 | actor, on_behalf_of | text | NOT NULL, the Principal this token authenticates |
 | created_at | bigint | NOT NULL, CHECK `>= 0` |
+| cred_id, label, issuer | text | cred_id NOT NULL UNIQUE (ADR-026) |
+| scopes | text[] | NOT NULL; registry tool names this credential may call |
+| expires_at | bigint | NOT NULL; legacy rows get migration time + 30 days |
+| revoked_at, last_used_at | bigint | NULL until revoked / first use |
 
-Seeded by `scripts/seed_api_client.py` (prints the token once). Both tables are in `db.reset` (tests).
+Issued by `python -m actionproof.credentials` (prints the token once); `scripts/seed_api_client.py` wraps `issue`. Both tables are in `db.reset` (tests).
 
 ## audit_log — hash-chained decision log (deck S3.6 / S9.3, `audit.py`)
 | Column | Type | Constraint |
@@ -162,7 +169,7 @@ Seeded by `scripts/seed_api_client.py` (prints the token once). Both tables are 
 | request_hash, actor, on_behalf_of, record_id | text | nullable (absent when the request never parsed) |
 | decision | text | ALLOW / REVIEW / DENY / EXECUTED / MINTED / REFUSED / RELEASED / NOT_QUARANTINED / REJECTED / DENIED |
 | rules | jsonb | NOT NULL, `[{rule, guarantee, msg}]` |
-| detail | jsonb | NOT NULL, kind-specific (nonce, idempotency key, amount, version, reviewer login/person) |
+| detail | jsonb | NOT NULL, kind-specific (nonce, idempotency key, amount, version, reviewer login/person; `commit` EXECUTED: `execution_id` + `journal {seq, entry_hash}` of its EXECUTION_CONFIRMED event; `release_quarantine`: `journal [{execution_id, seq, entry_hash}]` of its RECONCILIATION_STARTED events, ADR-029) |
 | prev_hash | text | NOT NULL, previous entry's `entry_hash` (genesis `"0"*64`) |
 | entry_hash | text | UNIQUE NOT NULL, `sha256(RFC 8785 of every other column)` |
 
@@ -179,6 +186,25 @@ Both tables are append-only: `BEFORE UPDATE OR DELETE` (row) and `BEFORE TRUNCAT
 (they can disable the trigger); `python -m actionproof.audit verify` detects an edited, deleted, reordered or
 truncated entry and a forged checkpoint. `db.reset` (tests only) disables the triggers for its one truncate tx.
 Written every `AUDIT_CHECKPOINT_EVERY` entries (default 1).
+
+## execution_journal — what happened to every dispatched execution (ADR-029, `journal.py`)
+| Column | Type | Constraint |
+|---|---|---|
+| seq | bigint | PRIMARY KEY, CHECK `>= 1`; `head + 1` under a journal-only advisory lock (never the audit lock) |
+| ts | bigint | NOT NULL, CHECK `>= 0` |
+| execution_id | text | NOT NULL, `"ex-" + sha256("actionproof.execution:" + nonce)[:32]` (one per receipt; `verify` recomputes it) |
+| event | text | NOT NULL, CHECK one of RESERVATION_CREATED, DISPATCH_STARTED, EXECUTION_CONFIRMED, EXECUTION_FAILED, EXECUTION_UNKNOWN, RECONCILIATION_STARTED, RECONCILIATION_COMPLETED |
+| nonce, request_hash, idempotency_key, record_id, actor, on_behalf_of, vendor_id | text | NOT NULL: the execution's full reference on EVERY event |
+| amount | numeric(18,2) | NOT NULL, CHECK `>= 0`; a 2dp string in the hash, never a float |
+| detail | jsonb | NOT NULL (tool + version; error type; resolver, resolution, audit seq) |
+| prev_hash, entry_hash | text | own hash chain, `sha256(RFC 8785 of every other column)`, genesis `"0"*64` |
+
+Partial UNIQUE indexes: one RESERVATION_CREATED and one DISPATCH_STARTED per execution, at most ONE outcome
+(CONFIRMED / FAILED / UNKNOWN). Append-only like the audit tables (same trigger function); `python -m
+actionproof.reconcile journal verify` detects an edited, deleted or reordered event. Status = latest event: no outcome
+after DISPATCH_STARTED (a crash) reads UNKNOWN; RECONCILIATION_STARTED without COMPLETED reads RECONCILING.
+Additive: `tool_reached` and `reservations` keep their meaning; markers older than the table get no events (no
+backfill) and are reconciled exactly as before. Included in `db.reset` (in `AUDIT_TABLES`).
 
 ## Not here
 No signing key material, review token or receipt signature is ever stored in the audit tables, and no signing key
@@ -202,6 +228,9 @@ reservation is *unresolved* while its nonce has NO `commits` row: the process ma
 unresolved reservation counts toward every cap (through view `reservations`), holds its idempotency key, and quarantines
 its record (AP-REP-05 / G2) until `Gate.release_quarantine(record, reviewer, executed, reservation)`: `executed=True`
 turns it into a `commits` row (amount stays counted), `executed=False` deletes it (amount and key freed); both are audited.
+ADR-029: instead of `executed`, `evidence={source, idempotency_key, status: APPLIED|NOT_APPLIED, amount, counterparty}`
+that must match the journaled execution decides it; a journaled CONFIRMED execution is never released as not executed;
+the release is journaled (RECONCILIATION_STARTED / _COMPLETED). No amount of elapsed time releases anything.
 
 **View `reservations`** = `commits` UNION ALL the unresolved markers with a non-NULL amount (same columns). Actor,
 person and refund-balance sums read it, never `commits` alone.
@@ -217,3 +246,8 @@ Included in `db.reset`.
 ## Anchor file (not a table): `LocalAnchor`
 JSON lines, `{"checkpoint": {payload:{seq, head_hash, ts}, sig, kid}, "prev": sha256(previous raw line)}`, plus a
 `<file>.lock` sidecar that serializes publishers. See ADR-021 and ADR-023. The file is outside the database by design.
+
+## Remote anchor (not a table): `HttpAnchor` and the publisher state file (ADR-030)
+The remote holds the same signed envelopes `{payload:{seq, head_hash, ts}, sig, kid}`, one per seq, strictly increasing.
+`ANCHOR_STATE_PATH` is a JSON file `{"seq", "head_hash"}`: the newest remote checkpoint the monitor verified, used to
+detect a remote rollback. Neither is written by the Gate.

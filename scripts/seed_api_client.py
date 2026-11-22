@@ -5,29 +5,18 @@ the token once (it cannot be recovered later). DATABASE_URL comes from the envir
 """
 import argparse
 import os
-import re
-import secrets
 import sys
-import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from actionproof import db  # noqa: E402
-from actionproof.contracts import IDENT  # noqa: E402
-from actionproof.server import token_hash  # noqa: E402
+from actionproof import credentials, db  # noqa: E402
 
 
-def seed(conn, actor: str, on_behalf_of: str) -> str:
-    """Insert a new client and return its token. The caller shows it once and never stores it."""
-    for v in (actor, on_behalf_of):
-        if not re.match(IDENT, v):
-            raise ValueError("actor and on_behalf_of must be canonical identifiers")
-    token = secrets.token_urlsafe(32)
-    conn.execute("INSERT INTO api_clients (token_hash, actor, on_behalf_of, created_at) VALUES (%s, %s, %s, %s)",
-                 (token_hash(token), actor, on_behalf_of, int(time.time())))
-    conn.commit()
-    return token
+def seed(conn, actor: str, on_behalf_of: str, scopes=credentials.KNOWN_SCOPES, ttl_days: int = 30) -> str:
+    """Issue a credential (ADR-026: scoped, expiring, audited) and return its token. Shown once, never stored."""
+    return credentials.issue(conn, actor, on_behalf_of, scopes, label="seed script", issuer="seed-script",
+                             ttl_days=ttl_days)[1]
 
 
 def main(argv=None) -> int:

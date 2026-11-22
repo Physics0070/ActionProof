@@ -182,6 +182,23 @@ def test_role_enforcement(app, kit):
     assert kit.executes == 0 and kit.sql("SELECT status FROM pending_reviews") == [("pending",)]
 
 
+def test_admin_directory_endpoints_need_admin_and_csrf_and_are_audited(app, kit):
+    """ADR-027: only an admin session (with CSRF) edits the directory; the change is an audit entry."""
+    url, body = "/api/admin/people/rev-bob", {"person_id": "p-bob", "roles": ["reviewer"], "disabled": True}
+    is_error(client(app).put(url, json=body), 401, "unauthenticated")
+    rev, rev_csrf = login(app, "rev-alice")
+    is_error(rev.put(url, json=body, headers={"X-CSRF-Token": rev_csrf}), 403, "forbidden")
+    is_error(rev.get("/api/admin/people"), 403, "forbidden")
+    adm, csrf = login(app, "admin-ops")
+    is_error(adm.put(url, json=body), 403, "csrf")
+    is_error(adm.put(url, json={**body, "extra": 1}, headers={"X-CSRF-Token": csrf}), 422)
+    assert adm.put(url, json=body, headers={"X-CSRF-Token": csrf}).json() == {"ok": True}
+    assert {p["login"]: p["disabled"] for p in adm.get("/api/admin/people").json()}["rev-bob"] is True
+    assert kit.sql("SELECT detail->>'changed_by' FROM audit_log WHERE kind = 'directory_change'") == [("admin-ops",)]
+    bob = client(app).post("/api/auth/login", json={"login": "rev-bob", "password": PW["rev-bob"]})
+    assert bob.status_code == 401  # a disabled identity cannot log in
+
+
 # ------------------------------------------------------------------------------------------------ the flow
 
 def test_mcp_review_to_console_approve_executes_once(app, kit):

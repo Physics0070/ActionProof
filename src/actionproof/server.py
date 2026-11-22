@@ -220,6 +220,11 @@ class App:
                                     Reason("AP-ERR-11", "G1", "rate limit exceeded (fail closed)"), principal, name,
                                     audit=False)
             if name in self.tools:
+                if principal.scopes is not None and self.tools[name] not in principal.scopes:
+                    # ADR-026: the credential's tool scopes are checked before the Gate sees anything.
+                    return self._refuse("out_of_scope", "credential is not scoped for this tool",
+                                        Reason("AP-SCOPE-02", "G1", "tool outside the credential's scopes"), principal,
+                                        name)
                 return self._action(name, arguments, principal)
             if name == "extract_fields":
                 return self._extract_fields(arguments, principal)
@@ -391,21 +396,25 @@ def token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def bearer_principal(conn_factory, header) -> Principal | None:
-    """`Authorization: Bearer <token>` -> the api_clients Principal, else None. Only sha256(token) is stored; the
-    fetched digest is compared in constant time."""
+def bearer_principal(conn_factory, header, now: int | None = None) -> Principal | None:
+    """`Authorization: Bearer <token>` -> the credential's Principal (with its tool scopes), else None. Only
+    sha256(token) is stored (compared in constant time). Expired or revoked credentials are None (ADR-026)."""
     if not isinstance(header, str) or not header.startswith("Bearer "):
         return None
     token = header[len("Bearer "):].strip()
     if not 16 <= len(token) <= 512:
         return None
     digest = token_hash(token)
+    now = int(time.time()) if now is None else now
     with conn_factory() as conn:
-        row = conn.execute("SELECT token_hash, actor, on_behalf_of FROM api_clients WHERE token_hash = %s",
-                           (digest,)).fetchone()
-    if row is None or not hmac.compare_digest(row[0], digest):
-        return None
-    return Principal(row[1], row[2])
+        row = conn.execute("SELECT token_hash, actor, on_behalf_of, scopes, expires_at, revoked_at, cred_id, "
+                           "last_used_at FROM api_clients WHERE token_hash = %s", (digest,)).fetchone()
+        if row is None or not hmac.compare_digest(row[0], digest) or row[5] is not None or row[4] <= now:
+            return None
+        if row[7] is None or now - row[7] >= 60:  # ponytail: at most one write per credential per minute
+            conn.execute("UPDATE api_clients SET last_used_at = %s WHERE token_hash = %s", (now, digest))
+            conn.commit()
+    return Principal(row[1], row[2], frozenset(row[3]), row[6])
 
 
 def http_app(app: App, conn_factory):

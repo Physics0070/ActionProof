@@ -1,0 +1,8 @@
+{
+ "bundle_format": 1,
+ "modules": {
+  "actionproof.rego": "db9b2545ff35887e4878b7a294f21e0c0999edad6c1c4f0008f9cfdb269a90ac"
+ },
+ "policy_schema": 1,
+ "revision": "42d511c43245ee5662e1d6b920ad6d82e0724ebdc7f4ce2c0155e61f84782f3c"
+}

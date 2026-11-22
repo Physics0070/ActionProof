@@ -13,3 +13,15 @@ allow if {
 	input.method == "GET"
 	input.path == ["health"]
 }
+
+# ADR-028: read-only provenance. The gateway reads the loaded policy text (to derive the policy revision) and the OPA
+# version. Both are GETs and the policy is public in the repository; nothing here can change a rule.
+allow if {
+	input.method == "GET"
+	input.path == ["v1", "policies"]
+}
+
+allow if {
+	input.method == "GET"
+	input.path == ["v1", "data", "system", "version"]
+}

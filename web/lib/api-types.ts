@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/api/admin/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin People */
+        get: operations["admin_people_api_admin_people_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/people/{login}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Admin Put Person */
+        put: operations["admin_put_person_api_admin_people__login__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/audit": {
         parameters: {
             query?: never;
@@ -366,6 +400,35 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
+        /**
+         * PersonBody
+         * @description Directory row (ADR-027). The admin is the session login; extras are refused.
+         */
+        PersonBody: {
+            /**
+             * Disabled
+             * @default false
+             */
+            disabled: boolean;
+            /** Person Id */
+            person_id: string;
+            /** Roles */
+            roles: ("reviewer" | "admin" | "team" | "submitter" | "agent")[];
+        };
+        /** PersonOut */
+        PersonOut: {
+            /**
+             * Disabled
+             * @default false
+             */
+            disabled: boolean;
+            /** Login */
+            login: string;
+            /** Person Id */
+            person_id: string;
+            /** Roles */
+            roles: ("reviewer" | "admin" | "team" | "submitter" | "agent")[];
+        };
         /** PublicReplay */
         PublicReplay: {
             audit: components["schemas"]["SeqRange"];
@@ -518,6 +581,88 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    admin_people_api_admin_people_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonOut"][];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
+    admin_put_person_api_admin_people__login__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                login: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ok"];
+                };
+            };
+            /** @description Client Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorOut"];
+                };
+            };
+        };
+    };
     audit_recent_api_audit_get: {
         parameters: {
             query?: {

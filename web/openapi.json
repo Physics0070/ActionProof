@@ -443,6 +443,86 @@
         "title": "Ok",
         "type": "object"
       },
+      "PersonBody": {
+        "additionalProperties": false,
+        "description": "Directory row (ADR-027). The admin is the session login; extras are refused.",
+        "properties": {
+          "disabled": {
+            "default": false,
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "person_id": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "reviewer",
+                "admin",
+                "team",
+                "submitter",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "person_id",
+          "roles"
+        ],
+        "title": "PersonBody",
+        "type": "object"
+      },
+      "PersonOut": {
+        "additionalProperties": false,
+        "properties": {
+          "disabled": {
+            "default": false,
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "login": {
+            "title": "Login",
+            "type": "string"
+          },
+          "person_id": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "enum": [
+                "reviewer",
+                "admin",
+                "team",
+                "submitter",
+                "agent"
+              ],
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "person_id",
+          "roles",
+          "login"
+        ],
+        "title": "PersonOut",
+        "type": "object"
+      },
       "PublicReplay": {
         "properties": {
           "audit": {
@@ -954,6 +1034,114 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/people": {
+      "get": {
+        "operationId": "admin_people_api_admin_people_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonOut"
+                  },
+                  "title": "Response Admin People Api Admin People Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "4XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Client Error"
+          },
+          "5XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Server Error"
+          }
+        },
+        "summary": "Admin People",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/admin/people/{login}": {
+      "put": {
+        "operationId": "admin_put_person_api_admin_people__login__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "login",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z0-9][a-z0-9_.-]{0,63}$",
+              "title": "Login",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "4XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Client Error"
+          },
+          "5XX": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOut"
+                }
+              }
+            },
+            "description": "Server Error"
+          }
+        },
+        "summary": "Admin Put Person",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/audit": {
       "get": {
         "operationId": "audit_recent_api_audit_get",

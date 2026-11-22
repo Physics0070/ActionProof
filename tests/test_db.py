@@ -64,20 +64,20 @@ def test_negative_version_rejected(db):
 
 
 def test_review_token_used_fields_paired(db):
-    ins = "INSERT INTO review_tokens (token, request_hash, submitter, minted_by, minted_by_person, exp, used_at, " \
+    ins = "INSERT INTO review_tokens (token_hash, request_hash, submitter, minted_by, minted_by_person, exp, used_at, " \
           "used_nonce) VALUES (%s, 'h', 'agent-7', 'rev-alice', 'p-alice', 10, %s, %s)"
-    db.execute(ins, ("t-ok", None, None))
-    db.execute(ins, ("t-used", 5, "n1"))
+    db.execute(ins, ("a" * 64, None, None))
+    db.execute(ins, ("b" * 64, 5, "n1"))
     with pytest.raises(psycopg.errors.CheckViolation):
-        db.execute(ins, ("t-bad", 5, None))
+        db.execute(ins, ("c" * 64, 5, None))
 
 
 def test_review_token_consumed_once(db):
-    db.execute("INSERT INTO review_tokens (token, request_hash, submitter, minted_by, minted_by_person, exp) "
-               "VALUES ('t', 'h', 'agent-7', 'rev-alice', 'p-alice', 100)")
-    use = "UPDATE review_tokens SET used_at=%s, used_nonce=%s WHERE token='t' AND request_hash='h' " \
-          "AND used_at IS NULL AND exp > %s RETURNING token"
-    assert db.execute(use, (50, "n1", 50)).fetchone() == ("t",)
+    db.execute("INSERT INTO review_tokens (token_hash, request_hash, submitter, minted_by, minted_by_person, exp) "
+               f"VALUES ('{'d' * 64}', 'h', 'agent-7', 'rev-alice', 'p-alice', 100)")
+    use = "UPDATE review_tokens SET used_at=%s, used_nonce=%s WHERE token_hash='" + "d" * 64 + "' AND request_hash='h' " \
+          "AND used_at IS NULL AND exp > %s RETURNING token_hash"
+    assert db.execute(use, (50, "n1", 50)).fetchone() == ("d" * 64,)
     assert db.execute(use, (51, "n2", 51)).fetchone() is None
 
 

@@ -15,8 +15,12 @@ Protocol, rule ids and order: .superpowers/sdd/phase3/design.md and docs/ARCHITE
   (MCP, adapter) may expose them. The reviewer must be a different directory PERSON from the submitter
   (AP-SEP-12 / G2, ADR-008), checked at mint and again inside the commit tx.
 - Every prepare, commit, mint and release_quarantine outcome is an audit.py chain entry. The commit EXECUTED entry
-  is written inside the commit tx BEFORE the tool runs (it rolls back with the tx; if it fails the tool is never
-  reached: DENY AP-ERR-11). DENY/refusal entries get their own short tx; an audit failure never changes a DENY.
+  is written inside the commit tx only AFTER the tool returned and EXECUTION_CONFIRMED is journaled, and references
+  that journal event (ADR-029); it is rehearsed in a rolled-back savepoint before dispatch, so an audit store that
+  cannot take it stops the tool (DENY AP-ERR-11). DENY/refusal entries get their own short tx; an audit failure never changes a DENY.
+- Every dispatched execution is in the execution journal (journal.py, ADR-029), written on its own connections
+  (lock order audit -> journal, never the reverse): RESERVATION_CREATED + DISPATCH_STARTED with the tool_reached marker
+  before the call, then CONFIRMED / FAILED (adapter's DefiniteFailure only) / UNKNOWN; a crash leaves no outcome (UNKNOWN).
   A prepare ALLOW/REVIEW whose entry cannot be written is DENY AP-ERR-11 (no unaudited receipt leaves the gate).
 """
 
@@ -32,7 +36,7 @@ import psycopg
 import rfc8785
 from psycopg import errors
 
-from actionproof import audit, extract, policy, signing
+from actionproof import audit, extract, journal, policy, signing
 from actionproof.contracts import MONEY, ActionRequest, ContractError, parse_request, request_hash
 from actionproof.db import LEGACY_MARKER_FROM
 from actionproof.verify import Reason, VerifyResult, direct_spans, verify_request
@@ -64,9 +68,14 @@ CENT = Decimal("0.01")
 MAX_RETRIES = 3
 LOCK_TIMEOUT = "5s"
 PAYLOAD_KEYS = {"request_hash", "decision", "reasons", "diff_hash", "record_id", "version", "nonce", "exp",
-                "tool", "actor", "on_behalf_of", "idempotency_key"}
+                "tool", "actor", "on_behalf_of", "idempotency_key", "policy_revision"}
 # Only for "the audit write itself failed" (exception type name only); decisions go to the audit chain.
 _log = logging.getLogger("actionproof.audit")
+
+
+def token_digest(token) -> str:
+    """sha256 hex of a review token (ADR-025). A non-string token hashes to "" which matches no row (fail closed)."""
+    return hashlib.sha256(token.encode()).hexdigest() if isinstance(token, str) and token else ""
 
 
 def _now() -> int:
@@ -162,6 +171,8 @@ class Principal:
     """Who is calling, as established by the transport (MCP session / adapter), never by the request (ADR-012)."""
     actor: str
     on_behalf_of: str
+    scopes: frozenset | None = None  # registry tools this credential may call; None = transport is unrestricted (stdio)
+    cred_id: str | None = None
 
 
 def _bound(req: ActionRequest, principal) -> bool:
@@ -178,10 +189,11 @@ def _separation(conn, reviewer_login: str, actor: str, on_behalf_of: str) -> tup
     on_behalf_of fails closed. FOR SHARE: a concurrent directory edit waits for this tx (or aborts it, retried
     before the tool). Returns (deny reason, reviewer person_id)."""
     ids = (reviewer_login, actor, on_behalf_of)
-    rows = {login: (person, roles) for login, person, roles in conn.execute(
-        "SELECT login, person_id, roles FROM people WHERE login = ANY(%s) FOR SHARE", (list(ids),)).fetchall()}
+    rows = {login: (person, roles) for login, person, roles, disabled in conn.execute(
+        "SELECT login, person_id, roles, disabled FROM people WHERE login = ANY(%s) FOR SHARE", (list(ids),)).fetchall()
+        if not disabled}  # ADR-027: a disabled identity is as good as absent (fail closed)
     if not all(x in rows for x in ids):
-        return _sep("identity not in the people directory (fail closed)"), None
+        return _sep("identity not in the people directory or disabled (fail closed)"), None
     person, roles = rows[reviewer_login]
     if "reviewer" not in roles:
         return _sep("reviewer login lacks the reviewer role"), None
@@ -245,6 +257,8 @@ class PrepareResult:
     request: ActionRequest | None = field(default=None, repr=False, compare=False)
     # The record state the diff applies to ({data, version}), for the reviewer's before/after view.
     before: dict | None = field(default=None, repr=False, compare=False)
+    # ADR-028 provenance for the prepare audit entry: {revision, opa_version, input} of the policy decision.
+    policy: dict | None = field(default=None, repr=False, compare=False)
 
     def card(self) -> str:
         """Deck slide 1 text shape."""
@@ -308,11 +322,16 @@ def _who(req, p: dict | None = None) -> dict:
 
 
 class _Attempt:
-    """Per-attempt state: whether the tool was reached, and the commits row to burn if it was."""
+    """Per-attempt state: whether the tool was reached, the commits row to burn if it was, and its journal state
+    (ADR-029): the reference, the outcome event to journal, and whether an outcome event is already journaled."""
 
     def __init__(self):
         self.invoked = False
         self.row: tuple | None = None
+        self.ref: dict | None = None
+        self.outcome = "EXECUTION_UNKNOWN"
+        self.why: dict = {}
+        self.journaled = False
 
 
 class Gate:
@@ -363,7 +382,8 @@ class Gate:
             res = PrepareResult("DENY", [_err(f"prepare failed: {type(e).__name__}")], _NOT_VERIFIED, None, None,
                                 req if isinstance(req, ActionRequest) else None)
         p = res.receipt["payload"] if res.receipt else None
-        entry = {"decision": res.decision, "rules": _rules(res.reasons), "detail": {"nonce": p and p["nonce"]},
+        entry = {"decision": res.decision, "rules": _rules(res.reasons),
+                 "detail": {"nonce": p and p["nonce"], **({"policy": res.policy} if res.policy else {})},
                  **_who(res.request, p)}
         if res.decision == "DENY":
             self._audit_deny("prepare", **entry)
@@ -440,8 +460,10 @@ class Gate:
             payload = self._policy_input(conn, req, v.ok, v.reasons, counterparty, committed, person)
         d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
         reasons = _merge(d, v.ok, v.reasons)
+        prov = {"revision": d.revision, "opa_version": d.opa_version, "input": payload} if d.revision else None
         if d.outcome not in ("ALLOW", "REVIEW"):
-            return deny(*reasons, v=v)
+            r = deny(*reasons, v=v)
+            return PrepareResult(r.decision, r.reasons, r.verify, None, None, req, policy=prov)
 
         diff = tool.dry_run(req)
         receipt = self._signer.sign({
@@ -459,8 +481,10 @@ class Gate:
             "actor": req.actor,
             "on_behalf_of": req.on_behalf_of,
             "idempotency_key": req.idempotency_key,
+            "policy_revision": d.revision,  # ADR-028: the exact policy OPA had loaded for this decision
         })
-        return PrepareResult(d.outcome, reasons, v, diff, receipt, req, before={"data": data, "version": version})
+        return PrepareResult(d.outcome, reasons, v, diff, receipt, req, before={"data": data, "version": version},
+                             policy=prov)
 
     @staticmethod
     def _policy_input(conn, req: ActionRequest, v_ok: bool, v_reasons: list[Reason], counterparty,
@@ -492,7 +516,7 @@ class Gate:
     # ------------------------------------------------------------------ quarantine
 
     def release_quarantine(self, record_id: str, reviewer: str, executed: bool = False,
-                           reservation: dict | None = None) -> bool:
+                           reservation: dict | None = None, evidence: dict | None = None) -> bool:
         """Reconcile path (admin, not tool-facing): a human checked the tool's real outcome for a record whose
         commit was burned or whose execution is unresolved (ADR-019/022) and lifts the block. Returns whether
         anything was released. Raises on bad input.
@@ -502,13 +526,20 @@ class Gate:
         `reservation` (only with executed=True, and required for a LEGACY marker, ADR-024): the facts the old marker
         never recorded: {idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount (2dp string)}.
         The release and its audit entry commit together; if the entry cannot be written, nothing is released and the
-        error propagates."""
+        error propagates.
+        `evidence` (ADR-029, instead of `executed`): downstream evidence for the ONE journaled execution on the record
+        (journal.evidence_executed validates it against the execution); it decides `executed`, and `reviewer` is the
+        operator who supplied it. The release is journaled (RECONCILIATION_STARTED before, _COMPLETED after the release
+        commits) for every journaled execution it resolves; a CONFIRMED execution can never be released as not
+        executed. Legacy markers have no journal events and get none (no backfill)."""
         if not isinstance(record_id, str) or not record_id:
             raise ValueError("record_id is required")
         if not isinstance(reviewer, str) or not reviewer.strip():
             raise ValueError("reviewer is required")
         if not isinstance(executed, bool):
             raise ValueError("executed must be a bool")
+        if evidence is not None and (executed or reservation is not None):
+            raise ValueError("evidence decides `executed`; pass neither `executed` nor `reservation` with it")
         if reservation is not None:
             if not executed:
                 raise ValueError("a reservation is only accepted when confirming an execution")
@@ -519,8 +550,9 @@ class Gate:
                 raise ValueError("reservation needs idempotency_key, request_hash, actor, on_behalf_of, vendor_id "
                                  "and a 2dp amount string")
         with self._conn_factory() as conn:
-            released = conn.execute("DELETE FROM quarantine WHERE record_id = %s RETURNING record_id",
-                                    (record_id,)).fetchone() is not None
+            audit.lock(conn)  # lock order: audit FIRST, then the other tables (as commit, mint, directory.change)
+            q = conn.execute("DELETE FROM quarantine WHERE record_id = %s RETURNING nonce", (record_id,)).fetchone()
+            released = q is not None
             unresolved = conn.execute(
                 "SELECT nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount, record_id, "
                 "created_at FROM tool_reached t WHERE t.record_id = %s AND NOT EXISTS "
@@ -528,16 +560,30 @@ class Gate:
             legacy = [r for r in unresolved if any(v is None for v in r[1:7])]
             if executed and (len(legacy) > 1 or (reservation is not None and len(unresolved) != 1)):
                 raise ValueError("one reservation confirms exactly one unresolved execution")
+            if executed and legacy and reservation is None:  # unknown amount: never guessed, never zero
+                raise ValueError("legacy marker has no recorded reservation; supply `reservation`")
+            if reservation is not None and not legacy:
+                raise ValueError("a reservation is only for a legacy marker")
+            # ADR-029: the journaled executions this release resolves (unresolved markers + the burned one).
+            nonces = [r[0] for r in unresolved] + ([q[0]] if q and q[0] not in {r[0] for r in unresolved} else [])
+            xs = journal.of_nonces(conn, nonces)
+            if evidence is not None:
+                if len(nonces) != 1 or nonces[0] not in xs:
+                    raise ValueError("evidence resolves exactly one journaled execution on the record")
+                executed = journal.evidence_executed(evidence, xs[nonces[0]])
+                resolver = {"kind": "evidence", "source": evidence["source"], "operator": reviewer}
+            else:
+                resolver = {"kind": "human", "reviewer": reviewer}
+            if not executed and any(x["status"] in ("CONFIRMED", "RESOLVED_CONFIRMED") for x in xs.values()):
+                raise ValueError("the journal records a confirmed execution; it cannot be released as not executed")
+            started = {n: journal.record(self._conn_factory, "RECONCILIATION_STARTED", x, {"resolver": resolver})
+                       for n, x in xs.items()}
             for row in unresolved:
                 if executed:
                     if row in legacy:
-                        if reservation is None:  # unknown amount: never guessed, never zero
-                            raise ValueError("legacy marker has no recorded reservation; supply `reservation`")
                         row = (row[0], reservation["idempotency_key"], reservation["request_hash"],
                                reservation["actor"], reservation["on_behalf_of"], reservation["vendor_id"],
                                Decimal(reservation["amount"]), row[7], row[8])
-                    elif reservation is not None:
-                        raise ValueError("a reservation is only for a legacy marker")
                     conn.execute(
                         "INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, "
                         "amount, record_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", row)
@@ -551,9 +597,23 @@ class Gate:
                                         for r in unresolved]
             if reservation is not None:
                 detail["reservation_supplied"] = dict(reservation)
+            if evidence is not None:
+                detail["evidence"] = dict(evidence)
+            if started:  # ADR-029: the journal events this release answers (no cross-connection audit append)
+                detail["journal"] = [{"execution_id": xs[n]["execution_id"], "seq": s, "entry_hash": h}
+                                     for n, (s, h) in started.items()]
             self._audit(conn, "release_quarantine", record_id=record_id,
                         decision="RELEASED" if released else "NOT_QUARANTINED", detail=detail)
-            return released
+            audit_seq = conn.execute("SELECT max(seq) FROM audit_log").fetchone()[0]  # ours: the audit lock is held
+        # Only after the release committed. If this write is lost the execution reads RECONCILING; the audit entry
+        # (which names the STARTED event) is the record of what was decided.
+        done = {"resolution": "CONFIRMED" if executed else "FAILED", "resolver": resolver, "audit_seq": audit_seq}
+        for x in xs.values():
+            try:
+                journal.record(self._conn_factory, "RECONCILIATION_COMPLETED", x, done)
+            except Exception as e:
+                _log.error("journal RECONCILIATION_COMPLETED not written (%s)", type(e).__name__)
+        return released
 
     # ------------------------------------------------------------------ review tokens
 
@@ -578,18 +638,18 @@ class Gate:
             refuse(reason)
         if p["decision"] != "REVIEW":
             refuse(_r("AP-REV-10", "G2", "receipt does not call for a human review"))
-        # ponytail: token stored as-is; store sha256(token) and compare digests once tokens leave the demo.
-        token = secrets.token_urlsafe(32)
+        token = secrets.token_urlsafe(32)  # returned once; only its sha256 is stored (ADR-025)
         now = _now()
         sep = None
         try:
             with self._conn_factory() as conn:
+                audit.lock(conn)  # lock order audit -> people, as in commit and directory.change (ADR-027)
                 sep, person = _separation(conn, login, req.actor, req.on_behalf_of)
                 if not sep:
                     conn.execute(
-                        "INSERT INTO review_tokens (token, request_hash, submitter, minted_by, minted_by_person, "
+                        "INSERT INTO review_tokens (token_hash, request_hash, submitter, minted_by, minted_by_person, "
                         "minted_at, exp) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                        (token, p["request_hash"], req.actor, login, person, now,
+                        (token_digest(token), p["request_hash"], req.actor, login, person, now,
                          now + self._settings.review_token_ttl_seconds))
                     # Same tx as the token row: no token exists without its audit entry.
                     self._audit(conn, "mint", decision="MINTED", detail={"reviewer_login": login,
@@ -698,8 +758,8 @@ class Gate:
         if p["decision"] == "REVIEW":
             row = conn.execute(
                 "UPDATE review_tokens SET used_at = %s, used_nonce = %s "
-                "WHERE token = %s AND request_hash = %s AND used_at IS NULL AND exp > %s RETURNING minted_by",
-                (now, p["nonce"], review_token, p["request_hash"], now)).fetchone()
+                "WHERE token_hash = %s AND request_hash = %s AND used_at IS NULL AND exp > %s RETURNING minted_by",
+                (now, p["nonce"], token_digest(review_token), p["request_hash"], now)).fetchone()
             if row is None:
                 return deny(self._token_reason(conn, review_token, p["request_hash"], now))
             # ADR-008: re-read the directory now, so an edit after the mint, or a token minted outside the console,
@@ -743,19 +803,26 @@ class Gate:
         if stale:
             return deny(*stale)
 
-        # Audited BEFORE the tool, in this tx: if the entry cannot be written the tool is never reached (the raise
-        # rolls back, DENY AP-ERR-11); if anything after it fails, the entry rolls back with the commit.
-        self._audit(conn, "commit", decision="EXECUTED", **_who(None, p), detail={
-            "nonce": p["nonce"], "idempotency_key": p["idempotency_key"], "amount": req.args["amount"].value,
-            "version": version, "reviewer": reviewer})
+        detail = {"nonce": p["nonce"], "idempotency_key": p["idempotency_key"], "amount": req.args["amount"].value,
+                  "version": version, "reviewer": reviewer, "execution_id": journal.execution_id(p["nonce"])}
+        # ADR-029: the EXECUTED entry is written only after the downstream confirmed (below). It is rehearsed here in
+        # a savepoint that is always rolled back, so an audit store that cannot take it stops the tool before
+        # dispatch (DENY AP-ERR-11, nothing reserved), as before.
+        with conn.transaction():
+            self._audit(conn, "commit", decision="EXECUTED", **_who(None, p), detail=detail)
+            raise psycopg.Rollback()
         # Durable BEFORE the call, on its own connection: if this process dies after the tool ran, the rolled-back tx
         # leaves no commits row, and without this marker a retry of the same receipt would call the tool again.
-        # If it cannot be written the raise rolls back and the tool is never reached (DENY AP-ERR-11).
+        # The journal's RESERVATION_CREATED and DISPATCH_STARTED commit atomically with the marker (ADR-029; the
+        # journal never takes the audit lock this tx holds). If any of it fails the tool is never reached.
+        st.ref = journal.ref(st.row)
         mark = self._conn_factory()
         try:
             mark.execute("INSERT INTO tool_reached (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, "
                          "amount, record_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
                          "ON CONFLICT (nonce) DO NOTHING", st.row)
+            journal.append(mark, "RESERVATION_CREATED", st.ref)
+            journal.append(mark, "DISPATCH_STARTED", st.ref, {"tool": req.tool, "version": version})
             mark.commit()
         finally:
             mark.close()
@@ -763,6 +830,10 @@ class Gate:
         try:
             result = tool.execute(req, version, p["idempotency_key"], conn)
         except Exception as e:
+            # Only the adapter's explicit "definitely not applied" is a failure; anything else is unknown (_burn
+            # journals it). Accounting is the same either way: burned + quarantined until a human reconciles.
+            st.outcome = "EXECUTION_FAILED" if isinstance(e, journal.DefiniteFailure) else "EXECUTION_UNKNOWN"
+            st.why = {"error": type(e).__name__}
             after = conn.execute("SELECT data, version FROM records WHERE record_id = %s", (p["record_id"],)).fetchone()
             conn.rollback()
             burned = self._burn(conn, st)
@@ -773,10 +844,19 @@ class Gate:
             if (after is None or after[1] != version) and not applied:
                 return _deny(_r("AP-STALE-07", "G2", "record changed while the tool ran"), *burned)
             return _deny(_err(f"tool error: {type(e).__name__}"), *burned)
+        # The downstream returned success: journal it (own connection) BEFORE the main commit. If this write fails,
+        # the raise burns the attempt and _burn retries the CONFIRMED event (never UNKNOWN: the gate knows better).
+        st.outcome, st.why = "EXECUTION_CONFIRMED", {}
+        confirmed = journal.record(self._conn_factory, "EXECUTION_CONFIRMED", st.ref)
+        st.journaled = True
         after = conn.execute("SELECT version FROM records WHERE record_id = %s", (p["record_id"],)).fetchone()
         if after is None or after[0] not in (version, version + 1):
             conn.rollback()
             return _deny(_r("AP-STALE-07", "G2", "record changed beyond the approved diff"), *self._burn(conn, st))
+        # The success entry, only now, referencing the confirmed journal event. If it cannot be written the raise
+        # burns the attempt (the journal still truthfully says CONFIRMED).
+        detail["journal"] = {"seq": confirmed[0], "entry_hash": confirmed[1]}
+        self._audit(conn, "commit", decision="EXECUTED", **_who(None, p), detail=detail)
         # The receipt's version is consumed even if a tool forgot to bump it.
         conn.execute("UPDATE records SET version = %s WHERE record_id = %s", (version + 1, p["record_id"]))
         conn.commit()
@@ -784,7 +864,8 @@ class Gate:
 
     @staticmethod
     def _token_reason(conn, token: str, req_hash: str, now: int) -> Reason:
-        row = conn.execute("SELECT request_hash, used_at, exp FROM review_tokens WHERE token = %s", (token,)).fetchone()
+        row = conn.execute("SELECT request_hash, used_at, exp FROM review_tokens WHERE token_hash = %s",
+                           (token_digest(token),)).fetchone()
         if row is None or row[0] != req_hash:
             return _r("AP-REV-10", "G2", "review token not valid for this request")
         if row[1] is not None:
@@ -810,18 +891,24 @@ class Gate:
                 vr.append(_ver("variance: required argument missing (evidence gap)"))
         payload = self._policy_input(conn, req, not vr, vr, data.get(t.counterparty), committed, person_committed)
         d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
+        if d.revision and d.revision != p["policy_revision"]:
+            # ADR-028: the policy changed since prepare. A receipt, and any pending review built on it, does not
+            # survive; the caller must prepare again under the active revision.
+            return [_r("AP-STALE-07", "G2", "policy revision changed since prepare; re-prepare")]
         if d.outcome == "ALLOW" or (d.outcome == "REVIEW" and p["decision"] == "REVIEW"):
             return []
         if d.outcome == "REVIEW":  # receipt said ALLOW; fresh state needs a human
             return [_r("AP-STALE-07", "G2", "policy outcome changed since prepare (now REVIEW)")]
         return _merge(d, not vr, vr) or [_err("fresh policy decision was not executable")]
 
-    @staticmethod
-    def _burn(conn, st: _Attempt) -> list[Reason]:
+    def _burn(self, conn, st: _Attempt) -> list[Reason]:
         """The tool was reached but the tx rolled back: the outcome is unknown, so the nonce and idempotency key
         are spent (a retry is AP-REP-05), the amount counts toward the cap (ADR-010), and the record is quarantined
         so no new receipt can apply it again until a human reconciles (ADR-014). Each write is attempted on its own
-        so one failing does not skip the other. Returns reasons for the DENY when a write failed."""
+        so one failing does not skip the other. Then, unless an outcome is already journaled, the attempt's outcome
+        event (UNKNOWN unless the tool confirmed or definitively failed) goes to the journal on its own connection
+        (ADR-029; the main tx is rolled back, so no lock is held). If that write fails, the execution still reads as
+        UNKNOWN (DISPATCH_STARTED is its latest event). Returns reasons for the DENY when a write failed."""
         writes = (
             ("burn", "INSERT INTO commits (nonce, idempotency_key, request_hash, actor, on_behalf_of, vendor_id, amount, "
                      "record_id, created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING", st.row),
@@ -839,5 +926,11 @@ class Gate:
                     conn.rollback()
                 except Exception:
                     pass
+        if st.ref is not None and not st.journaled:
+            try:
+                journal.record(self._conn_factory, st.outcome, st.ref, st.why)
+                st.journaled = True
+            except Exception:
+                failed.append("journal")
         # ponytail: if both fail, a retry is stopped only by the tool-side idempotency key (documented in ADR-014).
         return [_err(f"unknown outcome not recorded ({', '.join(failed)} failed)")] if failed else []

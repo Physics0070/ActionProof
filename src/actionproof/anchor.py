@@ -11,7 +11,7 @@ trusted public key(s). Publishing is idempotent (same seq + head = no-op) and mo
 LIMIT (read this): a file on the same machine is NOT immutable storage. Whoever controls the host can rewrite the
 database AND this file, or drop the file's last lines (a shortened chain still verifies). To be an independent
 trust domain the file must be copied to append-only / WORM storage or another machine after each publish.
-# ponytail: local file only; a remote HTTP / transparency-log anchor is the upgrade path (same publish/verify shape).
+The remote adapter with the same shape is `anchor_remote.HttpAnchor`, published by `anchor_publisher` (ADR-030).
 """
 import contextlib
 import hashlib
@@ -20,6 +20,7 @@ import os
 import time
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Protocol
 
 from actionproof import signing
 
@@ -39,15 +40,30 @@ def _h(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def _check_signed(env, keys: "str | Mapping[str, str]") -> dict:
+class CheckpointAnchor(Protocol):
+    """The shape every anchor has (LocalAnchor, anchor_remote.HttpAnchor). `keys`: one base64 public key, a kid -> key
+    map, or a signing.KeyRegistry (revoked and unknown kids fail). Every returned checkpoint has been re-verified."""
+
+    def entries(self, keys) -> list[dict]: ...
+
+    def latest(self, keys) -> dict | None: ...
+
+    def publish(self, env, keys) -> bool: ...
+
+
+def _check_signed(env, keys: "str | Mapping[str, str] | signing.KeyRegistry") -> dict:
     if not isinstance(env, dict) or not isinstance(env.get("payload"), dict):
         raise AnchorError("checkpoint is malformed")
     p = env["payload"]
-    if set(p) != {"seq", "head_hash", "ts"} or not isinstance(p["seq"], int) or p["seq"] < 1 \
-            or not isinstance(p["head_hash"], str):
+    if set(p) != {"seq", "head_hash", "ts"} or type(p["seq"]) is not int or p["seq"] < 1 \
+            or not isinstance(p["head_hash"], str) or type(p["ts"]) is not int:
         raise AnchorError("checkpoint payload is malformed")
-    key = keys if isinstance(keys, str) else keys.get(env.get("kid"))
-    if key is None or not signing.verify(env, key):
+    if isinstance(keys, signing.KeyRegistry):
+        ok = keys.verify(env)
+    else:
+        key = keys if isinstance(keys, str) else keys.get(env.get("kid"))
+        ok = key is not None and signing.verify(env, key)
+    if not ok:
         raise AnchorError("checkpoint signature invalid or kid unknown")
     return env
 

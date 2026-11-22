@@ -25,7 +25,7 @@ def app(kit):
 def _secrets(kit) -> list[str]:
     seed = open(kit.settings.signing_key_path, "rb").read()
     out = [seed.hex(), base64.b64encode(seed).decode(), base64.urlsafe_b64encode(seed).decode().rstrip("=")]
-    out += [t for (t,) in kit.sql("SELECT token FROM review_tokens")]
+    out += [t for (t,) in kit.sql("SELECT token_hash FROM review_tokens")]
     out += [n for (n,) in kit.sql("SELECT receipt->'payload'->>'nonce' FROM pending_reviews")]
     out += [s for (s,) in kit.sql("SELECT receipt->>'sig' FROM pending_reviews")]
     return [s for s in out if s]

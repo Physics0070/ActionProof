@@ -38,8 +38,9 @@ CREATE INDEX IF NOT EXISTS commits_actor_vendor ON commits (actor, vendor_id);
 -- ADR-009: refunds already committed against one payment (refundable balance), re-read inside the commit tx.
 CREATE INDEX IF NOT EXISTS commits_record ON commits (record_id);
 
+-- ADR-025: only sha256(token) is stored (hex); the raw token is shown once to the reviewer and cannot be recovered here.
 CREATE TABLE IF NOT EXISTS review_tokens (
-    token        text PRIMARY KEY,
+    token_hash   text PRIMARY KEY CHECK (token_hash ~ '^[0-9a-f]{64}$'),
     request_hash text NOT NULL,
     submitter    text NOT NULL,
     minted_by    text NOT NULL,                                 -- reviewer login (console session subject)
@@ -55,6 +56,20 @@ CREATE TABLE IF NOT EXISTS review_tokens (
 -- Databases created before ADR-008 (the gate always writes it; new tables have it NOT NULL).
 ALTER TABLE review_tokens ADD COLUMN IF NOT EXISTS minted_by_person text;
 
+-- ADR-025 migration: plaintext `token` -> sha256 hex digest. Outstanding tokens keep working (the holder's raw token
+-- hashes to the stored digest), used rows keep their used_at/used_nonce, then the plaintext column is dropped.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema()
+             AND table_name = 'review_tokens' AND column_name = 'token') THEN
+    ALTER TABLE review_tokens ADD COLUMN IF NOT EXISTS token_hash text;
+    UPDATE review_tokens SET token_hash = encode(sha256(convert_to(token, 'UTF8')), 'hex') WHERE token_hash IS NULL;
+    ALTER TABLE review_tokens DROP CONSTRAINT review_tokens_pkey;
+    ALTER TABLE review_tokens ALTER COLUMN token_hash SET NOT NULL;
+    ALTER TABLE review_tokens ADD PRIMARY KEY (token_hash);
+    ALTER TABLE review_tokens DROP COLUMN token;
+  END IF;
+END $$;
+
 -- Directory (ADR-008, AP-SEP-12): console logins, on_behalf_of ids and agent ids (mapped to their operator) in
 -- one namespace. Two logins of one human share a person_id. Separation of duties compares person_id, never logins.
 -- roles: 'reviewer' may mint review tokens; 'admin' may not; 'team' marks an id that is not a single person.
@@ -63,6 +78,8 @@ CREATE TABLE IF NOT EXISTS people (
     person_id text   NOT NULL,
     roles     text[] NOT NULL
 );
+-- ADR-027: a disabled identity can neither review nor be reviewed for (fail closed in _separation) and cannot log in.
+ALTER TABLE people ADD COLUMN IF NOT EXISTS disabled boolean NOT NULL DEFAULT false;
 
 -- A record whose last commit reached the tool but rolled back (unknown outcome). prepare and commit refuse the
 -- record (AP-REP-05 / G2) until a reviewer reconciles it (Gate.release_quarantine). ADR-014.
@@ -151,6 +168,24 @@ CREATE TABLE IF NOT EXISTS api_clients (
     created_at   bigint NOT NULL CHECK (created_at >= 0)
 );
 
+-- ADR-026 credential lifecycle: id, label, issuer, registry-tool scopes, expiry, revocation, last use.
+ALTER TABLE api_clients ADD COLUMN IF NOT EXISTS cred_id text;
+ALTER TABLE api_clients ADD COLUMN IF NOT EXISTS label text;
+ALTER TABLE api_clients ADD COLUMN IF NOT EXISTS issuer text;
+ALTER TABLE api_clients ADD COLUMN IF NOT EXISTS scopes text[];
+ALTER TABLE api_clients ADD COLUMN IF NOT EXISTS expires_at bigint;
+ALTER TABLE api_clients ADD COLUMN IF NOT EXISTS revoked_at bigint;
+ALTER TABLE api_clients ADD COLUMN IF NOT EXISTS last_used_at bigint;
+-- Legacy rows (pre-ADR-026) keep exactly what they could do (both registry tools) but now EXPIRE 30 days after this
+-- migration; they are never permanently valid. Re-issue with `python -m actionproof.credentials`.
+UPDATE api_clients SET cred_id = 'legacy-' || substr(token_hash, 1, 12), label = 'legacy (pre-ADR-026)',
+    issuer = 'migration', scopes = ARRAY['payments.approve_invoice', 'payments.refund_payment'],
+    expires_at = extract(epoch FROM now())::bigint + 2592000 WHERE cred_id IS NULL;
+ALTER TABLE api_clients ALTER COLUMN cred_id SET NOT NULL;
+ALTER TABLE api_clients ALTER COLUMN scopes SET NOT NULL;
+ALTER TABLE api_clients ALTER COLUMN expires_at SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS api_clients_cred_id ON api_clients (cred_id);
+
 -- Audit chain (deck slide 3 step 5, S9.3; src/actionproof/audit.py). entry_hash = sha256(RFC 8785 of every other
 -- column, prev_hash included). seq is assigned by audit.append under the audit lock (max + 1), not by a sequence:
 -- a sequence is not transactional, so a rolled-back commit entry would leave a gap.
@@ -191,4 +226,38 @@ CREATE OR REPLACE TRIGGER audit_log_no_truncate BEFORE TRUNCATE ON audit_log
 CREATE OR REPLACE TRIGGER audit_checkpoints_append_only BEFORE UPDATE OR DELETE ON audit_checkpoints
     FOR EACH ROW EXECUTE FUNCTION audit_append_only();
 CREATE OR REPLACE TRIGGER audit_checkpoints_no_truncate BEFORE TRUNCATE ON audit_checkpoints
+    FOR EACH STATEMENT EXECUTE FUNCTION audit_append_only();
+
+-- ADR-029 execution journal (src/actionproof/journal.py): append-only, its OWN hash chain (entry_hash = sha256(RFC 8785
+-- of every other column)), seq assigned under a journal-only advisory lock, written on its own connections (never
+-- under the audit lock). Additive: tool_reached and the reservations view keep their meaning; an execution is
+-- journaled from RESERVATION_CREATED on, and markers written before this table existed get no events (no backfill).
+CREATE TABLE IF NOT EXISTS execution_journal (
+    seq             bigint PRIMARY KEY CHECK (seq >= 1),
+    ts              bigint NOT NULL CHECK (ts >= 0),
+    execution_id    text   NOT NULL,                           -- "ex-" + sha256(nonce)[:32], one per receipt
+    event           text   NOT NULL CHECK (event IN ('RESERVATION_CREATED', 'DISPATCH_STARTED', 'EXECUTION_CONFIRMED',
+                                                     'EXECUTION_FAILED', 'EXECUTION_UNKNOWN', 'RECONCILIATION_STARTED',
+                                                     'RECONCILIATION_COMPLETED')),
+    nonce           text   NOT NULL,
+    request_hash    text   NOT NULL,
+    idempotency_key text   NOT NULL,
+    record_id       text   NOT NULL,
+    actor           text   NOT NULL,
+    on_behalf_of    text   NOT NULL,
+    vendor_id       text   NOT NULL,                           -- counterparty (ADR-015)
+    amount          numeric(18,2) NOT NULL CHECK (amount >= 0),
+    detail          jsonb  NOT NULL,
+    prev_hash       text   NOT NULL,
+    entry_hash      text   UNIQUE NOT NULL
+);
+-- One reservation and one dispatch per execution, and at most ONE outcome (confirmed, failed or unknown).
+CREATE UNIQUE INDEX IF NOT EXISTS execution_journal_once ON execution_journal (execution_id, event)
+    WHERE event IN ('RESERVATION_CREATED', 'DISPATCH_STARTED');
+CREATE UNIQUE INDEX IF NOT EXISTS execution_journal_outcome ON execution_journal (execution_id)
+    WHERE event IN ('EXECUTION_CONFIRMED', 'EXECUTION_FAILED', 'EXECUTION_UNKNOWN');
+CREATE INDEX IF NOT EXISTS execution_journal_nonce ON execution_journal (nonce);
+CREATE OR REPLACE TRIGGER execution_journal_append_only BEFORE UPDATE OR DELETE ON execution_journal
+    FOR EACH ROW EXECUTE FUNCTION audit_append_only();
+CREATE OR REPLACE TRIGGER execution_journal_no_truncate BEFORE TRUNCATE ON execution_journal
     FOR EACH STATEMENT EXECUTE FUNCTION audit_append_only();

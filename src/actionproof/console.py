@@ -40,7 +40,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from actionproof import audit, review
+from actionproof import audit, directory, review
 from actionproof.config import ConfigError
 from actionproof.contracts import IDENT
 from actionproof.gate import TARGETS
@@ -234,6 +234,18 @@ class DecisionOut(BaseModel):
     outcome: Literal["EXECUTED", "DENY", "REJECTED"]
     status: str
     reasons: list[ReasonOut]
+
+
+class PersonBody(BaseModel):
+    """Directory row (ADR-027). The admin is the session login; extras are refused."""
+    model_config = ConfigDict(extra="forbid")
+    person_id: str = Field(pattern=IDENT, max_length=64)
+    roles: list[Literal["reviewer", "admin", "team", "submitter", "agent"]] = Field(max_length=5)
+    disabled: bool = False
+
+
+class PersonOut(PersonBody):
+    login: str
 
 
 class QueueItem(BaseModel):
@@ -460,7 +472,7 @@ def create_app(gate, docs, conn_factory, settings: ConsoleSettings) -> FastAPI:
         with conn_factory() as conn:
             row = conn.execute(
                 "SELECT s.login, s.csrf_token, p.roles FROM console_sessions s JOIN console_users u USING (login) "
-                "JOIN people p USING (login) WHERE s.sid_hash = %s AND s.expires_at > %s AND NOT u.disabled",
+                "JOIN people p USING (login) WHERE s.sid_hash = %s AND s.expires_at > %s AND NOT u.disabled AND NOT p.disabled",
                 (h, now)).fetchone()
             if row is None:
                 raise ApiError(401, "unauthenticated", "a valid session is required")
@@ -500,7 +512,7 @@ def create_app(gate, docs, conn_factory, settings: ConsoleSettings) -> FastAPI:
         if lockout.locked(key):
             raise ApiError(429, "rate_limited", "too many failed attempts; try again later")
         with conn_factory() as conn:
-            row = conn.execute("SELECT u.password_hash, u.disabled, p.roles FROM console_users u "
+            row = conn.execute("SELECT u.password_hash, u.disabled OR p.disabled, p.roles FROM console_users u "
                                "JOIN people p USING (login) WHERE u.login = %s", (body.login,)).fetchone()
             ok = _verify_password(row[0] if row else None, body.password) and not row[1]
             if not ok:
@@ -622,6 +634,31 @@ def create_app(gate, docs, conn_factory, settings: ConsoleSettings) -> FastAPI:
         outcome = "DENY" if replayed else {"executed": "EXECUTED", "rejected": "REJECTED"}.get(o.status, "DENY")
         return DecisionOut(outcome=outcome, status=o.status,
                            reasons=[ReasonOut(rule=r.rule, guarantee=r.guarantee, msg=r.msg) for r in o.reasons])
+
+    # ---- directory (admin only; ADR-027)
+
+    def admin(s: Annotated[Session, Depends(csrf)]) -> Session:
+        if "admin" not in s.roles:
+            raise ApiError(403, "forbidden", "the admin role is required")
+        return s
+
+    @router.get("/api/admin/people", response_model=list[PersonOut], tags=["admin"])
+    def admin_people(s: Annotated[Session, Depends(session)]):
+        if "admin" not in s.roles:
+            raise ApiError(403, "forbidden", "the admin role is required")
+        with conn_factory() as conn:
+            return [PersonOut(login=p["login"], person_id=p["person_id"], roles=p["roles"], disabled=p["disabled"])
+                    for p in directory.list_people(conn)]
+
+    @router.put("/api/admin/people/{login}", response_model=Ok, tags=["admin"])
+    def admin_put_person(s: Annotated[Session, Depends(admin)], login: Annotated[str, PathParam(pattern=IDENT)],
+                         body: PersonBody):
+        try:
+            with conn_factory() as conn:
+                directory.change(conn, s.login, login, body.person_id, body.roles, body.disabled)
+        except directory.DirectoryRefused as e:
+            raise ApiError(403, "forbidden", str(e)) from None
+        return Ok(ok=True)
 
     # ---- audit
 

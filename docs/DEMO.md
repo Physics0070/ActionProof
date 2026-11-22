@@ -16,6 +16,8 @@ DEMO_ASCII=1 bash demo.sh    # no colour / plain ASCII
 
 Every beat prints the gate's real card and reason lines (rule id plus guarantee). Each is asserted; a mismatch prints `FAIL` and exits 1.
 
+**Live model (optional, not part of `demo.sh`).** To drive a real LLM through the same MCP boundary with a scoped credential, see `docs/LIVE_AGENT.md` (`examples/live_agent/agent.py`). It is UNTESTED LIVE in this repo; only its offline scripted stand-in run is tested.
+
 ## Beat sheet (target 3:00)
 
 On-screen caption on every approval: **requested by agent-7 for user-123 · approved by a different person**.
