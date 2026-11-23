@@ -4,12 +4,34 @@
 
 # ActionProof
 
+[![CI](https://github.com/Physics0070/ActionProof/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Physics0070/ActionProof/actions/workflows/ci.yml)
+
 ### Before an AI agent acts, prove it should.
 
 > **ActionProof is a safety gate that makes an AI agent prove every value behind a write before the write can run, and never lets one approval run twice.**
 > It helps developers shipping agents, finance and operations teams who approve what agents do, and security teams who need a tamper-evident record.
 
+**The attack it stops, in one sentence:** an agent reads an invoice with a hidden instruction to approve a wrong amount, and ActionProof blocks the write because that number cannot be traced back to the real document.
+
 CodeQuest 2026 submission by team **Bench Warmers**. This is a prototype on mock services: no real credentials, no real payments.
+
+## What is verified, and what is not
+
+Everything below is from real runs (CI on GitHub runners unless noted). Last full CI run: all nine jobs green.
+
+| Area | Status | Evidence |
+|---|---|---|
+| G1 / G2 guarantees and red team | Verified | `USP: proof before permission` job (`tests/usp`, `tests/redteam`) |
+| Full backend suite | Verified | `pytest` job; 882 passed in a full local run |
+| Policy (OPA) | Verified | `opa-test` job, 46/46 |
+| Commit protocol model (TLA+) | Verified, bounded | `TLA+ model check (TLC)` job: 108,483 states, no error (3 receipts, 2 keys, 1 token) |
+| Docker stack and reviewer console in a real browser | Verified | `e2e` job: 8 Playwright specs (login, replay, CSRF, approve, reject) |
+| Stress | Verified (local) | `tests/stress`, 10,000 operations plus racing threads; every invariant held |
+| Landing page budget | Passes a loosened budget | `lighthouse` job; LCP budget is 3.2 s, not Google's 2.5 s ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
+| Live LLM through the gate | **Not verified** | needs a provider key; the offline test uses a scripted stand-in ([docs/LIVE_AGENT.md](docs/LIVE_AGENT.md)) |
+| Remote audit anchor | **Not verified** | tested only against a local stub; no tamper-proof (WORM) claim |
+| Independent attack evaluation | **Not independent** | the attack sets are written by the builders |
+| Real ERP / payment provider | **None** | mocks only |
 
 ## Problem and inspiration
 
@@ -46,6 +68,7 @@ ActionProof closes them with two guarantees, each backed by named tests:
 - **Tamper-evident audit.** A hash-chained log with signed checkpoints and a verifier CLI that needs only the database and a public key. An optional local anchor (`audit anchor`, `audit verify --anchor --strict`) catches a tail deleted together with its checkpoints; a same-machine file is not WORM storage, copy it off-box.
 - **Crash-safe single use.** Before the downstream call the gate durably records the full reservation (amount, idempotency key, counterparty). If the process dies after the call, a retry, a new receipt with the same key and the cumulative caps all still see it, until a human reconciles it. Not an outbox and not exactly-once: that needs provider idempotency.
 - **Key rotation.** Receipts are verified by their own `kid` (active, retired, revoked); duplicate public keys across kids are refused at load.
+- **Hardened trust boundaries (v2).** Review tokens are stored only as SHA-256 digests; agent credentials have scopes, expiry, revocation and rotation; directory changes are admin-only and audited; every decision is bound to the policy revision OPA actually had loaded (a policy change invalidates old receipts and pending reviews); an append-only execution journal records what really happened downstream (unknown outcomes stay unknown until evidence or a human resolves them); an optional remote anchor publisher copies signed checkpoints off-host (stub-tested only).
 - **Drop-in.** An MCP proxy in front of any tool server, a LangChain adapter, and a second connector (refunds) through the same gate.
 - **Measured, not claimed.** An evaluation harness compares ActionProof against four baselines on 211 attacks and 120 benign cases.
 
@@ -197,14 +220,17 @@ Proposed targets (not results): at most 0 held-out successes, false-block rate a
 - Real connectors (an ERP, a payment provider) in place of the mocks.
 - Per-actor commit locks and a real outbox with automatic reconciliation (today an unknown outcome waits for a human), so throughput isn't limited by one commit lane.
 - A remote or WORM anchor for the audit chain (the local file anchor exists, but it shares the host's trust domain).
-- Run the Docker stack, the Playwright end-to-end specs and Lighthouse on a real machine.
+- Verify the remote anchor against a real append-only provider, and run the live-LLM agent example with a real key.
+- Reach Google's 2.5 s LCP by splitting the home page into server components (hydration is the remaining cost).
 
 ## Honest disclosures
 
-- The independent attack generator was blocked, so the second attack set is **handwritten by the same team and is NOT independent**. The "held-out" label means held-out-ish, not independent. Targets in the deck (0 successful attacks on the held-out set, at most 5% false blocks, p95 under 250 ms added) are proposed targets, not results.
-- The Docker compose stack has never been run on the build machine (no Docker engine). The local no-Docker path is the one exercised.
-- The Playwright end-to-end specs and the Lighthouse budgets are written but were never run.
+- The independent attack generator was blocked, so the second attack set is **handwritten by the same team and is NOT independent**. The "held-out" label means held-out-ish, not independent.
+- The live-LLM example has only run with a scripted stand-in; no real provider has been through the gate.
+- The remote anchor adapter is tested only against a local stub; the local anchor shares the host's trust domain.
+- The TLA+ result is for a small bounded instance; it checks the design, not the Python code.
 - Mocks only: no real ERP, no real payment provider.
+- The Lighthouse LCP budget was set to 3.2 s to match what was measured (hydration cost); it is not at the 2.5 s "good" line.
 
 ## Limits (deck slide 10)
 
