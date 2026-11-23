@@ -44,4 +44,6 @@ export async function uiLogin(page: Page, login = creds().login, password = cred
   await page.getByLabel(/login|username/i).fill(login);
   await page.getByLabel(/password/i).fill(password);
   await page.getByRole("button", { name: /sign in|log in|login/i }).click();
+  // Wait for the login to finish (session cookie set) before the caller navigates away: a bare click raced the next goto.
+  await page.waitForURL(/\/console(\/?$|\/requests)/);
 }
