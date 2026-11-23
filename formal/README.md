@@ -10,9 +10,11 @@ TLA+ is a design-time tool only: nothing here is a runtime dependency.
 java -cp tla2tools.jar tlc2.TLC -config formal/ActionProof.cfg formal/ActionProof.tla
 ```
 (`tla2tools.jar` from https://github.com/tlaplus/tlaplus/releases, or the TLA+ Toolbox / VS Code extension.)
-**Status: written, NOT model-checked.** Java and TLC are not installed on the machine that produced this branch, so no
-TLC run (and no counterexample search) has happened. Do not cite the model as verified until a run is recorded here.
-Expected shape: three nonces, two request keys, one token; a few thousand to tens of thousands of states.
+**Status: model-checked in CI (bounded).** The `TLA+ model check (TLC)` job in `.github/workflows/ci.yml` runs exactly the
+command above (tla2tools v1.8.0, Temurin 21) on the committed `ActionProof.tla` + `ActionProof.cfg`. Result: "Model checking
+completed. No error has been found." 108,483 states generated, 72,926 distinct, 0 left on the queue. The files were last
+changed in commit f164dc4, which is the commit that run checked; any later edit to `formal/` must re-run that job and update
+this paragraph. Scope: three nonces, two request keys, one token. It checks the design, not the Python code (see Assumptions).
 
 ## What is modelled
 Prepare (a receipt exists), Reserve (atomic under the commit lane lock: key uniqueness, cap including every unresolved

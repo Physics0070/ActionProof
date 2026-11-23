@@ -56,7 +56,7 @@ Sources: `README.md` (invariants), `DECK_TRACE.md`, `spec/attack-classes.md`.
 Notes:
 - Attack rows follow `spec/attack-classes.md`. Expected result for each attack case: the tool executes 0 times.
 - `tests/attacks/` (9 test files) and `tests/usp/` (12 files) exist. Any row still `todo` names a file that was never created (S5.5-S5.9 file names); DECK_TRACE.md names the real proving tests.
-- NOT run: Playwright specs (`web/e2e/*.spec.ts`), Lighthouse budgets, real-device mobile LCP, fresh-clone `docker compose up`, a CI run.
+- Run in CI on GitHub runners (all nine jobs green on 0ee169e): Playwright specs (`web/e2e/*.spec.ts`, 8 specs), Lighthouse budgets (`web/lighthouserc.json`; see docs/PERFORMANCE.md for the loosened LCP/score budget), the Docker compose stack (`e2e` and `lighthouse` jobs), and the TLC model check. NOT run: real-device mobile LCP, a live LLM through the gate, a real remote anchor provider.
 
 ## How to run
 
