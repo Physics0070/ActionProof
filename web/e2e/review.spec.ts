@@ -14,8 +14,8 @@ test("reject from the UI: the request is rejected and nothing executes", async (
   expect(results.violations).toEqual([]);
   await page.getByLabel(/reason/i).fill("e2e: vendor bank details unverified");
   await page.getByRole("button", { name: /reject/i }).click();
-  const confirm = page.getByRole("button", { name: /confirm/i });
-  if (await confirm.count()) await confirm.first().click();
+  // The confirmation dialog renders after the click: wait for it (a one-shot count() raced the render).
+  await page.getByRole("button", { name: /confirm/i }).first().click();
   await expect.poll(async () => { await apiLogin(request); return status(request, hash); }).toBe("rejected");
 });
 
@@ -25,7 +25,7 @@ test("approve from the UI: executed exactly once", async ({ page, request }) => 
   await page.goto(`/console/requests/${hash}`);
   await page.getByLabel(/reason/i).fill("e2e: PO amendment on file");
   await page.getByRole("button", { name: /approve/i }).click();
-  const confirm = page.getByRole("button", { name: /confirm/i });
-  if (await confirm.count()) await confirm.first().click();
+  // The confirmation dialog renders after the click: wait for it (a one-shot count() raced the render).
+  await page.getByRole("button", { name: /confirm/i }).first().click();
   await expect.poll(async () => { await apiLogin(request); return status(request, hash); }).toBe("executed");
 });
