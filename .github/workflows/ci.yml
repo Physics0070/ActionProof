@@ -144,7 +144,7 @@ jobs:
   # Both browser jobs run against the real compose stack (docker/ci-stack.sh): throwaway key + password, demo seed.
   e2e:
     needs: [usp, lint, typecheck, pytest, opa-test, web-build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04  # Playwright does not support the newer ubuntu-latest image yet
     timeout-minutes: 30
     env:
       E2E_BASE_URL: http://localhost:5173
@@ -187,7 +187,7 @@ jobs:
 
   lighthouse:
     needs: [usp, lint, typecheck, pytest, opa-test, web-build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
