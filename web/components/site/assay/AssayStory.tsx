@@ -169,9 +169,11 @@ export function AssayStory() {
   }, [live]);
 
   useEffect(() => {
-    if (!live || !rootRef.current) return;
+    if (!live || !mount || !rootRef.current) return;
     let stop: (() => void) | undefined;
     let cancelled = false;
+    // The smooth-scroll/ScrollTrigger driver (and the 3D scene) start on the first sign of engagement, or after 8 s:
+    // their start-up is the heaviest main-thread work on the page and is not needed for first paint.
     void startDriver(rootRef.current).then((fn) => {
       if (cancelled) fn();
       else stop = fn;
@@ -180,7 +182,7 @@ export function AssayStory() {
       cancelled = true;
       stop?.();
     };
-  }, [live]);
+  }, [live, mount]);
 
   // Render the scene only while the hero or the track is on screen (the ticker bridge reads this ref every frame).
   useEffect(() => {
