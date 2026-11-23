@@ -13,4 +13,11 @@ if [ -n "${GITHUB_ENV:-}" ]; then
   { echo "E2E_REVIEWER_LOGIN=rev-alice"; echo "E2E_REVIEWER_PASSWORD=$pw"; } >> "$GITHUB_ENV"
 fi
 export DEMO_SEED=1 CONSOLE_PASSWORD_REV_ALICE="$pw"
-docker compose -f docker-compose.yml up -d --build --wait api web
+if ! docker compose -f docker-compose.yml up -d --build --wait api web; then
+  echo "::group::compose diagnostics (stack failed to become healthy)"
+  docker compose -f docker-compose.yml ps -a || true
+  docker compose -f docker-compose.yml logs --no-color --tail=80 opa init api || true
+  docker inspect --format '{{json .State.Health}}' "$(docker compose -f docker-compose.yml ps -q opa)" || true
+  echo "::endgroup::"
+  exit 1
+fi
