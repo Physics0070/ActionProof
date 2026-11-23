@@ -22,7 +22,11 @@ Everything below is from real runs (CI on GitHub runners unless noted). Last ful
 | Area | Status | Evidence |
 |---|---|---|
 | G1 / G2 guarantees and red team | Verified | `USP: proof before permission` job (`tests/usp`, `tests/redteam`) |
-| Full backend suite | Verified | `pytest` job; 882 passed in a full local run |
+| Full backend suite | Verified | `pytest` job; 973 passed in a full local run (2026-11-23) |
+| Signed policy authority (ADR-033) | Verified, off by default | `tests/usp/test_policy_authority.py`; enabled only when `POLICY_AUTHORITY_KEYS` is set |
+| Signed journal checkpoints + anchor stream (ADR-034) | Verified | `tests/usp/test_journal_checkpoints.py`; checkpoints are written by `reconcile journal checkpoint` (schedule it) |
+| Adapter evidence + outbox reconciliation (ADR-035) | Verified on the mock payments adapter | `tests/usp/test_adapter_evidence.py`, `tests/usp/test_outbox.py`; the refunds and proxy adapters have no signed lookup yet |
+| Commit-lane throughput (ADR-036) | Measured, locking unchanged | [docs/PERFORMANCE.md](docs/PERFORMANCE.md#commit-lane): about 13 commits/s on one laptop; the audit lock, not the commit lane, is the limit |
 | Policy (OPA) | Verified | `opa-test` job, 46/46 |
 | Commit protocol model (TLA+) | Verified, bounded | `TLA+ model check (TLC)` job: 108,483 states, no error (3 receipts, 2 keys, 1 token) |
 | Docker stack and reviewer console in a real browser | Verified | `e2e` job: 8 Playwright specs (login, replay, CSRF, approve, reject) |
@@ -55,6 +59,17 @@ ActionProof closes them with two guarantees, each backed by named tests:
 | **Demo script and judge Q&A** | [docs/DEMO.md](docs/DEMO.md) |
 | **Evaluation report** | [docs/EVAL.md](docs/EVAL.md) |
 
+### Screenshots
+
+| | |
+|---|---|
+| ![Landing page: the agent's request with each value's claim type and the REVIEW decision](docs/screenshots/landing.png) | ![Reviewer console: INV-2048 paused because the invoice is $500 above the purchase order, with the cited box highlighted on the PDF](docs/screenshots/console-review.png) |
+| **Landing.** A real recorded decision, fetched from the backend: each value the agent relied on, its claim type, and the result. | **Reviewer console.** Why it paused, every cited value re-verified, and the source span highlighted on the PDF page. |
+| ![Audit log: hash-chained entries with a Verify chain button](docs/screenshots/console-audit.png) | ![Evaluation: 0 of 211 attacks executed against ActionProof, versus four baselines](docs/screenshots/evaluation.png) |
+| **Audit log.** Every decision is hash-chained; Verify chain re-computes the chain and its signed checkpoints on the server. | **Evaluation.** 0 of 211 attacks executed, against four baselines (numbers rendered from `eval/results.json`). |
+
+<p align="center"><img src="docs/screenshots/landing-mobile.png" alt="Landing page on a phone" width="260"></p>
+
 `demo.sh` plays every beat against the real gate and exits 0 only if each produced its expected outcome: the honest invoice pauses for review and a different person approves it; an injected PDF is denied; a replayed approval is denied; two concurrent $4,900 approvals under a $5,000 cap let exactly one through; a second connector (refunds) hits the same gate; and the audit chain verifies.
 
 ## Core features
@@ -66,7 +81,8 @@ ActionProof closes them with two guarantees, each backed by named tests:
 - **Signed, single-use receipts.** The commit re-checks state in one serializable transaction, with cumulative caps per actor and per person, then calls the tool at most once.
 - **Review console.** A human sees the source span highlighted on the PDF page and approves or rejects with a typed reason. The reviewer must be a different person than the requester.
 - **Tamper-evident audit.** A hash-chained log with signed checkpoints and a verifier CLI that needs only the database and a public key. An optional local anchor (`audit anchor`, `audit verify --anchor --strict`) catches a tail deleted together with its checkpoints; a same-machine file is not WORM storage, copy it off-box.
-- **Crash-safe single use.** Before the downstream call the gate durably records the full reservation (amount, idempotency key, counterparty). If the process dies after the call, a retry, a new receipt with the same key and the cumulative caps all still see it, until a human reconciles it. Not an outbox and not exactly-once: that needs provider idempotency.
+- **Crash-safe single use.** Before the downstream call the gate durably records the full reservation (amount, idempotency key, counterparty). If the process dies after the call, a retry, a new receipt with the same key and the cumulative caps all still see it until it is reconciled. An outbox worker resolves an unknown outcome automatically, but only from a signed provider lookup, and it never sends the call again. Not exactly-once: that needs provider idempotency.
+- **Signed evidence, end to end.** The active policy can be required to carry a signature from a separate policy-authority key (ADR-033); a provider's "it failed" only counts with a signed statement (ADR-035); the execution journal has signed checkpoints copied to the anchor as its own stream (ADR-034).
 - **Key rotation.** Receipts are verified by their own `kid` (active, retired, revoked); duplicate public keys across kids are refused at load.
 - **Hardened trust boundaries (v2).** Review tokens are stored only as SHA-256 digests; agent credentials have scopes, expiry, revocation and rotation; directory changes are admin-only and audited; every decision is bound to the policy revision OPA actually had loaded (a policy change invalidates old receipts and pending reviews); an append-only execution journal records what really happened downstream (unknown outcomes stay unknown until evidence or a human resolves them); an optional remote anchor publisher copies signed checkpoints off-host (stub-tested only).
 - **Drop-in.** An MCP proxy in front of any tool server, a LangChain adapter, and a second connector (refunds) through the same gate.
@@ -218,7 +234,8 @@ Proposed targets (not results): at most 0 held-out successes, false-block rate a
 
 - An independent attack generator (ours was blocked, see below), so the held-out result can be independent.
 - Real connectors (an ERP, a payment provider) in place of the mocks.
-- Per-actor commit locks and a real outbox with automatic reconciliation (today an unknown outcome waits for a human), so throughput isn't limited by one commit lane.
+- Audit sequencing (a sequence-allocated audit seq with one chain-linking writer): measured in ADR-036 as the real throughput limit; per-actor locks alone would not help.
+- Signed lookups for the refunds and proxy adapters, and the gate writing journal checkpoints itself.
 - A remote or WORM anchor for the audit chain (the local file anchor exists, but it shares the host's trust domain).
 - Verify the remote anchor against a real append-only provider, and run the live-LLM agent example with a real key.
 - Reach Google's 2.5 s LCP by splitting the home page into server components (hydration is the remaining cost).
