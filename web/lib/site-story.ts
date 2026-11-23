@@ -55,6 +55,22 @@ export const useStory = create<Story>()((set, get) => ({
   },
 }));
 
+/** Seeds the recorded decision that the SERVER fetched while rendering, so the first paint (and hydration) already has the
+ *  real numbers and nothing changes shape when data "arrives". Null (the API was slow or down) leaves the same-shape
+ *  placeholders, and the client then fetches as before. Always resets, so one request's state never leaks into the next. */
+export function seedReplay(data: Replay | null): void {
+  const next: Pick<Story, "replay" | "verified"> = data
+    ? (() => {
+        const d = derivations(data.claims);
+        return { replay: { kind: "ok", data }, verified: d.length > 0 && d.every((x) => x.matches === true) };
+      })()
+    : { replay: { kind: "idle" }, verified: false };
+  useStory.setState(next);
+  // zustand renders the server HTML and the first hydration pass from the INITIAL state (getServerSnapshot), not from
+  // setState, so the seed must land there too or the server would still print the placeholders.
+  Object.assign(useStory.getInitialState(), next);
+}
+
 export function detectCaps(): Caps {
   let webgl = false;
   try {

@@ -2,15 +2,15 @@
    Palette by role: obsidian ground, bone ink, cold-steel muted, graphite line; vermilion = refused, amber = needs a
    person, pale mint = allowed. Colour is never the only signal (shape + word travel with it). */
 .assay {
-  --as-ground: #07090a;
-  --as-bone: #ece9e1;
-  --as-steel: #8d9da6;
-  --as-line: #2a3236;
-  --as-deny: #ff4a24;
-  --as-review: #ffb020;
-  --as-allow: #b8ffe0;
+  --as-ground: #0a0908;
+  --as-bone: #efe8da;
+  --as-steel: #a39a8c;
+  --as-line: #2e2721;
+  --as-deny: #ee5a3c;
+  --as-review: #f2b544;
+  --as-allow: #4fd1b0;
   --c-ground: var(--as-ground);
-  --c-paper: #0e1316;
+  --c-paper: #14110f;
   --c-ink: var(--as-bone);
   --c-muted: var(--as-steel);
   --c-line: var(--as-line);
@@ -23,7 +23,8 @@
   --as-display: var(--font-anybody), "Arial Narrow", Impact, sans-serif;
   --as-body: var(--font-hanken), system-ui, sans-serif;
   --as-pad: clamp(20px, 5vw, 72px);
-  background: var(--as-ground);
+  /* a faint warm glow at the top gives the ground depth without a second layer or any motion */
+  background: radial-gradient(120% 55% at 18% 0%, rgba(242, 181, 68, 0.07), transparent 62%), var(--as-ground);
   color: var(--as-bone);
   font-family: var(--as-body);
   position: relative;
@@ -48,6 +49,8 @@
 }
 .as-hero-inner {
   max-width: 44rem;
+  /* the scene can pass behind the copy: a soft ground-coloured halo keeps it legible */
+  text-shadow: 0 0 22px color-mix(in srgb, var(--as-ground) 90%, transparent), 0 0 4px color-mix(in srgb, var(--as-ground) 70%, transparent);
 }
 .as-kicker {
   font-family: var(--font-mono);
@@ -73,8 +76,17 @@
   line-height: 1.55;
   color: color-mix(in srgb, var(--as-bone) 78%, transparent);
 }
+.gate-ghost {
+  display: block;
+  width: 7.5rem;
+  height: 29px; /* the height of the real verdict badge */
+  background: color-mix(in srgb, var(--as-steel) 16%, transparent);
+}
+.gate-skel > span {
+  color: color-mix(in srgb, var(--as-steel) 45%, transparent);
+}
 .gate-card {
-  background: color-mix(in srgb, var(--as-ground) 82%, #1a2226);
+  background: color-mix(in srgb, var(--as-ground) 82%, #241d17);
   border: 1px solid var(--as-line);
   border-top: 2px solid var(--as-review);
   padding: clamp(16px, 2.2vw, 28px);
@@ -346,15 +358,17 @@
   color: color-mix(in srgb, var(--as-bone) 78%, transparent);
 }
 
-/* ------------------------------------------------------------ live: the scene is behind, copy scrolls over it */
-.assay-story[data-live="true"] .canvas-wrap {
+/* ------------------------------------------------------------ one layout for everyone
+   Tall sections; the scene (when there is one) sits fixed behind and fades in. The layout never depends on a flag that
+   is only known after hydration, so nothing here can flip or jump once the page has painted. */
+.assay-story .canvas-wrap {
   z-index: 0;
 }
 @media (max-width: 899px) {
-  .assay-story[data-live="true"] .beat {
+  .assay-story .beat {
     align-items: flex-end;
   }
-  .assay-story[data-live="true"] .beat-copy {
+  .assay-story .beat-copy {
     padding: 56px 18px 18px;
     margin-inline: calc(var(--as-pad) * -1 + 0px);
     width: calc(100% + var(--as-pad) * 2);
@@ -368,7 +382,7 @@
   }
 }
 @media (min-width: 900px) {
-  .assay-story[data-live="true"] .beat-copy {
+  .assay-story .beat-copy {
     padding: 28px 28px 28px 0;
     background: linear-gradient(to right, color-mix(in srgb, var(--as-ground) 78%, transparent), transparent);
   }
@@ -376,7 +390,7 @@
 
 /* scroll-driven entrance where supported (progressive enhancement; the copy is fully visible without it) */
 @supports (animation-timeline: view()) {
-  .assay-story[data-live="true"] .beat-copy > * {
+  .assay-story .beat-copy > * {
     animation: as-rise linear both;
     animation-timeline: view();
     animation-range: entry 4% entry 48%;
@@ -393,30 +407,40 @@
   }
 }
 
-/* ------------------------------------------------------------ no scene (reduced motion, no WebGL, failure) */
-.assay-story[data-live="false"] .beat {
-  min-height: 0;
-  padding-block: clamp(56px, 9vh, 96px);
-  border-top: 1px solid var(--as-line);
-}
-/* the hero keeps the same box in every mode: the live/static decision is made after hydration and must not move it */
-/* the static drawing is only for the no-scene version */
+/* the static drawing exists only in the reduced-motion layout */
 .beat-glyph {
   display: none;
 }
-.assay-story[data-live="false"] .beat {
-  display: grid;
-  grid-template-columns: minmax(0, 35rem) minmax(0, 1fr);
-  gap: clamp(24px, 5vw, 80px);
-  align-items: center;
+
+/* ------------------------------------------------------------ reduced motion: the compact layout
+   Chosen by CSS (known before the first paint), so a visitor who asked for less motion never sees the page change. */
+@media (prefers-reduced-motion: reduce) {
+  .assay-story .beat {
+    min-height: 0;
+    padding-block: clamp(56px, 9vh, 96px);
+    border-top: 1px solid var(--as-line);
+    display: grid;
+    grid-template-columns: minmax(0, 35rem) minmax(0, 1fr);
+    gap: clamp(24px, 5vw, 80px);
+    align-items: center;
+  }
+  .assay-story .beat-copy {
+    padding: 0;
+    margin-inline: 0;
+    width: auto;
+    background: none;
+  }
+  .assay-story .beat-copy > * {
+    animation: none;
+  }
+  .assay-story .beat-glyph {
+    display: block;
+    width: min(100%, 30rem);
+    justify-self: center;
+  }
 }
-.assay-story[data-live="false"] .beat-glyph {
-  display: block;
-  width: min(100%, 30rem);
-  justify-self: center;
-}
-@media (max-width: 899px) {
-  .assay-story[data-live="false"] .beat {
+@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
+  .assay-story .beat {
     grid-template-columns: minmax(0, 1fr);
   }
 }

@@ -11,11 +11,11 @@ const ratio = (a, b) => {
 };
 const T = {
   // light surfaces (console, evaluation details)
-  bone: "#ece9e1", paper: "#f7f5ef", ink: "#0b0e10", muted: "#4b5a62", line: "#cbc5b5",
+  bone: "#efe8da", paper: "#f8f3e9", ink: "#14110f", muted: "#5a5146", line: "#d3c9b6",
   allowInk: "#0a5c3f", reviewInk: "#7a4f00", denyInk: "#b3260a",
   // obsidian (the dark band)
-  obsidian: "#07090a", raised: "#0e1316", boneText: "#ece9e1", steel: "#8d9da6", graphite: "#2a3236",
-  allowLamp: "#b8ffe0", reviewLamp: "#ffb020", denyLamp: "#ff4a24",
+  obsidian: "#0a0908", raised: "#14110f", boneText: "#efe8da", steel: "#a39a8c", graphite: "#2e2721",
+  allowLamp: "#4fd1b0", reviewLamp: "#f2b544", denyLamp: "#ee5a3c",
 };
 // [label, fg, bg, min]: 4.5 body text, 3.0 large text or non-text marks (WCAG 1.4.11).
 const pairs = [

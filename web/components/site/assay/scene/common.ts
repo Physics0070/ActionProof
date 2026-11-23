@@ -44,14 +44,14 @@ function token(root: Element, name: string, fallback: string): THREE.Color {
 export function usePalette(): Pal {
   return useMemo(() => {
     const root = document.querySelector(".assay") ?? document.body;
-    const deny = token(root, "--as-deny", "#ff4a24");
-    const review = token(root, "--as-review", "#ffb020");
-    const allow = token(root, "--as-allow", "#b8ffe0");
+    const deny = token(root, "--as-deny", "#ee5a3c");
+    const review = token(root, "--as-review", "#f2b544");
+    const allow = token(root, "--as-allow", "#4fd1b0");
     return {
-      ground: token(root, "--as-ground", "#07090a"),
-      bone: token(root, "--as-bone", "#ece9e1"),
-      steel: token(root, "--as-steel", "#8d9da6"),
-      line: token(root, "--as-line", "#2a3236"),
+      ground: token(root, "--as-ground", "#0a0908"),
+      bone: token(root, "--as-bone", "#efe8da"),
+      steel: token(root, "--as-steel", "#a39a8c"),
+      line: token(root, "--as-line", "#2e2721"),
       white: new THREE.Color("#ffffff"),
       deny,
       review,

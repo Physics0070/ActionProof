@@ -4,28 +4,28 @@
 :root,
 .band-mist {
   /* Light surfaces (console, evaluation details): bone ground, graphite ink */
-  --c-ground: #ece9e1;
-  --c-paper: #f7f5ef;
-  --c-ink: #0b0e10;
-  --c-muted: #4b5a62;
-  --c-line: #cbc5b5;
-  --c-accent: #0b0e10;
-  --c-accent-ink: #ece9e1;
-  --c-focus: #0b0e10;
-  --c-mark: #0b0e10; /* the cited span on a source page */
+  --c-ground: #efe8da;
+  --c-paper: #f8f3e9;
+  --c-ink: #14110f;
+  --c-muted: #5a5146;
+  --c-line: #d3c9b6;
+  --c-accent: #14110f;
+  --c-accent-ink: #efe8da;
+  --c-focus: #14110f;
+  --c-mark: #14110f; /* the cited span on a source page */
 
   /* Obsidian (the dark band): applied by .band-carbon, which is most of the public site */
-  --carbon: #07090a;
-  --carbon-raised: #0e1316;
-  --carbon-text: #ece9e1;
-  --carbon-muted: #8d9da6;
-  --carbon-line: #2a3236;
+  --carbon: #0a0908;
+  --carbon-raised: #14110f;
+  --carbon-text: #efe8da;
+  --carbon-muted: #a39a8c;
+  --carbon-line: #2e2721;
 
   /* Signals. lamp = light on obsidian (3D, marks on dark); ink = words and marks on light.
      Never colour alone: <Signal> always pairs colour + shape + word. */
-  --sig-allow-lamp: #b8ffe0;
-  --sig-review-lamp: #ffb020;
-  --sig-deny-lamp: #ff4a24;
+  --sig-allow-lamp: #4fd1b0;
+  --sig-review-lamp: #f2b544;
+  --sig-deny-lamp: #ee5a3c;
   --sig-allow-ink: #0a5c3f;
   --sig-review-ink: #7a4f00;
   --sig-deny-ink: #b3260a;
