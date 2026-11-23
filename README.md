@@ -51,7 +51,7 @@ ActionProof closes them with two guarantees, each backed by named tests:
 | | |
 |---|---|
 | **Pitch video** (2:50) | _add the upload link here before submitting_ |
-| **Live deployment** | Not deployed. Deployment is on hold until the product is finalised; the hosting files were removed. The stack runs locally (see Quick start) and in CI. |
+| **Live demo** | https://actionproof-bw-web.onrender.com (Render free tier: the first load after idle takes 30-60 s while the services wake). Setup: [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) |
 | **Demo script and judge Q&A** | [docs/DEMO.md](docs/DEMO.md) |
 | **Evaluation report** | [docs/EVAL.md](docs/EVAL.md) |
 
