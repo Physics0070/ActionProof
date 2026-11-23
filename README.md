@@ -29,7 +29,7 @@ ActionProof closes them with two guarantees, each backed by named tests:
 | | |
 |---|---|
 | **Pitch video** (2:50) | _add the upload link here before submitting_ |
-| **Live deployment** | Not deployed right now. A free, always-on setup (Oracle Always Free VM, optional Vercel frontend) is prepared and untested: [docs/DEPLOY_ORACLE_VERCEL.md](docs/DEPLOY_ORACLE_VERCEL.md). Local alternative: `bash demo.sh` (see [Installation](#installation-guide)) |
+| **Live deployment** | Not deployed. Deployment is on hold until the product is finalised; the hosting files were removed. The stack runs locally (see Quick start) and in CI. |
 | **Demo script and judge Q&A** | [docs/DEMO.md](docs/DEMO.md) |
 | **Evaluation report** | [docs/EVAL.md](docs/EVAL.md) |
 

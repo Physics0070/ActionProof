@@ -49,7 +49,7 @@ git-ignored `.env` (without them that arm is recorded `not_run`). `python -m uv 
 `/api/public/eval` (compose mounts `./eval` read-only). In CI this is `.github/workflows/eval.yml`, manual or nightly
 only (secret `GROQ_API_KEY`, variable `JUDGE_MODEL`).
 
-Free hosting on an Oracle VM (with an optional Vercel frontend): [DEPLOY_ORACLE_VERCEL.md](DEPLOY_ORACLE_VERCEL.md).
+Deployment is on hold until the product is finalised (the hosting files were removed).
 
 ## 2. Key rotation
 Receipts and checkpoints carry a `kid`. The audit verifier (`python -m actionproof.audit verify`) verifies each checkpoint with the public key of its `kid`: put one `<kid>.pub` per key ever used in a directory and set `AUDIT_PUBLIC_KEYS_DIR` to it (an unknown `kid` is `FAILED`). `AUDIT_PUBLIC_KEY_PATH` (one key, any `kid`) still works for a never-rotated chain.
