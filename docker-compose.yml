@@ -56,7 +56,8 @@ services:
       timeout: 3s
       retries: 20
 
-  # ADR-005: OPA is a sidecar reached only by the gateway. -debug image = busybox wget for the healthcheck.
+  # ADR-005: OPA is a sidecar reached only by the gateway. The image has no wget/curl, so the healthcheck asks OPA's own
+  # binary to GET /health (http.send); it exits non-zero unless the server answers 200 (tested live and dead).
   # No --watch in production: a policy change is a reviewed redeploy. Policy is mounted read-only.
   opa:
     image: ${OPA_IMAGE:-openpolicyagent/opa:1.22.2-debug}
@@ -70,7 +71,7 @@ services:
     mem_limit: 256m
     cpus: 0.5
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8181/health"]
+      test: ["CMD", "/opa", "eval", "--fail", "-f", "raw", "x := http.send({\"method\": \"get\", \"url\": \"http://127.0.0.1:8181/health\", \"timeout\": \"2s\"}); x.status_code == 200"]
       interval: 5s
       timeout: 3s
       retries: 20
