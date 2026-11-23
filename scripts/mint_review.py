@@ -1,6 +1,6 @@
 """Park one fresh hero REVIEW and print {"request_hash": ...}: python scripts/mint_review.py
 
-For e2e and demos (docker compose exec -T api python scripts/mint_review.py). Goes through the real gate.prepare +
+For e2e and demos (docker compose exec -T api /app/docker/entrypoint.sh python scripts/mint_review.py). Goes through the real gate.prepare +
 review.park exactly like the MCP server; needs the demo seed (hero invoice) and the signing key. Not tool-facing.
 """
 import json

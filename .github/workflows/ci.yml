@@ -148,7 +148,7 @@ jobs:
     timeout-minutes: 30
     env:
       E2E_BASE_URL: http://localhost:5173
-      E2E_MINT_CMD: docker compose -f ${{ github.workspace }}/docker-compose.yml exec -T api python scripts/mint_review.py
+      E2E_MINT_CMD: docker compose -f ${{ github.workspace }}/docker-compose.yml exec -T api /app/docker/entrypoint.sh python scripts/mint_review.py
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -184,6 +184,22 @@ jobs:
           if-no-files-found: ignore
       - if: always()
         run: docker compose -f docker-compose.yml down -v
+
+  # Model-check the commit/execution protocol (formal/). Java and tla2tools run only on the runner, never in the app.
+  tla:
+    name: "TLA+ model check (TLC)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Fetch TLC (pinned release)
+        run: curl -fsSL -o tla2tools.jar https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar
+      - name: Check the model
+        run: java -XX:+UseParallelGC -cp tla2tools.jar tlc2.TLC -config formal/ActionProof.cfg -workers auto formal/ActionProof.tla
 
   lighthouse:
     needs: [usp, lint, typecheck, pytest, opa-test, web-build]
