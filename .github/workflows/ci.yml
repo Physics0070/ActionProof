@@ -148,7 +148,7 @@ jobs:
     timeout-minutes: 30
     env:
       E2E_BASE_URL: http://localhost:5173
-      E2E_MINT_CMD: docker compose -f docker-compose.yml exec -T api python scripts/mint_review.py
+      E2E_MINT_CMD: docker compose -f ${{ github.workspace }}/docker-compose.yml exec -T api python scripts/mint_review.py
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

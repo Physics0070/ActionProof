@@ -13,7 +13,8 @@ test("a bad credential gets one generic error and no session", async ({ page, re
   await page.getByLabel(/password/i).fill("definitely-wrong-password");
   await page.getByRole("button", { name: /sign in|log in|login/i }).click();
   await expect(page).toHaveURL(/\/console\/login/);
-  await expect(page.getByRole("alert")).toBeVisible();
+  // Next.js also renders a role=alert route announcer, so match the form error by its text.
+  await expect(page.getByRole("alert").filter({ hasText: /invalid|incorrect|wrong|failed|try again/i })).toBeVisible();
 });
 
 test("a reviewer logs in and sees the queue", async ({ page, request }) => {
