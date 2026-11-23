@@ -185,24 +185,18 @@ export function AssayStory({ initialReplay }: { initialReplay: Replay | null }) 
     void useStory.getState().loadReplay();
   }, []);
 
-  // The scene is not needed for first paint: mount it when the browser is idle, after load. It is fixed behind the copy
-  // and fades in (off layout), so nothing on the page moves when it arrives.
+  // The WebGL scene is the most expensive thing on the page and is not needed for first paint. It starts on the first sign
+  // of engagement (pointer, key, touch, scroll) or after 6 s, whichever comes first, and FADES IN behind the copy. It is
+  // fixed and off layout, so when it arrives nothing on the page moves.
   useEffect(() => {
     if (!live) return;
-    type Idle = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (n: number) => void };
-    const w = window as Idle;
-    let id = 0;
-    let idle = 0;
-    const go = () => {
-      if (w.requestIdleCallback) idle = w.requestIdleCallback(() => setMount(true), { timeout: 1500 });
-      else id = window.setTimeout(() => setMount(true), 600);
-    };
-    if (document.readyState === "complete") go();
-    else window.addEventListener("load", go, { once: true });
+    const events = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel", "scroll"] as const;
+    const go = () => setMount(true);
+    const timer = window.setTimeout(go, 6000);
+    events.forEach((e) => window.addEventListener(e, go, { once: true, passive: true }));
     return () => {
-      window.removeEventListener("load", go);
-      window.clearTimeout(id);
-      w.cancelIdleCallback?.(idle);
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, go));
     };
   }, [live]);
 
