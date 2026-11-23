@@ -261,3 +261,50 @@ CREATE OR REPLACE TRIGGER execution_journal_append_only BEFORE UPDATE OR DELETE 
     FOR EACH ROW EXECUTE FUNCTION audit_append_only();
 CREATE OR REPLACE TRIGGER execution_journal_no_truncate BEFORE TRUNCATE ON execution_journal
     FOR EACH STATEMENT EXECUTE FUNCTION audit_append_only();
+
+-- ADR-034 journal checkpoints: gate-signed (Ed25519, the receipt/audit checkpoint key) {seq, head_hash, ts} over the
+-- execution journal head, written under the journal lock (never the audit lock). Pins the journal head so a truncated
+-- or rewritten tail is detected (journal.verify) and gives the anchors a separate stream to carry off the host.
+CREATE TABLE IF NOT EXISTS execution_journal_checkpoints (
+    seq       bigint PRIMARY KEY CHECK (seq >= 1),
+    head_hash text   NOT NULL,
+    ts        bigint NOT NULL CHECK (ts >= 0),
+    sig       text   NOT NULL,
+    kid       text   NOT NULL
+);
+CREATE OR REPLACE TRIGGER execution_journal_checkpoints_append_only BEFORE UPDATE OR DELETE
+    ON execution_journal_checkpoints FOR EACH ROW EXECUTE FUNCTION audit_append_only();
+CREATE OR REPLACE TRIGGER execution_journal_checkpoints_no_truncate BEFORE TRUNCATE ON execution_journal_checkpoints
+    FOR EACH STATEMENT EXECUTE FUNCTION audit_append_only();
+
+-- ADR-035 execution outbox (src/actionproof/outbox.py, `python -m actionproof.reconcile auto`): one row per dispatched
+-- execution. An UNKNOWN one is PENDING until a worker resolves it on SIGNED adapter lookup evidence; everything else is
+-- written DONE at once (so the scan stays incremental). A worker claims with FOR UPDATE SKIP LOCKED and a lease
+-- (lease_owner, lease_expires_at), holds no transaction during the lookup, and every later write is fenced by its
+-- lease. Rows are never deleted and a DONE row never changes (append-only-ish). Times are UTC epoch seconds.
+CREATE TABLE IF NOT EXISTS execution_outbox (
+    execution_id     text PRIMARY KEY,                         -- journal.execution_id(nonce)
+    nonce            text   NOT NULL UNIQUE,
+    record_id        text   NOT NULL,
+    tool             text   NOT NULL,                          -- from DISPATCH_STARTED: which adapter to look up
+    state            text   NOT NULL CHECK (state IN ('PENDING', 'IN_FLIGHT', 'DONE')),
+    attempts         integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+    next_attempt_at  bigint NOT NULL CHECK (next_attempt_at >= 0),
+    lease_owner      text   NULL,
+    lease_expires_at bigint NULL CHECK (lease_expires_at >= 0),
+    last_result      text   NULL,                              -- CONFIRMED | DEFINITE_FAILURE | AMBIGUOUS | ...
+    last_evidence    jsonb  NULL,                              -- the verified signed statement that resolved it
+    created_at       bigint NOT NULL CHECK (created_at >= 0),
+    updated_at       bigint NOT NULL CHECK (updated_at >= 0),
+    CHECK ((state = 'IN_FLIGHT') = (lease_owner IS NOT NULL AND lease_expires_at IS NOT NULL))
+);
+CREATE INDEX IF NOT EXISTS execution_outbox_due ON execution_outbox (state, next_attempt_at);
+CREATE OR REPLACE FUNCTION execution_outbox_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' OR OLD.state = 'DONE' THEN
+        RAISE EXCEPTION 'execution_outbox rows are never deleted and a DONE row never changes (% on %)', TG_OP, TG_TABLE_NAME;
+    END IF;
+    RETURN NEW;
+END $$;
+CREATE OR REPLACE TRIGGER execution_outbox_guard BEFORE UPDATE OR DELETE ON execution_outbox
+    FOR EACH ROW EXECUTE FUNCTION execution_outbox_guard();

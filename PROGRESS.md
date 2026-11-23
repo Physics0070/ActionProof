@@ -140,3 +140,26 @@
 
 ## Correction: the TLA+ model IS model-checked (2026-11-23, DECK_TRACE H12)
 The Phase 5 entry above said "NOT run (Java and TLC absent)". That was true on the build machine and is superseded: the `tla` job in CI runs TLC on the committed `formal/` files (unchanged since f164dc4) and reports no error, 108,483 states generated, 72,926 distinct. Docs that still said unchecked (formal/README.md, docs/TESTING.md, docs/IMPLEMENTATION.md) are updated; ADR-032 and DECK_TRACE H11 are append-only, so their old wording stays and the addendum / H12 supersede it.
+
+
+## Hardening v2, U1: signed policy revisions (2026-11-23, ADR-033, DECK_TRACE H13-H14)
+Built: `policy.verify_authority` / `load_authority_keys` / `authority_statement`, `decide(..., authority_keys, archive_dir)`, `Decision.signed_by`; config `POLICY_AUTHORITY_KEYS` + `POLICY_ARCHIVE_DIR` with load-time separation from the receipt key; `scripts/policy_sign.py` (keygen, sign); gate wiring (`Gate._decide`); docs/POLICY.md "Policy authority" (rotation procedure), docs/THREAT_MODEL.md row. Tests: tests/usp/test_policy_authority.py, 26 tests, real OPA and Postgres. 139 passed (policy_authority, policy_provenance, test_policy, test_config, test_commit, key_isolation, fail_closed). Not done: no real policy_archive signature committed (no authority key exists yet; the default stays off), OPA bundle signing at OPA load.
+USP: G1 now also covers WHO published the policy: with an authority configured, no revision decides at prepare or commit unless a trusted, non-revoked authority key (provably distinct from the receipt key) signed exactly that revision; everything else fails closed as AP-POL-FAIL.
+
+### U2: journal checkpoints and anchoring (ADR-034, H15-H16)
+- New: `execution_journal_checkpoints` (append-only), `journal.checkpoint` / `latest_checkpoint` / `anchor_report`, checkpoint checks in `journal.verify`, `reconcile journal checkpoint|verify --anchor --strict`, journal stream in `anchor_publisher` (`build_journal`, per-stream cycle and state).
+- Tests: tests/usp/test_journal_checkpoints.py 17 passed; with test_exec_journal, test_anchor_remote, test_anchor, test_audit, test_signing, test_db: 133 passed, 1 failed (tests/test_signing.py::test_key_material_not_exposed_outside_signing, tripped by the word "seed" in a docstring at src/actionproof/policy.py:172, U1's uncommitted change, not U2).
+- Not verified: a real remote provider (stub only); the Gate checkpointing the journal itself (not built: gate.py out of scope).
+- USP: G1 and G2 now rest on a journal whose tail cannot be silently cut: a dropped DISPATCH_STARTED/CONFIRMED (which would let a spent reservation look unspent and the cap or the no-redispatch rule be reopened) is caught by a gate-signed checkpoint, and if the checkpoints are deleted too, by the separate off-host anchor stream.
+
+### U3: adapter evidence and the execution outbox (ADR-035, H17-H19)
+- New: `evidence.py` (signed adapter statements, `dispatch_failure`, `lookup_outcome`), `outbox.py` + `reconcile auto`, `execution_outbox` table, `ADAPTER_EVIDENCE_KEYS` / `Gate(adapter_keys=)`, mock adapter signing + `lookup`, test key `tests/fixtures/adapter-evidence.seed`.
+- Tests: tests/usp/test_adapter_evidence.py + tests/usp/test_outbox.py 44 passed; tests/usp/test_exec_journal.py, test_journal_checkpoints.py, tests/test_commit.py, tests/usp/test_replay.py, test_fail_closed.py 108 passed (320.96 s). Not run by U3 (brief limit): tests/test_signing.py, tests/test_config.py, tests/usp/test_key_isolation.py, test_no_floats.py.
+- Not verified: a real provider's signed lookup (mock only); multi-host workers; a gate dispatch slower than `--min-age`.
+- USP: G1 now also covers the adapter's word: "nothing happened" counts only as a signed, execution-bound statement from a trusted adapter key, else the outcome stays UNKNOWN and every reservation stays held; G2 holds under automation: the outbox only looks up, never redispatches, resolves each execution at most once (lease fencing + release_quarantine refusal), and never creates a second effect or reservation.
+
+### U4: commit lanes, measured first (ADR-036, H20)
+- Added `scripts/bench_commit_lanes.py` and the "Commit lane" section of docs/PERFORMANCE.md (48 points: lane/no_lane x same/spread pair x 1/4/8/16 workers x 3 reps, 200 commits each).
+- Measured: 11-14 commits/s flat across concurrency; audit lock held ~95% of each commit; removing the global lane entirely gives no gain. So gate.py locking was NOT changed; audit sequencing is recorded as the future step.
+- Verified: every bench point executed 200/200, passed the stress invariants and audit.verify; `tests/test_commit.py tests/usp/test_replay.py`: 41 passed. Stress test with STRESS_N=2000 not run (locking unchanged, per brief).
+- USP: nothing about G1/G2 changed: the measurement showed the hash-chained audit lock (which keeps the audit trail gap-free) is the serial section, so the lane that guarantees every cumulative-cap re-check sees all earlier commits costs no throughput; per-actor locks were not introduced because they would buy nothing while risking the cap and replay invariants.

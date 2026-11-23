@@ -6,7 +6,7 @@ import math
 import os
 from collections.abc import Mapping
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, ValidationInfo, field_validator
 
 
 class ConfigError(Exception):
@@ -23,6 +23,13 @@ class Settings(BaseModel):
     signing_kid: str = "k1"
     # Optional JSON registry of trusted receipt-signing public keys (rotation, revocation); unset = the signer only.
     key_registry_path: str | None = None
+    # ADR-033 policy authority: the archive holding <revision>/signature.json, and a KeyRegistry-format JSON file of
+    # trusted policy-authority PUBLIC keys. Both unset = no signature check (dev/CI default). Keys need the archive.
+    policy_archive_dir: str | None = None
+    policy_authority_keys: str | None = None
+    # ADR-035: a KeyRegistry-format JSON file (the policy-authority format) of trusted adapter evidence PUBLIC keys.
+    # Unset = no adapter is trusted: every DefiniteFailure is UNKNOWN and `reconcile auto` refuses to run.
+    adapter_evidence_keys: str | None = None
     receipt_ttl_seconds: int = 300
     # `exp` of REVIEW receipts only: a human review can outlast RECEIPT_TTL_SECONDS (ALLOW keeps the short TTL).
     review_receipt_ttl_seconds: int = 3600
@@ -46,6 +53,40 @@ class Settings(BaseModel):
     def _http(cls, v: str) -> str:
         if not v.startswith(("http://", "https://")):
             raise ValueError("must be an http(s) URL")
+        return v
+
+    @field_validator("policy_authority_keys")
+    @classmethod
+    def _authority(cls, v: str | None, info: ValidationInfo) -> str | None:
+        """Fail closed at load: the file parses strictly (public keys only), the archive is configured, and no
+        authority key is a receipt-signing key (the gate's signer, or any key in KEY_REGISTRY_PATH)."""
+        if v is None:
+            return v
+        from actionproof.policy import load_authority_keys  # lazy: policy pulls in httpx/verify
+        from actionproof.signing import KeyRegistry, Signer
+        archive = info.data.get("policy_archive_dir")
+        if not archive or not os.path.isdir(archive):
+            raise ValueError("needs POLICY_ARCHIVE_DIR (an existing directory)")
+        try:
+            authority = set(load_authority_keys(v).public_keys(include_revoked=True).values())
+            receipt = {Signer.from_path(info.data["signing_key_path"], info.data["signing_kid"]).public_key_b64()}
+            if info.data.get("key_registry_path"):
+                receipt |= set(KeyRegistry.from_json(info.data["key_registry_path"])
+                               .public_keys(include_revoked=True).values())
+        except Exception:
+            raise ValueError("policy authority keys or the receipt key are unreadable") from None
+        if authority & receipt:
+            raise ValueError("a policy-authority key must never be a receipt-signing key")
+        return v
+
+    @field_validator("adapter_evidence_keys")
+    @classmethod
+    def _adapter_keys(cls, v: str | None) -> str | None:
+        """Fail closed at load: the file parses strictly (public keys only). Disjointness from the receipt key is
+        checked where both are loaded (Gate.__init__)."""
+        if v is not None:
+            from actionproof.evidence import load_keys  # lazy, like the policy authority check
+            load_keys(v)
         return v
 
     @field_validator("ocr_pool_size")

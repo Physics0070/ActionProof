@@ -83,10 +83,18 @@ def test_success_events_in_order_with_full_references(kit):
 
 
 def test_definite_failure_is_failed_and_still_single_use(kit):
+    # ADR-035: a DefiniteFailure is FAILED only with a signed statement from a trusted adapter key (a bare one is
+    # UNKNOWN: tests/usp/test_adapter_evidence.py); the test key lives in tests/fixtures.
+    from actionproof import evidence
+    from actionproof.signing import KeyRegistry, Signer
+    adapter = Signer.from_path(ROOT / "tests" / "fixtures" / "adapter-evidence.seed", "adapter-test-1")
+    kit.gate._adapter_keys = KeyRegistry.for_signer(adapter)
     req, receipt = _prepared(kit, "INV-J2")
+    env = adapter.sign(evidence.statement("execute", "idem-INV-J2", "NOT_APPLIED", "100.00", "V-ACME", b"declined",
+                                          reason="DECLINED"))
 
     def declined(*a, **kw):
-        raise journal.DefiniteFailure("downstream declined; nothing applied")
+        raise journal.DefiniteFailure("downstream declined; nothing applied", evidence=env)
 
     kit.tool.execute = declined
     res = kit.gate.commit(receipt, req)

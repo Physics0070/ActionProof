@@ -196,7 +196,7 @@ Written every `AUDIT_CHECKPOINT_EVERY` entries (default 1).
 | event | text | NOT NULL, CHECK one of RESERVATION_CREATED, DISPATCH_STARTED, EXECUTION_CONFIRMED, EXECUTION_FAILED, EXECUTION_UNKNOWN, RECONCILIATION_STARTED, RECONCILIATION_COMPLETED |
 | nonce, request_hash, idempotency_key, record_id, actor, on_behalf_of, vendor_id | text | NOT NULL: the execution's full reference on EVERY event |
 | amount | numeric(18,2) | NOT NULL, CHECK `>= 0`; a 2dp string in the hash, never a float |
-| detail | jsonb | NOT NULL (tool + version; error type; resolver, resolution, audit seq) |
+| detail | jsonb | NOT NULL (tool + version; error type; ADR-035 `evidence {kid, digest, reason}` on a verified EXECUTION_FAILED or `"unverified"` on a rejected claim; resolver, resolution, audit seq) |
 | prev_hash, entry_hash | text | own hash chain, `sha256(RFC 8785 of every other column)`, genesis `"0"*64` |
 
 Partial UNIQUE indexes: one RESERVATION_CREATED and one DISPATCH_STARTED per execution, at most ONE outcome
@@ -205,6 +205,40 @@ actionproof.reconcile journal verify` detects an edited, deleted or reordered ev
 after DISPATCH_STARTED (a crash) reads UNKNOWN; RECONCILIATION_STARTED without COMPLETED reads RECONCILING.
 Additive: `tool_reached` and `reservations` keep their meaning; markers older than the table get no events (no
 backfill) and are reconciled exactly as before. Included in `db.reset` (in `AUDIT_TABLES`).
+
+## execution_journal_checkpoints — signed journal heads (ADR-034, `journal.checkpoint`)
+| Column | Type | Constraint |
+|---|---|---|
+| seq | bigint | PRIMARY KEY, CHECK `>= 1` (the journal event it pins) |
+| head_hash | text | NOT NULL (that event's `entry_hash`) |
+| ts | bigint | NOT NULL, CHECK `>= 0` |
+| sig, kid | text | NOT NULL; Ed25519 by the gate's checkpoint key over RFC 8785 `{seq, head_hash, ts}` (same shape as `audit_checkpoints`) |
+
+Append-only (same trigger function), written under the journal's own advisory lock (never the audit lock),
+idempotent for an unchanged head, and never over a head that is behind or differs from the newest checkpoint.
+`journal.verify` checks every row: the signature by the key of its kid (unknown or revoked kid fails), head_hash
+against the chain, and a checkpoint beyond the head = truncated tail. Written by `python -m actionproof.reconcile
+journal checkpoint` (the gate does not write it). Included in `db.reset`.
+
+## execution_outbox — resolution queue for UNKNOWN executions (ADR-035, `outbox.py`)
+| Column | Type | Constraint |
+|---|---|---|
+| execution_id | text | PRIMARY KEY (`journal.execution_id(nonce)`) |
+| nonce | text | NOT NULL UNIQUE |
+| record_id, tool | text | NOT NULL (tool from DISPATCH_STARTED: which adapter's `lookup` to ask) |
+| state | text | NOT NULL, CHECK PENDING / IN_FLIGHT / DONE |
+| attempts | integer | NOT NULL DEFAULT 0, CHECK `>= 0` (incremented per claim) |
+| next_attempt_at | bigint | NOT NULL, CHECK `>= 0` (backoff 5 s doubling, cap 300 s) |
+| lease_owner, lease_expires_at | text, bigint | NULL; set iff IN_FLIGHT (CHECK) |
+| last_result | text | NULL: CONFIRMED / DEFINITE_FAILURE / AMBIGUOUS / REFUSED / the journal status it found |
+| last_evidence | jsonb | NULL: the verified signed lookup statement that resolved it |
+| created_at, updated_at | bigint | NOT NULL, CHECK `>= 0` |
+
+One row per dispatched execution older than `--min-age`: PENDING when its journal status is UNKNOWN, DONE otherwise
+(so the enqueue scan stays incremental). Claimed with `FOR UPDATE SKIP LOCKED`; every write after the claim is fenced
+by `lease_owner`. A trigger refuses DELETE and any UPDATE of a DONE row. The table holds no money and no reservation:
+resolving goes through `Gate.release_quarantine(evidence=...)`, whose accounting is unchanged. Not in `db.reset`
+(`db.py` is not this phase's file); `tests/usp/test_outbox.py` truncates it.
 
 ## Not here
 No signing key material, review token or receipt signature is ever stored in the audit tables, and no signing key

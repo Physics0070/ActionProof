@@ -20,7 +20,9 @@ Protocol, rule ids and order: .superpowers/sdd/phase3/design.md and docs/ARCHITE
   cannot take it stops the tool (DENY AP-ERR-11). DENY/refusal entries get their own short tx; an audit failure never changes a DENY.
 - Every dispatched execution is in the execution journal (journal.py, ADR-029), written on its own connections
   (lock order audit -> journal, never the reverse): RESERVATION_CREATED + DISPATCH_STARTED with the tool_reached marker
-  before the call, then CONFIRMED / FAILED (adapter's DefiniteFailure only) / UNKNOWN; a crash leaves no outcome (UNKNOWN).
+  before the call, then CONFIRMED / FAILED (adapter's DefiniteFailure with signed evidence only, ADR-035) / UNKNOWN;
+  a crash leaves no outcome (UNKNOWN). UNKNOWN executions are resolved by `reconcile auto` (outbox.py) on signed
+  lookup evidence, or by a human; nothing ever redispatches them.
   A prepare ALLOW/REVIEW whose entry cannot be written is DENY AP-ERR-11 (no unaudited receipt leaves the gate).
 """
 
@@ -36,7 +38,7 @@ import psycopg
 import rfc8785
 from psycopg import errors
 
-from actionproof import audit, extract, journal, policy, signing
+from actionproof import audit, evidence, extract, journal, policy, signing
 from actionproof.contracts import MONEY, ActionRequest, ContractError, parse_request, request_hash
 from actionproof.db import LEGACY_MARKER_FROM
 from actionproof.verify import Reason, VerifyResult, direct_spans, verify_request
@@ -335,15 +337,23 @@ class _Attempt:
 
 
 class Gate:
-    def __init__(self, settings, signer, conn_factory, tool, docs_provider=None, registry=None):
+    def __init__(self, settings, signer, conn_factory, tool, docs_provider=None, registry=None, adapter_keys=None):
         """`tool`: {tool name: adapter} for every connector this gate serves, or a single invoice adapter.
-        The adapter is chosen by req.tool; a tool with no adapter or no TARGETS entry is DENY (fail closed)."""
+        The adapter is chosen by req.tool; a tool with no adapter or no TARGETS entry is DENY (fail closed).
+        `adapter_keys` (ADR-035): the KeyRegistry of trusted adapter evidence keys, default ADAPTER_EVIDENCE_KEYS;
+        None = no adapter is trusted, so every DefiniteFailure is journaled UNKNOWN."""
         self._settings = settings
         self._signer = signer
         # Receipts are verified by the key of their kid. Default: only the signer's own key (unchanged behaviour).
         self._registry = registry or signing.KeyRegistry.for_signer(signer)
         if self._registry.public_keys().get(signer.kid) != signer.public_key_b64() or                 self._registry.status(signer.kid) != "active":
             raise ValueError("key registry does not list the signer's kid as the active key")
+        if adapter_keys is None and getattr(settings, "adapter_evidence_keys", None):
+            adapter_keys = evidence.load_keys(settings.adapter_evidence_keys)
+        if adapter_keys is not None and set(adapter_keys.public_keys(True).values()) & (
+                set(self._registry.public_keys(True).values()) | {signer.public_key_b64()}):
+            raise ValueError("an adapter evidence key must never be a receipt-signing key")
+        self._adapter_keys = adapter_keys
         self._conn_factory = conn_factory
         self._tools = dict(tool) if isinstance(tool, dict) else {TOOL: tool}
         self._docs_provider = docs_provider
@@ -458,9 +468,10 @@ class Gate:
                 (req.actor, counterparty)).fetchone()[0]
             person = str(_person_total(conn, req.on_behalf_of, counterparty))
             payload = self._policy_input(conn, req, v.ok, v.reasons, counterparty, committed, person)
-        d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
+        d = self._decide(payload)
         reasons = _merge(d, v.ok, v.reasons)
-        prov = {"revision": d.revision, "opa_version": d.opa_version, "input": payload} if d.revision else None
+        prov = ({"revision": d.revision, "opa_version": d.opa_version, "signed_by": d.signed_by, "input": payload}
+                if d.revision else None)
         if d.outcome not in ("ALLOW", "REVIEW"):
             r = deny(*reasons, v=v)
             return PrepareResult(r.decision, r.reasons, r.verify, None, None, req, policy=prov)
@@ -485,6 +496,11 @@ class Gate:
         })
         return PrepareResult(d.outcome, reasons, v, diff, receipt, req, before={"data": data, "version": version},
                              policy=prov)
+
+    def _decide(self, payload: dict) -> policy.Decision:
+        """policy.decide with this gate's settings; ADR-033: verifies the policy-authority signature when configured."""
+        s = self._settings
+        return policy.decide(payload, s.opa_url, s.opa_timeout_seconds, s.policy_authority_keys, s.policy_archive_dir)
 
     @staticmethod
     def _policy_input(conn, req: ActionRequest, v_ok: bool, v_reasons: list[Reason], counterparty,
@@ -739,7 +755,8 @@ class Gate:
         conn.execute(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'")
         # Serializes gate commits BEFORE the snapshot is taken (LOCK is not a snapshot-taking statement), so the
         # cumulative re-check sees every earlier commit and SSI never aborts a commit after the tool ran.
-        # ponytail: one global commit lane; upgrade path is a per (actor, vendor) lock row taken first.
+        # ponytail: one global commit lane; measured (ADR-036) the audit lock serialises commits anyway, so the
+        # upgrade path is audit sequencing (sequence-allocated seq, single chain-linking writer), not per-actor locks.
         conn.execute("LOCK TABLE commits IN SHARE ROW EXCLUSIVE MODE")
         # The audit lock too, before the snapshot, so the head this tx appends after is current (audit.py).
         audit.lock(conn)
@@ -832,10 +849,10 @@ class Gate:
         try:
             result = tool.execute(req, version, p["idempotency_key"], conn)
         except Exception as e:
-            # Only the adapter's explicit "definitely not applied" is a failure; anything else is unknown (_burn
-            # journals it). Accounting is the same either way: burned + quarantined until a human reconciles.
-            st.outcome = "EXECUTION_FAILED" if isinstance(e, journal.DefiniteFailure) else "EXECUTION_UNKNOWN"
-            st.why = {"error": type(e).__name__}
+            # Only the adapter's explicit "definitely not applied", carrying a signed statement the adapter trust
+            # registry verifies for THIS execution (ADR-035), is a failure; anything else is unknown (_burn journals
+            # it). Accounting is the same either way: burned + quarantined until reconciled (ADR-010).
+            st.outcome, st.why = evidence.dispatch_failure(e, st.ref, self._adapter_keys)
             after = conn.execute("SELECT data, version FROM records WHERE record_id = %s", (p["record_id"],)).fetchone()
             conn.rollback()
             burned = self._burn(conn, st)
@@ -892,7 +909,7 @@ class Gate:
             if "variance" not in req.args:
                 vr.append(_ver("variance: required argument missing (evidence gap)"))
         payload = self._policy_input(conn, req, not vr, vr, data.get(t.counterparty), committed, person_committed)
-        d = policy.decide(payload, self._settings.opa_url, self._settings.opa_timeout_seconds)
+        d = self._decide(payload)
         if d.revision and d.revision != p["policy_revision"]:
             # ADR-028: the policy changed since prepare. A receipt, and any pending review built on it, does not
             # survive; the caller must prepare again under the active revision.

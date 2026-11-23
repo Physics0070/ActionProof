@@ -49,7 +49,7 @@ sequenceDiagram
     G->>M: journal EXECUTION_CONFIRMED (own connection, committed)
     G->>D: audit append EXECUTED (references the CONFIRMED event) + COMMIT (commits row, effect); the marker now has a commits row, so it blocks nothing
   else tool raised
-    G->>M: burn + quarantine; journal EXECUTION_FAILED (adapter DefiniteFailure only) else EXECUTION_UNKNOWN
+    G->>M: burn + quarantine; journal EXECUTION_FAILED (adapter DefiniteFailure with a signed, verified NOT_APPLIED statement only, ADR-035) else EXECUTION_UNKNOWN
   else process dies, or the tx rolls back after the call
     Note over D: no commits row, no EXECUTED entry; the marker stays = an UNRESOLVED execution that still counts against the caps, holds its idempotency key and quarantines the record; the journal shows DISPATCH_STARTED with no outcome (UNKNOWN) until an audited, journaled release_quarantine (human or evidence; ADR-019, ADR-022, ADR-029)
   end
@@ -313,6 +313,30 @@ Updated again in Phases 3, 5, 7.
   and only then makes HTTP requests; it never takes the audit lock or writes. The Gate does not import it, so the
   remote's availability never enters a decision. `check` reports conflicts, gaps, remote rollback, a rewound local
   chain and publication lag (exit 1). The adapter is UNVERIFIED against a real provider (tested against a local stub).
+- **Journal checkpoints and anchoring (ADR-034).** `journal.checkpoint(conn, signer)` signs the execution journal's head
+  `{seq, head_hash, ts}` with the gate's checkpoint signer into `execution_journal_checkpoints`, under the journal's own
+  advisory lock only (never the audit lock; idempotent; refuses to sign over a head behind or diverging from the newest
+  checkpoint). `journal.verify(conn, keys)` also checks every checkpoint (kid's key, head_hash, truncated tail) and fails
+  closed when checkpoints exist but no key is given. It is written by `python -m actionproof.reconcile journal checkpoint
+  [--anchor F]` (scheduled by the operator; the Gate does not checkpoint the journal). The anchors carry it as a SEPARATE
+  stream with the unchanged classes: its own LocalAnchor file (never `AUDIT_ANCHOR_PATH`) and `HttpAnchor` at
+  `{ANCHOR_REMOTE_URL}/journal`; `anchor_publisher` runs each cycle over the audit stream, then the journal stream, with
+  per-stream state (`ANCHOR_STATE_PATH` / `.journal`), lag, rollback, gap and rewind checks, and the same no-HTTP-in-a-
+  transaction rule.
+- **Adapter evidence and the outbox (ADR-035).** An adapter result is CONFIRMED (execute returned), DEFINITE_FAILURE
+  or AMBIGUOUS (anything else, fail closed). `evidence.py` defines the only believable failure: `journal.DefiniteFailure
+  (evidence=env)` where `env` is a `signing.Signer` envelope over `{kind, op: "execute", idempotency_key, status:
+  NOT_APPLIED, amount, counterparty, reason (typed code), provider_ref, response_digest, ts, window_closes_at}`, bound
+  to THIS execution and signed by a kid trusted in `Gate(adapter_keys=...)` / `ADAPTER_EVIDENCE_KEYS` (the
+  policy-authority file format; never a receipt key, refused at Gate construction; unset = trust nothing). Verified:
+  EXECUTION_FAILED with `detail.evidence {kid, digest, reason}`; otherwise EXECUTION_UNKNOWN (`evidence: "unverified"`).
+  Accounting is unchanged either way (burned + quarantined, ADR-010). `python -m actionproof.reconcile auto --once|--run`
+  (`outbox.py`) gives every dispatched execution one `execution_outbox` row (PENDING if UNKNOWN, else DONE), claims due
+  rows with `FOR UPDATE SKIP LOCKED` under a lease in a committed short tx, then calls the adapter's read-only
+  `lookup(idempotency_key)` with NO transaction open. Only a signed `op: "lookup"` APPLIED, or NOT_APPLIED stated at or
+  after `window_closes_at` with the worker clock past it, resolves, through `Gate.release_quarantine(evidence=...)` while
+  the lease is still the worker's; anything else backs off (5 s doubling, cap 300 s). It never calls `execute`.
+  `journal verify` prints `outbox: P pending, F in flight, S stuck` (stuck = 10+ attempts).
 - **Operator view of the same flow.** Start-up (`scripts/apply_schema.py`, `server.build_app`) validates the reservations and
   warns about legacy unresolved markers; `python -m actionproof.reconcile check` is the explicit validation step. While one
   exists, step 4c of the commit (and the matching check in `prepare`) denies every cap-sensitive write (AP-CUM-03 / G1).

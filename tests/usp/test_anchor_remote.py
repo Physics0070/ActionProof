@@ -12,6 +12,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 
 import psycopg
 import pytest
@@ -30,7 +31,9 @@ SRC = Path(__file__).resolve().parents[2] / "src" / "actionproof"
 
 class StubAnchorServer:
     """STUB for tests only: an append-only checkpoint store speaking the HttpAnchor protocol over loopback HTTP.
-    Not WORM, not a provider. `store` may be edited directly to play a compromised or rolled-back remote."""
+    Not WORM, not a provider. `store` may be edited directly to play a compromised or rolled-back remote.
+    Two independent streams (ADR-034): the audit stream at /checkpoints (attributes on the stub itself) and the
+    execution-journal stream at /journal/checkpoints (the same attributes on `stub.journal`). `down`/`puts` are shared."""
 
     def __init__(self, token: str = TOKEN):
         self.store: dict[int, dict] = {}
@@ -39,7 +42,13 @@ class StubAnchorServer:
         self.down = False                  # every request answers 503
         self.fail_after: int | None = None  # after this many appends, PUT answers 503
         self.listing: list | None = None   # override the GET body (a lying remote)
+        self.journal = SimpleNamespace(store={}, accepted=[], fail_after=None, listing=None)
+        self.order: list[tuple[str, int]] = []  # (stream, seq) of every append, across both streams
         lock, stub = threading.Lock(), self
+
+        def stream(path):
+            return ("journal", stub.journal, path[len("/journal"):]) if path.startswith("/journal/") \
+                else ("audit", stub, path)
 
         class H(BaseHTTPRequestHandler):
             def log_message(self, *a):
@@ -65,10 +74,11 @@ class StubAnchorServer:
             def do_GET(self):
                 if not self._ok():
                     return
-                if self.path != "/checkpoints":
+                _, st, path = stream(self.path)
+                if path != "/checkpoints":
                     return self._send(404)
                 with lock:
-                    body = stub.listing if stub.listing is not None else [stub.store[s] for s in sorted(stub.store)]
+                    body = st.listing if st.listing is not None else [st.store[s] for s in sorted(st.store)]
                 self._send(200, {"checkpoints": body})
 
             def do_PUT(self):
@@ -76,7 +86,8 @@ class StubAnchorServer:
                 if not self._ok():
                     return
                 stub.puts += 1
-                parts = self.path.split("/")
+                name, st, path = stream(self.path)
+                parts = path.split("/")
                 try:
                     seq = int(parts[2])
                     ok = len(parts) == 3 and parts[1] == "checkpoints" and body["payload"]["seq"] == seq
@@ -85,14 +96,15 @@ class StubAnchorServer:
                 if not ok:
                     return self._send(400)
                 with lock:
-                    if seq in stub.store:
-                        return self._send(200 if rfc8785.dumps(stub.store[seq]) == rfc8785.dumps(body) else 409)
-                    if stub.store and seq < max(stub.store):
+                    if seq in st.store:
+                        return self._send(200 if rfc8785.dumps(st.store[seq]) == rfc8785.dumps(body) else 409)
+                    if st.store and seq < max(st.store):
                         return self._send(409)
-                    if stub.fail_after is not None and len(stub.accepted) >= stub.fail_after:
+                    if st.fail_after is not None and len(st.accepted) >= st.fail_after:
                         return self._send(503)
-                    stub.store[seq] = body
-                    stub.accepted.append(seq)
+                    st.store[seq] = body
+                    st.accepted.append(seq)
+                    stub.order.append((name, seq))
                 self._send(201)
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), H)

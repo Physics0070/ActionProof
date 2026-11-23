@@ -11,7 +11,9 @@ from actionproof.config import load_settings
 SCHEMA = Path(__file__).with_name("schema.sql")
 TABLES = ("records", "delegations", "commits", "review_tokens", "quarantine", "tool_reached", "people", "pending_reviews", "api_clients",
           "console_users", "console_sessions")
-AUDIT_TABLES = ("audit_log", "audit_checkpoints", "execution_journal")  # append-only (triggers), ADR-029
+AUDIT_TABLES = ("audit_log", "audit_checkpoints", "execution_journal",  # append-only (triggers), ADR-029
+                "execution_journal_checkpoints",  # ADR-034
+                "execution_outbox")  # ADR-035: DELETE refused by trigger
 
 # ADR-024: an unresolved marker (no commits row) from before ADR-022 lacks part of its reservation, so its spend is
 # unknown. One definition, shared by Gate (fail-closed barrier), `actionproof.reconcile check` and server start.

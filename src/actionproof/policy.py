@@ -2,7 +2,8 @@
 
 The caller passes the OPA URL and timeout from Settings (invariant 7); this module reads no environment.
 decide never raises. Any failure (empty OPA URL, connect error, timeout, non-200, missing or malformed
-result, float in the payload) is DENY AP-POL-FAIL / G1 (invariant 1, invariant 4).
+result, float in the payload) is DENY AP-POL-FAIL / G1 (invariant 1, invariant 4). With a policy authority configured
+(ADR-033) an active revision without a valid signature by a trusted authority key is the same DENY.
 """
 
 import hashlib
@@ -18,6 +19,7 @@ from pathlib import Path
 import httpx
 import rfc8785
 
+from actionproof.signing import KeyRegistry
 from actionproof.verify import Reason
 
 OUTCOMES = ("DENY", "REVIEW", "ALLOW")
@@ -34,6 +36,7 @@ class Decision:
     # Provenance (ADR-028) is not part of what a decision IS: excluded from equality so `Decision("ALLOW", [])` still holds.
     revision: str = field(default="", compare=False)  # sha256 of the decision policy OPA had loaded
     opa_version: str = field(default="", compare=False)
+    signed_by: str | None = field(default=None, compare=False)  # ADR-033: verified policy-authority kid, or None
 
 
 def _fail(msg: str) -> Decision:
@@ -147,13 +150,85 @@ def reconstruct(archive_dir, revision: str, opa_input: dict, opa_bin: str = "opa
     return json.loads(p.stdout)["result"][0]["expressions"][0]["value"]
 
 
-def decide(payload: dict, opa_url: str, timeout: float) -> Decision:
+# --------------------------------------------------------------------------------------------- policy authority
+# ADR-033. The revision says WHICH policy decided; a signature by a separate policy-authority key says an AUTHORISED
+# owner published it. The owner signs offline (scripts/policy_sign.py); the gateway holds PUBLIC keys only, in a
+# KeyRegistry-format file (active / retired / revoked), and verifies `<archive>/<revision>/signature.json`.
+_STATEMENT_KEYS = {"bundle_format", "policy_schema", "revision", "authority_kid", "signed_at"}
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+
+
+class PolicyAuthorityError(Exception):
+    """The message is safe to show (never carries file contents or key material)."""
+
+
+def authority_statement(revision: str, kid: str, signed_at: int) -> dict:
+    """What the authority signs (RFC 8785 via signing.Signer): the revision plus the format it was computed under."""
+    return {"bundle_format": BUNDLE_FORMAT, "policy_schema": POLICY_SCHEMA, "revision": revision,
+            "authority_kid": kid, "signed_at": signed_at}
+
+
+def load_authority_keys(path):
+    """Strict KeyRegistry load: exactly {"keys": {kid: {"pub", "status"}}}. Any extra field (private key material)
+    is refused rather than ignored. Raises PolicyAuthorityError."""
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        if set(raw) != {"keys"} or not isinstance(raw["keys"], dict) or not raw["keys"] or any(
+                not isinstance(e, dict) or set(e) != {"pub", "status"} for e in raw["keys"].values()):
+            raise ValueError
+        return KeyRegistry({kid: (e["pub"], e["status"]) for kid, e in raw["keys"].items()})
+    except Exception:
+        raise PolicyAuthorityError("policy authority keys file is unreadable or malformed") from None
+
+
+def verify_authority(revision: str, keys_path, archive_dir) -> str:
+    """The kid of a trusted (active or retired), non-revoked authority key that signed exactly `revision`. Raises
+    PolicyAuthorityError otherwise. Keys are re-read per call, so a revocation applies to the next decision."""
+    registry = load_authority_keys(keys_path)
+    if not isinstance(revision, str) or not _HEX64.match(revision):
+        raise PolicyAuthorityError("active policy revision is not a sha256")
+    try:
+        text = (Path(archive_dir) / revision / "signature.json").read_text(encoding="utf-8")
+    except OSError:
+        raise PolicyAuthorityError("active policy revision is unsigned (no signature in the archive)") from None
+    try:
+        doc = json.loads(text)
+        p = doc["payload"]
+        if set(doc) != {"payload", "sig", "kid"} or set(p) != _STATEMENT_KEYS or p["authority_kid"] != doc["kid"] \
+                or type(p["signed_at"]) is not int or not all(isinstance(p[k], str) for k in ("revision", "authority_kid")):
+            raise ValueError
+    except Exception:
+        raise PolicyAuthorityError("policy signature file is malformed") from None
+    if p["revision"] != revision or (p["bundle_format"], p["policy_schema"]) != (BUNDLE_FORMAT, POLICY_SCHEMA):
+        raise PolicyAuthorityError("policy signature is for another revision or bundle format")
+    status = registry.status(doc["kid"])
+    if status is None:
+        raise PolicyAuthorityError("policy signed by an unknown authority key")
+    if status == "revoked":
+        raise PolicyAuthorityError("policy signed by a revoked authority key")
+    if not registry.verify(doc):
+        raise PolicyAuthorityError("policy signature is a bad signature for its authority key")
+    return doc["kid"]
+
+
+def decide(payload: dict, opa_url: str, timeout: float, authority_keys: str | None = None,
+           archive_dir: str | None = None) -> Decision:
+    """authority_keys / archive_dir are Settings.policy_authority_keys / policy_archive_dir. authority_keys None = no
+    ADR-033 check (dev and CI default): signed_by stays None and behaviour is exactly ADR-028's."""
     try:
         if not isinstance(payload, dict) or _has_float(payload):
             return _fail("policy input must be a dict with no floats")
         if not opa_url:
             return _fail("OPA URL not configured")
         revision, opa_version = active_revision(opa_url, timeout)  # before the decision; any failure is DENY
+        signed_by = None
+        if authority_keys is not None:
+            if not (authority_keys and archive_dir):
+                return _fail("policy authority keys configured without a policy archive dir")
+            try:
+                signed_by = verify_authority(revision, authority_keys, archive_dir)  # before evaluating
+            except PolicyAuthorityError as e:
+                return _fail(str(e))
         deadline = time.monotonic() + timeout
         body = b""
         # ponytail: per-chunk deadline check bounds a trickling server to ~2x timeout; a hard wall clock
@@ -175,7 +250,7 @@ def decide(payload: dict, opa_url: str, timeout: float) -> Decision:
         reasons = [_reason(x) for x in raw]
         if outcome != "ALLOW" and not reasons:
             return _fail("OPA returned DENY/REVIEW without reasons")
-        return Decision(outcome, reasons, revision, opa_version)
+        return Decision(outcome, reasons, revision, opa_version, signed_by)
     except httpx.TimeoutException:
         return _fail("OPA timed out")
     except Exception:

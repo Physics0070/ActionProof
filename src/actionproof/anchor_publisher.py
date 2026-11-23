@@ -19,6 +19,13 @@ older than ANCHOR_MAX_LAG_SECONDS is exit 1 ("LAG"). An unreachable remote in `o
 within the lag budget; `check` without the remote is exit 1. Recovery: the next cycle publishes from the remote head
 upwards, in order; a failure stops the cycle at that seq, so nothing is skipped or reordered.
 Exit 2: config error. Output never holds the token or the database URL.
+
+Two streams (ADR-034), each cycle publishes and checks both, audit first, independently and never mixed:
+  audit    audit_checkpoints over audit_log             {ANCHOR_REMOTE_URL}/checkpoints          state ANCHOR_STATE_PATH
+  journal  execution_journal_checkpoints over the       {ANCHOR_REMOTE_URL}/journal/checkpoints  state
+           execution journal (journal.checkpoint)                                                ANCHOR_STATE_PATH.journal
+Report lines are prefixed `anchor-remote:` (audit) and `anchor-remote[journal]:`; the exit code is the worst of the
+two. Every rule above (order, lag, rollback, gap, rewind, no HTTP inside a transaction) holds per stream.
 """
 import argparse
 import json
@@ -33,7 +40,7 @@ from urllib.parse import urlsplit
 import psycopg
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, field_validator
 
-from actionproof import audit
+from actionproof import audit, journal
 from actionproof.anchor import AnchorError
 from actionproof.anchor_remote import HttpAnchor, RemoteUnavailable
 from actionproof.config import ConfigError
@@ -132,18 +139,37 @@ def _save_state(path: str, cp: dict) -> None:
     os.replace(tmp, p)
 
 
-def _snapshot(database_url: str, seqs: list[int], registry: KeyRegistry, full: bool):
-    """(checkpoints, top audit seq, {seq: entry_hash} for `seqs`). The transaction is committed and the connection
-    closed when this returns. # ponytail: reads every checkpoint; upgrade path is `WHERE seq > remote head`."""
+def build_journal(cfg: PublisherSettings, event_hooks=None) -> HttpAnchor:
+    """The journal stream's remote (ADR-034): the same service under `{ANCHOR_REMOTE_URL}/journal`, so its checkpoints
+    live at /journal/checkpoints/{seq}, never next to the audit stream's /checkpoints/{seq}."""
+    return HttpAnchor(cfg.anchor_remote_url.rstrip("/") + "/journal", cfg.anchor_remote_token.get_secret_value(),
+                      cfg.anchor_remote_timeout_seconds, event_hooks)
+
+
+# The two anchored streams, published in this order and never mixed: name -> (report prefix, checkpoint table, chain
+# table, what to call the chain, state-file suffix). Each has its own remote path, state file and monitoring.
+_STREAMS = {"audit": ("anchor-remote", "audit_checkpoints", "audit_log", "audit log", ""),
+            "journal": ("anchor-remote[journal]", "execution_journal_checkpoints", "execution_journal",
+                        "execution journal", ".journal")}
+
+
+def _snapshot(database_url: str, seqs: list[int], registry: KeyRegistry, full: bool, stream: str = "audit"):
+    """(checkpoints, top chain seq, {seq: entry_hash} for `seqs`) of one stream. The transaction is committed and the
+    connection closed when this returns. # ponytail: reads every checkpoint; upgrade path is `WHERE seq > remote head`."""
+    _, cp_table, log_table, _, _ = _STREAMS[stream]
     with psycopg.connect(database_url, connect_timeout=5) as conn:
         conn.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
         conn.read_only = True
         if full:
-            audit.verify(conn, registry.public_keys())
+            if stream == "audit":
+                audit.verify(conn, registry.public_keys())
+            else:
+                journal.verify(conn, registry)
         cps = [{"payload": {"seq": r[0], "head_hash": r[1], "ts": r[2]}, "sig": r[3], "kid": r[4]} for r in
-               conn.execute("SELECT seq, head_hash, ts, sig, kid FROM audit_checkpoints ORDER BY seq")]
-        top = conn.execute("SELECT coalesce(max(seq), 0) FROM audit_log").fetchone()[0]
-        heads = dict(conn.execute("SELECT seq, entry_hash FROM audit_log WHERE seq = ANY(%s::bigint[])", (seqs,)).fetchall())
+               conn.execute(f"SELECT seq, head_hash, ts, sig, kid FROM {cp_table} ORDER BY seq")]
+        top = conn.execute(f"SELECT coalesce(max(seq), 0) FROM {log_table}").fetchone()[0]
+        heads = dict(conn.execute(f"SELECT seq, entry_hash FROM {log_table} WHERE seq = ANY(%s::bigint[])",
+                                  (seqs,)).fetchall())
     return cps, top, heads
 
 
@@ -182,25 +208,36 @@ def _lag(backlog: list[dict], now: float, cfg: PublisherSettings) -> tuple[bool,
 
 
 def cycle(cfg: PublisherSettings, remote: HttpAnchor, registry: KeyRegistry, *, publish: bool,
-          now: float | None = None) -> tuple[int, list[str]]:
-    """One publish (publish=True) or check (False) pass. (exit code, report lines). Fails closed."""
+          now: float | None = None, journal_remote: HttpAnchor | None = None) -> tuple[int, list[str]]:
+    """One publish (publish=True) or check (False) pass over both streams, audit first, then the journal (each
+    independent: a failing stream never stops the other). (worst exit code, report lines). Fails closed.
+    `journal_remote`: the journal stream's remote (default: build_journal(cfg))."""
     now = time.time() if now is None else now
+    code, lines = _stream_cycle(cfg, "audit", remote, registry, publish, now)
+    jcode, jlines = _stream_cycle(cfg, "journal", journal_remote or build_journal(cfg), registry, publish, now)
+    return max(code, jcode), lines + jlines
+
+
+def _stream_cycle(cfg: PublisherSettings, stream: str, remote: HttpAnchor, registry: KeyRegistry, publish: bool,
+                  now: float) -> tuple[int, list[str]]:
+    p, _, _, label, suffix = _STREAMS[stream]
     url = cfg.database_url.get_secret_value()
+    state_path = cfg.anchor_state_path + suffix
     try:
-        state = _load_state(cfg.anchor_state_path)
+        state = _load_state(state_path)
         try:
             listed = [e["checkpoint"] for e in remote.entries(registry)]
         except RemoteUnavailable as e:
             if not publish:
-                return 1, [f"anchor-remote: FAILED: {e}; cannot verify"]
-            cps, _, _ = _snapshot(url, [], registry, full=False)
+                return 1, [f"{p}: FAILED: {e}; cannot verify"]
+            cps, _, _ = _snapshot(url, [], registry, False, stream)
             floor = state["seq"] if state else 0
             late, line = _lag([c for c in cps if c["payload"]["seq"] > floor], now, cfg)
-            return int(late), [f"anchor-remote: WARN: {e}; nothing published", f"anchor-remote: {line}"]
-        cps, top, heads = _snapshot(url, [c["payload"]["seq"] for c in listed], registry, full=not publish)
+            return int(late), [f"{p}: WARN: {e}; nothing published", f"{p}: {line}"]
+        cps, top, heads = _snapshot(url, [c["payload"]["seq"] for c in listed], registry, not publish, stream)
         problems = _problems(listed, cps, top, heads, state)
         if problems:
-            return 1, [f"anchor-remote: FAILED: {p}" for p in problems]
+            return 1, [f"{p}: FAILED: {x}" for x in problems]
         rmax = listed[-1]["payload"]["seq"] if listed else 0
         backlog = [c for c in cps if c["payload"]["seq"] > rmax]
         head, done, lines = (listed[-1] if listed else None), [], []
@@ -209,32 +246,32 @@ def cycle(cfg: PublisherSettings, remote: HttpAnchor, registry: KeyRegistry, *, 
                 try:
                     remote.publish(c, registry)
                 except RemoteUnavailable as e:
-                    lines.append(f"anchor-remote: WARN: {e} at seq {c['payload']['seq']}; will resume there")
+                    lines.append(f"{p}: WARN: {e} at seq {c['payload']['seq']}; will resume there")
                     break
                 head = c
                 done.append(c["payload"]["seq"])
             backlog = backlog[len(done):]
         if head is not None:
-            _save_state(cfg.anchor_state_path, head)
+            _save_state(state_path, head)
         late, lag_line = _lag(backlog, now, cfg)
         held = f"remote holds {len(listed) + len(done)} checkpoints through seq {head['payload']['seq']}, each " \
                "included in the local chain" if head else "remote holds no checkpoint"
         pub = f"; published seq {done[0]}..{done[-1]}" if done else ""
-        lines.insert(0, f"anchor-remote: OK: {held}{pub}; {lag_line}"
-                     if not late else f"anchor-remote: {lag_line}")
+        lines.insert(0, f"{p}: OK: {held}{pub}; {lag_line}" if not late else f"{p}: {lag_line}")
         return int(late), lines
-    except (AnchorError, audit.AuditFailure, OSError) as e:
-        return 1, [f"anchor-remote: FAILED: {e}"]
+    except (AnchorError, audit.AuditFailure, journal.JournalFailure, OSError) as e:
+        return 1, [f"{p}: FAILED: {e}"]
     except psycopg.Error as e:
-        return 1, [f"anchor-remote: FAILED: cannot read the audit log ({type(e).__name__})"]
+        return 1, [f"{p}: FAILED: cannot read the {label} ({type(e).__name__})"]
 
 
 def run(cfg: PublisherSettings, remote: HttpAnchor, registry: KeyRegistry, iterations: int | None = None,
-        sleep=time.sleep) -> int:
+        sleep=time.sleep, journal_remote: HttpAnchor | None = None) -> int:
     """The publisher loop. A failing cycle is reported and retried next interval; it never stops on its own."""
     i, code = 0, 0
+    journal_remote = journal_remote or build_journal(cfg)
     while iterations is None or i < iterations:
-        code, lines = cycle(cfg, remote, registry, publish=True)
+        code, lines = cycle(cfg, remote, registry, publish=True, journal_remote=journal_remote)
         print("\n".join(lines), flush=True)
         i += 1
         if iterations is None or i < iterations:
@@ -249,13 +286,14 @@ def main(argv=None, env: Mapping[str, str] = os.environ) -> int:
     try:
         cfg = load_settings(env)
         remote, registry = build(cfg)
+        jremote = build_journal(cfg)
     except (ConfigError, ValueError) as e:
         print(f"anchor-remote: config error: {e}", file=sys.stderr)
         return 2
     try:
         if args.cmd == "run":
-            return run(cfg, remote, registry)
-        code, lines = cycle(cfg, remote, registry, publish=args.cmd == "once")
+            return run(cfg, remote, registry, journal_remote=jremote)
+        code, lines = cycle(cfg, remote, registry, publish=args.cmd == "once", journal_remote=jremote)
     except Exception as e:  # fail closed: anything unexpected is a failed cycle
         print(f"anchor-remote: FAILED ({type(e).__name__})")
         return 1

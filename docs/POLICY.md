@@ -89,3 +89,27 @@ Each decision carries the revision of the policy OPA had loaded: sha256 over the
 reports them. It is in the signed receipt (`policy_revision`), re-checked at commit (a change is AP-STALE-07 / G2 and
 needs a fresh prepare), and recorded with the OPA version and exact input in the prepare audit entry. Archive each
 revision with `python scripts/policy_archive.py` and re-run a past decision with `actionproof.policy.reconstruct`.
+
+## Policy authority (ADR-033)
+The revision says WHICH policy decided; a signature says an AUTHORISED owner published it. The policy owner holds a
+SEPARATE Ed25519 key (never the receipt-signing key, never on the gateway host) and signs offline:
+
+    python scripts/policy_sign.py keygen --seed <offline path>          # prints the PUBLIC key only
+    python scripts/policy_sign.py sign --seed <offline path> --kid pa1  # archives policy/ and writes
+                                                                        # policy_archive/<revision>/signature.json
+
+The signed statement is RFC 8785 of `{bundle_format, policy_schema, revision, authority_kid, signed_at}`. The gateway
+gets `POLICY_AUTHORITY_KEYS` (path to `{"keys": {"<kid>": {"pub": "<base64>", "status": "active|retired|revoked"}}}`,
+public keys only: any other field is refused) and `POLICY_ARCHIVE_DIR`. With them set, `policy.decide` (prepare AND the
+commit re-check) verifies the ACTIVE revision's signature before evaluating; an unsigned revision, a bad signature, an
+unknown or revoked kid, a signature for another revision, a malformed file or keys file is DENY `AP-POL-FAIL` / G1.
+The verified kid is `Decision.signed_by` and `detail.policy.signed_by` in the prepare audit entry (receipts unchanged).
+Config load refuses an authority key that equals the receipt key or any KEY_REGISTRY_PATH key. Unset = no check
+(dev and CI default), `signed_by` is null.
+
+Rotation: `keygen` a new key (pa2); add it as `active` and mark pa1 `retired` (pa1's revisions still verify); sign new
+revisions with pa2. Revocation (compromise): mark the kid `revoked`; the keys file is re-read on every decision, so the
+next prepare or commit under a revision it signed is denied; re-sign the active revision with a trusted key. Every keys
+file edit applies at the next decision, but the receipt-key separation is checked at config load only: restart after
+adding a key.
+`# ponytail: file-based trust store; upgrade path is a KMS/HSM-held authority key and OPA bundle signing (.signatures.json)`.

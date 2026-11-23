@@ -138,6 +138,8 @@ check the chain:
 ```
 python -m actionproof.reconcile journal list            # UNKNOWN / RECONCILING executions (--all for every one)
 python -m actionproof.reconcile journal verify          # exit 1 if an event was edited, deleted or reordered
+python -m actionproof.reconcile journal checkpoint --anchor /anchor/journal.jsonl   # sign the head; copy it off the DB
+python -m actionproof.reconcile journal verify --anchor /anchor/journal.jsonl --strict  # head reaches + matches anchor
 python -m actionproof.reconcile journal resolve --execution ex-... --reviewer rev-alice --not-executed   # or --executed
 python -m actionproof.reconcile journal resolve --execution ex-... --reviewer ops-1 --evidence \
   '{"source":"psp.lookup_by_idempotency_key","idempotency_key":"...","status":"APPLIED","amount":"4900.00","counterparty":"V-ACME"}'
@@ -146,6 +148,33 @@ python -m actionproof.reconcile journal resolve --execution ex-... --reviewer op
 Evidence must match the execution's idempotency key, exact amount and counterparty, or nothing changes. A CONFIRMED
 execution (the downstream returned success) can only be released with `--executed`. Nothing resolves by waiting.
 Markers older than the journal have no events: use `release` above.
+
+**Automatic reconciliation (ADR-035).** Set `ADAPTER_EVIDENCE_KEYS` to a `{"keys": {"<kid>": {"pub", "status"}}}`
+file of the adapters' evidence PUBLIC keys (never the receipt key: the gate refuses it), then run the outbox worker:
+
+```
+python -m actionproof.reconcile auto --once                 # one cycle (cron); exit 2 if ADAPTER_EVIDENCE_KEYS unset
+python -m actionproof.reconcile auto --run --interval 10    # long-running; any number of workers may run
+```
+
+It resolves an UNKNOWN execution only when the adapter's `lookup(idempotency_key)` returns a signed APPLIED, or a
+signed NOT_APPLIED after the provider's window has closed; it never re-sends the call. Each cycle prints
+`N enqueued, N claimed, N resolved, N ambiguous, ...`. Rows that never get evidence back off to one try per 5 minutes
+and are reported by `journal verify` as `outbox: ... S stuck` (10+ attempts): resolve those by hand with
+`journal resolve` above (the worker then marks its row DONE). A worker killed mid-lookup loses its lease after 30 s
+and another worker takes the row over. Dispatches younger than `--min-age` (default 60 s) are left alone.
+
+**Journal checkpoints and anchoring (ADR-034).** The gate does not checkpoint the journal: schedule `journal checkpoint`
+(cron, e.g. every minute; idempotent when nothing changed). It verifies the chain first, signs the head with the gate key
+(`SIGNING_KEY_PATH`), then appends it to the journal anchor (`--anchor` or `JOURNAL_ANCHOR_PATH`). The journal anchor is
+its OWN file: the same path as `AUDIT_ANCHOR_PATH` is refused (exit 2). `journal verify` trusts `KEY_REGISTRY_PATH`, else
+the gate's own key. Exit codes: 0 OK, 1 failed (an anchor failure after signing keeps the checkpoint: rerun), 2 config.
+`anchor_publisher once|check|run` now also carries the journal stream to `{ANCHOR_REMOTE_URL}/journal/checkpoints`
+(state in `ANCHOR_STATE_PATH.journal`; lines prefixed `anchor-remote[journal]:`). Failure reasons, as for audit verify:
+`checkpoint refers to a missing event (journal tail truncated)`, `checkpoint head_hash does not match the event`,
+`checkpoint signed by an unknown kid`, `checkpoint signature invalid`, `older than the external anchor` (tail deleted
+together with its checkpoints), `anchored head hash does not match` (history rewritten). Same playbook as "Audit verify
+fails": stop writes, keep a dump as evidence, never repair rows by hand.
 
 **Legacy markers after an upgrade (ADR-024).** A database that ran the ADR-019 version may hold an unresolved marker with
 no amount, actor, counterparty or key. Its spend is unknown, so every cap-sensitive prepare and commit is denied (AP-CUM-03)

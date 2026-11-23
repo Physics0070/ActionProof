@@ -16,8 +16,13 @@ receipt nonce, request_hash, request idempotency_key, record_id, principal (acto
   never changes a status; only a journaled reconciliation does.
 - No exactly-once claim for arbitrary downstreams: the journal makes an ambiguous outcome visible and keeps the gate
   from redispatching it; resolving it takes trustworthy evidence or an audited human decision.
+- Signed checkpoints (ADR-034): `checkpoint` signs {seq, head_hash, ts} over the journal head with the gate's
+  checkpoint signer (as audit.checkpoint does), under the journal lock only, into execution_journal_checkpoints.
+  `verify` checks every checkpoint (signature by the key of its kid, head_hash against the chain, a checkpoint beyond
+  the head = truncated tail); `anchor_report` compares the head with an external copy (a LocalAnchor file of the
+  journal stream, never the audit file), which catches a truncation that deleted the checkpoints too.
 
-    python -m actionproof.reconcile journal verify|list|resolve ...
+    python -m actionproof.reconcile journal checkpoint|verify|list|resolve ...
 """
 import hashlib
 import time
@@ -26,6 +31,7 @@ from decimal import Decimal, InvalidOperation
 import rfc8785
 from psycopg.types.json import Jsonb
 
+from actionproof import signing
 from actionproof.contracts import MONEY
 
 EVENTS = ("RESERVATION_CREATED", "DISPATCH_STARTED", "EXECUTION_CONFIRMED", "EXECUTION_FAILED", "EXECUTION_UNKNOWN",
@@ -35,6 +41,7 @@ REF = ("nonce", "request_hash", "idempotency_key", "record_id", "actor", "on_beh
 FIELDS = ("seq", "ts", "execution_id", "event") + REF + ("detail", "prev_hash")
 _LOCK = 0x4A524E4C  # journal-only advisory lock key ("JRNL"); the audit lock is a table lock, never this
 _HEAD = "SELECT seq, entry_hash FROM execution_journal ORDER BY seq DESC LIMIT 1"
+_CPS = "SELECT seq, head_hash, ts, sig, kid FROM execution_journal_checkpoints"
 _STATUS = {"RESERVATION_CREATED": "UNKNOWN", "DISPATCH_STARTED": "UNKNOWN", "EXECUTION_CONFIRMED": "CONFIRMED",
            "EXECUTION_FAILED": "FAILED", "EXECUTION_UNKNOWN": "UNKNOWN", "RECONCILIATION_STARTED": "RECONCILING"}
 UNRESOLVED = ("UNKNOWN", "RECONCILING")
@@ -43,7 +50,13 @@ EVIDENCE_KEYS = ("source", "idempotency_key", "status", "amount", "counterparty"
 
 class DefiniteFailure(Exception):
     """Raised by an adapter ONLY when the downstream definitively reports the effect was NOT applied (e.g. a decline
-    with no state change). Any other exception from a tool is an UNKNOWN outcome."""
+    with no state change). Any other exception from a tool is an UNKNOWN outcome. ADR-035: `evidence` must be the
+    adapter's signed "execute" NOT_APPLIED statement (evidence.py); without verifiable evidence the gate journals
+    the claim as UNKNOWN, never FAILED."""
+
+    def __init__(self, msg: str = "", evidence=None):
+        super().__init__(msg)
+        self.evidence = evidence
 
 
 class JournalFailure(Exception):
@@ -116,9 +129,55 @@ def record(factory, event: str, reference: dict, detail: dict | None = None) -> 
         conn.close()
 
 
-def verify(conn) -> int:
-    """Number of events if the chain checks out, else raises JournalFailure."""
-    prev, n = GENESIS, 0
+def checkpoint(conn, signer) -> int | None:
+    """Sign the current journal head in the caller's tx. Takes the journal's own advisory lock (_LOCK) and nothing
+    else, so it never waits on a commit holding the other lock. Returns the checkpointed seq; None for an empty
+    journal; an unchanged head returns its seq and writes nothing (idempotent). Raises JournalFailure, signing
+    nothing, when the newest checkpoint is beyond the head or differs from it (truncated or rewritten tail)."""
+    conn.execute("SELECT pg_advisory_xact_lock(%s)", (_LOCK,))
+    head = conn.execute(_HEAD).fetchone()
+    last = conn.execute(_CPS + " ORDER BY seq DESC LIMIT 1").fetchone()
+    if last is not None:
+        if head is None or last[0] > head[0]:
+            raise JournalFailure(last[0], "latest checkpoint is beyond the journal head (tail truncated)")
+        if last[0] == head[0]:
+            if last[1] != head[1]:
+                raise JournalFailure(head[0], "checkpoint head_hash does not match the event")
+            return head[0]
+    if head is None:
+        return None
+    signed = signer.sign({"seq": head[0], "head_hash": head[1], "ts": int(time.time())})
+    conn.execute("INSERT INTO execution_journal_checkpoints (seq, head_hash, ts, sig, kid) VALUES (%s, %s, %s, %s, %s)",
+                 (head[0], head[1], signed["payload"]["ts"], signed["sig"], signed["kid"]))
+    return head[0]
+
+
+def latest_checkpoint(conn) -> dict | None:
+    """The newest signed journal checkpoint as a receipt-shaped envelope (what the anchors carry), or None."""
+    row = conn.execute(_CPS + " ORDER BY seq DESC LIMIT 1").fetchone()
+    return None if row is None else {"payload": {"seq": row[0], "head_hash": row[1], "ts": row[2]}, "sig": row[3],
+                                     "kid": row[4]}
+
+
+def _untrusted(env: dict, keys) -> str | None:
+    """Why a checkpoint is not trusted, or None. Same rules as audit.verify: one key checks every kid; a kid -> key map
+    or a KeyRegistry checks the key of ITS kid (unknown fails; the registry also fails a revoked kid)."""
+    if isinstance(keys, signing.KeyRegistry):
+        if keys.status(env["kid"]) is None:
+            return "checkpoint signed by an unknown kid"
+        return None if keys.verify(env) else "checkpoint signature invalid or its kid is revoked"
+    key = keys if isinstance(keys, str) else keys.get(env["kid"])
+    if key is None:
+        return "checkpoint signed by an unknown kid"
+    return None if signing.verify(env, key) else "checkpoint signature invalid"
+
+
+def verify(conn, keys=None) -> int:
+    """Number of events if the chain AND every signed checkpoint check out, else raises JournalFailure.
+    `keys`: one base64 public key, a kid -> key map, or a signing.KeyRegistry. Without keys only the chain can be
+    checked, so any checkpoint present fails closed.
+    # ponytail: holds every entry hash in memory (as audit.verify); upgrade path is a cursor merged with checkpoints."""
+    prev, n, heads = GENESIS, 0, {}
     for row in conn.execute(f"SELECT {', '.join(FIELDS)}, entry_hash FROM execution_journal ORDER BY seq"):
         e = dict(zip(FIELDS + ("entry_hash",), row))
         n += 1
@@ -131,8 +190,46 @@ def verify(conn) -> int:
             raise JournalFailure(n, "entry_hash does not recompute (event edited)")
         if e["execution_id"] != execution_id(e["nonce"]):
             raise JournalFailure(n, "execution_id does not derive from the nonce")
-        prev = e["entry_hash"]
+        prev = heads[n] = e["entry_hash"]
+    for seq, head, ts, sig, kid in conn.execute(_CPS + " ORDER BY seq"):
+        if keys is None:
+            raise JournalFailure(seq, "checkpoints present but no trusted public key was given to verify them")
+        if seq not in heads:
+            raise JournalFailure(seq, "checkpoint refers to a missing event (journal tail truncated)")
+        if heads[seq] != head:
+            raise JournalFailure(seq, "checkpoint head_hash does not match the event")
+        why = _untrusted({"payload": {"seq": seq, "head_hash": head, "ts": ts}, "sig": sig, "kid": kid}, keys)
+        if why:
+            raise JournalFailure(seq, why)
     return n
+
+
+def anchor_report(conn, path, keys, n: int, strict: bool) -> str:
+    """Compare the (already verified, `n` events) journal with its external LocalAnchor copy at `path` (the journal
+    stream's own file). Same policy as audit's: the database must reach and match the anchored head; an unanchored
+    tail is reported, and is a failure only with `strict` (as is no anchor at all). Raises JournalFailure."""
+    from actionproof import anchor as anchor_mod
+
+    try:
+        latest = anchor_mod.LocalAnchor(path).latest(keys)
+    except anchor_mod.AnchorError as e:
+        raise JournalFailure(0, f"anchor unusable: {e}") from None
+    if latest is None:
+        if strict:
+            raise JournalFailure(0, "no journal checkpoint has been anchored (strict)")
+        return f"anchor: none published (0 of {n} events anchored)"
+    a = latest["payload"]["seq"]
+    if n < a:
+        raise JournalFailure(a, f"journal holds {n} events but the anchor reached seq {a}: it is older than the "
+                                "external anchor (rolled back, or its tail was deleted)")
+    row = conn.execute("SELECT entry_hash FROM execution_journal WHERE seq = %s", (a,)).fetchone()
+    if row is None or row[0] != latest["payload"]["head_hash"]:
+        raise JournalFailure(a, "anchored head hash does not match the journal event (history rewritten)")
+    if n > a:
+        if strict:
+            raise JournalFailure(a + 1, f"unanchored tail: seq {a + 1}..{n} is not covered by the external anchor")
+        return f"anchor: OK, anchored through seq {a}; unanchored {a + 1}..{n} (not externally protected)"
+    return f"anchor: OK, anchored through seq {a} (fully anchored)"
 
 
 def executions(conn, nonces=None) -> list[dict]:
@@ -158,8 +255,8 @@ def of_nonces(conn, nonces) -> dict:
 def evidence_executed(evidence, execution: dict) -> bool:
     """Downstream evidence (the adapter's lookup-by-idempotency-key result) -> did the execution happen? Trusted only
     when it names this exact execution: same idempotency key, same exact amount, same counterparty. Raises ValueError.
-    # ponytail: the evidence's authenticity is the operator's (the CLI caller's) responsibility; upgrade path is a
-    signed lookup response from the adapter, verified here."""
+    # ponytail: on the CLI path the evidence's authenticity is the operator's responsibility; the outbox worker
+    (outbox.py, ADR-035) only passes evidence it verified as a signed adapter lookup (evidence.lookup_outcome)."""
     if not isinstance(evidence, dict) or set(evidence) != set(EVIDENCE_KEYS) \
             or not all(isinstance(evidence[k], str) and evidence[k].strip() for k in EVIDENCE_KEYS):
         raise ValueError(f"evidence needs exactly {', '.join(EVIDENCE_KEYS)} as non-empty strings")
