@@ -4,13 +4,12 @@
 // render on a plain ground: the story is complete without the scene.
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BEATS } from "@/lib/assay";
-import { BENEFITS, HERO, IMPACT, LIMITS } from "@/lib/site-copy";
+import { HERO } from "@/lib/site-copy";
 import { detectCaps, seedReplay, startDriver, useStory } from "@/lib/site-story";
 import { Signal } from "@/components/ui/Signal";
 import { moneyStr, type Replay } from "@/lib/site-data";
-import { Beats } from "./Beats";
 
 const AssayScene = dynamic(() => import("./AssayScene"), { ssr: false });
 
@@ -123,51 +122,8 @@ function Hero() {
   );
 }
 
-function Aftermath() {
-  return (
-    <section className="as-after" aria-labelledby="after-h">
-      <h2 id="after-h" className="as-after-title">
-        Who it is for, and what it does not claim
-      </h2>
-      <div className="as-cols">
-        <div>
-          <h3>Who benefits</h3>
-          <ul className="rows">
-            {BENEFITS.map((b) => (
-              <li key={b.who}>
-                <strong>{b.who}</strong>
-                <span>{b.body}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <h3>Expected impact</h3>
-          <ul className="rows rows-one">
-            {IMPACT.map((i) => (
-              <li key={i}>
-                <span>{i}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div id="limits">
-          <h3>What ActionProof does not claim</h3>
-          <ul className="rows">
-            {LIMITS.map((l) => (
-              <li key={l.head}>
-                <strong>{l.head}</strong>
-                <span>{l.body}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export function AssayStory({ initialReplay }: { initialReplay: Replay | null }) {
+// `children` are the server-rendered beats and closing section (no hydration cost); this shell adds the scene and rail.
+export function AssayStory({ initialReplay, children }: { initialReplay: Replay | null; children: ReactNode }) {
   // Seed the store ONCE, before the first render reads it (server and client agree, so hydration matches).
   useState(() => {
     seedReplay(initialReplay);
@@ -244,8 +200,7 @@ export function AssayStory({ initialReplay }: { initialReplay: Replay | null }) 
       ) : null}
       {live ? <Rail /> : null}
       <Hero />
-      <Beats />
-      <Aftermath />
+      {children}
     </div>
   );
 }

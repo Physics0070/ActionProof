@@ -225,6 +225,7 @@ jobs:
         with:
           name: lighthouse
           path: .lighthouseci/
+          include-hidden-files: true
           if-no-files-found: ignore
       - if: failure()
         run: docker compose -f docker-compose.yml logs --no-color --tail=200

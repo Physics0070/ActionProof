@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Aftermath } from "@/components/site/assay/Aftermath";
 import { AssayStory } from "@/components/site/assay/AssayStory";
+import { Beats } from "@/components/site/assay/Beats";
 import { apiGet } from "@/lib/api";
 import { HERO } from "@/lib/site-copy";
 import type { Replay } from "@/lib/site-data";
@@ -27,7 +29,14 @@ async function recordedDecision(): Promise<Replay | null> {
   }
 }
 
-// The hero text is server-rendered (the LCP element); the 3D scene loads after hydration (ssr:false).
+// The hero text is server-rendered (the LCP element); the beats and closing section are server components passed in as
+// children, so only the shell (hero card, rail, scene) hydrates. The 3D scene loads after hydration (ssr:false).
 export default async function Home() {
-  return <AssayStory initialReplay={await recordedDecision()} />;
+  const replay = await recordedDecision();
+  return (
+    <AssayStory initialReplay={replay}>
+      <Beats replay={replay} />
+      <Aftermath />
+    </AssayStory>
+  );
 }

@@ -1,5 +1,4 @@
-"use client";
-// The six beats as real, readable sections. In the live experience they scroll over the fixed 3D scene; without WebGL
+// Server component: the six beats as real, readable sections (no hydration cost). In the live experience they scroll over the fixed 3D scene; without WebGL
 // or with reduced motion they are the same sections on a plain ground. Every figure comes from the recorded decision
 // (GET /api/public/replay/inv-2048); with none recorded each beat says so and shows nothing in its place.
 import Link from "next/link";
@@ -8,19 +7,16 @@ import { Signal, type Decision } from "@/components/ui/Signal";
 import { BEATS } from "@/lib/assay";
 import { REPO_URL } from "@/lib/config";
 import { CLAIMS, OUTCOMES, TAINT } from "@/lib/site-copy";
-import { derivations, invoiceFacts, money, moneyStr, utc, type Replay } from "@/lib/site-data";
-import { useStory } from "@/lib/site-story";
+import { invoiceFacts, money, moneyStr, utc, type Replay } from "@/lib/site-data";
 import { Glyph } from "./Glyphs";
+import { Recompute } from "./Recompute";
 
 const asDecision = (s: string): Decision | null => (s === "ALLOW" || s === "REVIEW" || s === "DENY" ? s : null);
 
-function useData(): { data: Replay | null; note: string | null } {
-  const replay = useStory((s) => s.replay);
-  if (replay.kind === "ok") return { data: replay.data, note: null };
-  if (replay.kind === "none") return { data: null, note: "No decision has been recorded yet, so nothing is shown here. Nothing is simulated in its place." };
-  if (replay.kind === "error") return { data: null, note: `The recorded decision could not be loaded (${replay.message}).` };
-  return { data: null, note: "Fetching the recorded INV-2048 decision from the gate." };
-}
+type Data = { data: Replay | null; note: string | null };
+// The server fetched the recorded decision while rendering (app/(site)/page.tsx); null means it was unavailable.
+const dataOf = (replay: Replay | null): Data =>
+  replay ? { data: replay, note: null } : { data: null, note: "The recorded INV-2048 decision is not available right now, so nothing is shown here. Nothing is simulated in its place." };
 
 function Frame({ i, children }: { i: number; children: React.ReactNode }) {
   const b = BEATS[i]!;
@@ -40,8 +36,7 @@ function Frame({ i, children }: { i: number; children: React.ReactNode }) {
   );
 }
 
-function Problem() {
-  const { data, note } = useData();
+function Problem({ data, note }: Data) {
   const f = data ? invoiceFacts(data.claims) : null;
   return (
     <Frame i={0}>
@@ -67,9 +62,7 @@ function Problem() {
   );
 }
 
-function Evidence() {
-  const { data, note } = useData();
-  const ders = data ? derivations(data.claims) : [];
+function Evidence({ data, note }: Data) {
   return (
     <Frame i={1}>
       <p className="beat-lede">The gate asks where each value came from. Only some kinds of claim may authorize a write.</p>
@@ -105,19 +98,13 @@ function Evidence() {
           </tbody>
         </table>
       ) : null}
-      {ders.map((d) => (
-        <p key={d.claim.name} className="beat-note">
-          {d.claim.name}: {d.operands.map((o) => moneyStr(o.value) ?? "?").join(d.fn === "sub" ? " − " : " + ")}
-          {d.recomputed ? ` = ${d.recomputed}` : ""}. {d.matches === null ? "" : d.matches ? "Recomputed in your browser: it matches." : "Recomputed in your browser: it does not match."}
-        </p>
-      ))}
+      {data ? <Recompute claims={data.claims} /> : null}
       {note ? <p className="beat-note">{note}</p> : null}
     </Frame>
   );
 }
 
-function Policy() {
-  const { data, note } = useData();
+function Policy({ data, note }: Data) {
   const dec = data ? asDecision(data.decision) : null;
   return (
     <Frame i={2}>
@@ -141,8 +128,7 @@ function Policy() {
   );
 }
 
-function Strike() {
-  const { data, note } = useData();
+function Strike({ data, note }: Data) {
   const fin = data ? asDecision(data.status === "executed" ? "ALLOW" : data.status === "rejected" ? "DENY" : data.decision) : null;
   const bounce = data?.replay_attempts[0];
   return (
@@ -165,15 +151,14 @@ function Strike() {
         <p className="beat-note">No replay attempt is recorded against this request yet, so no bounce is drawn.</p>
       ) : null}
       <p className="beat-note">
-        If the process dies after the tool ran, the gate keeps the reservation, the idempotency key and the record&apos;s quarantine until a person reconciles it. It does not retry by itself, and there is no outbox yet.
+        If the process dies after the tool ran, the gate keeps the reservation, the idempotency key and the record&apos;s quarantine until it is reconciled. An outbox worker can resolve it only from a signed provider lookup, and it never sends the call again.
       </p>
       {note ? <p className="beat-note">{note}</p> : null}
     </Frame>
   );
 }
 
-function Audit() {
-  const { data, note } = useData();
+function Audit({ data, note }: Data) {
   const a = data?.audit;
   return (
     <Frame i={4}>
@@ -212,14 +197,15 @@ function Reveal() {
   );
 }
 
-export function Beats() {
+export function Beats({ replay }: { replay: Replay | null }) {
+  const d = dataOf(replay);
   return (
     <div id="assay-track" data-chapter="1">
-      <Problem />
-      <Evidence />
-      <Policy />
-      <Strike />
-      <Audit />
+      <Problem {...d} />
+      <Evidence {...d} />
+      <Policy {...d} />
+      <Strike {...d} />
+      <Audit {...d} />
       <Reveal />
     </div>
   );
