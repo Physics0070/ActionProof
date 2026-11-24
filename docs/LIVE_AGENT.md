@@ -1,6 +1,6 @@
 # Live agent over the MCP boundary (ADR-031, DECK_TRACE H10)
 
-**Status: one live run (2026-11-24), Groq provider.** The Anthropic path is still untested live. The scripted
+**Status: two live runs (2026-11-24), Groq provider; the second reached the honest REVIEW path.** The Anthropic path is still untested live. The scripted
 stand-in test (`tests/e2e/test_live_agent_offline.py`) against the real HTTP MCP server remains the deterministic check.
 
 ### First live run (2026-11-24)
@@ -20,6 +20,21 @@ strict ActionRequest contract does not allow, so every write was refused and not
 the fail-closed boundary with a real model; it does **not** show the honest path (REVIEW `AP-INV-04`) live, because
 this model never produced a well-formed request within 8 turns. The free Groq tier's 8,000 tokens-per-minute limit
 throttled the run (the client waits and retries on 429).
+
+### Second live run (2026-11-24): the honest path, live
+Same setup, fresh credential (revoked after), trace `examples/live_agent/traces/20261124T070636Z.jsonl`. The model read
+`invoice.pdf` and `po.json`, then:
+
+| Step | Model's request | Gate result |
+|---|---|---|
+| 1 | approve with `amount` DIRECT (with `doc_sha256`) and `variance` ASSERTED 500.00 | DENY `AP-VER-01` (G1): an asserted value cannot carry the variance |
+| 2 | approve with `variance` DERIVED `sub(invoice.total, po.total)` from the two cited totals | REVIEW `AP-INV-04` (G1): "abs(invoice variance) exceeds 100.00"; parked for a human |
+| 3 | `review_status` on the returned request hash | pending, same reason |
+
+The model received a request hash only, never a receipt or a token. A different person (rev-bob) then approved that
+request in the console and it executed once; the audit chain verified afterwards (`audit: OK (7 entries, 5
+checkpoints)`). The run ended with exit code 1 after that, because the free tier's rate limit was still exhausted
+when the model's final turn was retried.
 
 ## What it does
 
