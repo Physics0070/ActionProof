@@ -13,9 +13,9 @@
 
 **The attack it stops, in one sentence:** an agent reads an invoice with a hidden instruction to approve a wrong amount, and ActionProof blocks the write because that number cannot be traced back to the real document.
 
-**▶ [Demo video, 3:56](https://drive.google.com/file/d/1WGbfcB77erVYhtZpjipzjeSNNzMJZMeM/view?usp=sharing)** · **[Live demo](https://actionproof-bw-web.onrender.com)**
+**▶ [Live demo video, 3:40](https://drive.google.com/file/d/1iXMvmHMaYWwmgKwzT9PrvsAa3IPmHdWg/view?usp=sharing)** · **[Live demo](https://actionproof-bw-web.onrender.com)**
 
-<p align="center"><a href="https://drive.google.com/file/d/1WGbfcB77erVYhtZpjipzjeSNNzMJZMeM/view?usp=sharing"><img src="docs/screenshots/video-thumb.png" alt="Watch the 3:56 demo video" width="720"></a></p>
+<p align="center"><a href="https://drive.google.com/file/d/1iXMvmHMaYWwmgKwzT9PrvsAa3IPmHdWg/view?usp=sharing"><img src="docs/screenshots/video-thumb.png" alt="Watch the 3:40 live demo video" width="720"></a></p>
 
 CodeQuest 2026 submission by team **Bench Warmers**. This is a prototype on mock services: no real credentials, no real payments.
 
@@ -58,7 +58,7 @@ ActionProof closes them with two guarantees, each backed by named tests:
 
 | | |
 |---|---|
-| **Demo video** (3:56) | [Watch on Google Drive](https://drive.google.com/file/d/1WGbfcB77erVYhtZpjipzjeSNNzMJZMeM/view?usp=sharing): the problem, the five steps, the live site and reviewer console, every attack in `demo.sh`, and the evaluation |
+| **Live demo video** (3:40) | [Watch on Google Drive](https://drive.google.com/file/d/1iXMvmHMaYWwmgKwzT9PrvsAa3IPmHdWg/view?usp=sharing): real recordings, narrated. The live site; a real AI agent (Groq) denied once and then parked for review by the gate; a different person approving it in the console; audit verify; every attack in `demo.sh`; CLI verification of the audit chain and journal; the 300-test safety suite; the evaluation |
 | **Live demo** | https://actionproof-bw-web.onrender.com (Render free tier: the first load after idle takes 30-60 s while the services wake). Setup: [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) |
 | **Demo script and judge Q&A** | [docs/DEMO.md](docs/DEMO.md) |
 | **Evaluation report** | [docs/EVAL.md](docs/EVAL.md) |
