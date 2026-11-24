@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BEATS } from "@/lib/assay";
 import { HERO } from "@/lib/site-copy";
-import { detectCaps, seedReplay, startDriver, useStory } from "@/lib/site-story";
+import { detectCaps, probeWebGL, seedReplay, startDriver, useStory } from "@/lib/site-story";
 import { Signal } from "@/components/ui/Signal";
 import { moneyStr, type Replay } from "@/lib/site-data";
 
@@ -141,20 +141,23 @@ export function AssayStory({ initialReplay, children }: { initialReplay: Replay 
     void useStory.getState().loadReplay();
   }, []);
 
-  // The WebGL scene is the most expensive thing on the page and is not needed for first paint. It starts on the first sign
-  // of engagement (pointer, key, touch, scroll) or after 6 s, whichever comes first, and FADES IN behind the copy. It is
-  // fixed and off layout, so when it arrives nothing on the page moves.
+  // The WebGL scene is the most expensive thing on the page and is not needed for first paint. On the first sign of
+  // engagement (pointer, key, touch, scroll) WebGL is probed (creating a context is slow on software renderers, so never
+  // during hydration) and, if present, the scene mounts and FADES IN behind the copy, with the rail and scroll driver.
+  // It is fixed and off layout, so when it arrives nothing on the page moves. No engagement: the static story is complete.
+  const motionOk = caps.ready && !caps.reducedMotion;
   useEffect(() => {
-    if (!live) return;
+    if (!motionOk) return;
     const events = ["pointerdown", "pointermove", "keydown", "touchstart", "wheel", "scroll"] as const;
-    const go = () => setMount(true);
-    const timer = window.setTimeout(go, 6000);
-    events.forEach((e) => window.addEventListener(e, go, { once: true, passive: true }));
-    return () => {
-      window.clearTimeout(timer);
+    const go = () => {
       events.forEach((e) => window.removeEventListener(e, go));
+      if (!probeWebGL()) return;
+      useStory.getState().setCaps({ ...useStory.getState().caps, webgl: true });
+      setMount(true);
     };
-  }, [live]);
+    events.forEach((e) => window.addEventListener(e, go, { passive: true }));
+    return () => events.forEach((e) => window.removeEventListener(e, go));
+  }, [motionOk]);
 
   // Smooth scroll + scroll triggers only drive the fixed scene and the rail; they never change the document's height
   // (no pinning), so starting them cannot move the page.

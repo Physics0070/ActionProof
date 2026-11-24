@@ -71,17 +71,22 @@ export function seedReplay(data: Replay | null): void {
   Object.assign(useStory.getInitialState(), next);
 }
 
-export function detectCaps(): Caps {
-  let webgl = false;
+/** WebGL support. Creating a context is slow on software renderers (over a second on a throttled CPU), so it is probed
+ *  only when the visitor engages, never during hydration. */
+export function probeWebGL(): boolean {
   try {
     const c = document.createElement("canvas");
-    webgl = !!(c.getContext("webgl2") ?? c.getContext("webgl"));
+    return !!(c.getContext("webgl2") ?? c.getContext("webgl"));
   } catch {
-    webgl = false;
+    return false;
   }
+}
+
+/** The cheap capabilities, read at hydration. `webgl` stays false until probeWebGL() runs on first engagement. */
+export function detectCaps(): Caps {
   return {
     ready: true,
-    webgl,
+    webgl: false,
     reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     touch: window.matchMedia("(pointer: coarse)").matches,
     narrow: window.matchMedia("(max-width: 720px)").matches,

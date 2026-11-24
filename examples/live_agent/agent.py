@@ -15,9 +15,9 @@ Run (UNTESTED LIVE in this repo: no provider credentials were available; see doc
 
 Environment (keys are read, never printed, logged or written to a trace):
     LIVE_AGENT_API_KEY (or ANTHROPIC_API_KEY)  provider key, required
-    LIVE_AGENT_PROVIDER     anthropic (the only one implemented)
-    LIVE_AGENT_MODEL        default claude-opus-5-5
-    LIVE_AGENT_BASE_URL     default https://api.anthropic.com
+    LIVE_AGENT_PROVIDER     anthropic (default) or groq (OpenAI-compatible tool calling)
+    LIVE_AGENT_MODEL        default claude-opus-5-5 (anthropic) / openai/gpt-oss-120b (groq)
+    LIVE_AGENT_BASE_URL     default https://api.anthropic.com / https://api.groq.com/openai/v1
     ACTIONPROOF_MCP_URL     default http://127.0.0.1:8765/mcp
     ACTIONPROOF_MCP_TOKEN   the agent's bearer credential, required
     LIVE_AGENT_ACTOR / LIVE_AGENT_ON_BEHALF_OF   the identity the credential was issued for (prompt + trace only;
@@ -104,6 +104,55 @@ class AnthropicClient:
         return Turn(text, calls)
 
 
+class GroqClient:
+    """Groq's OpenAI-compatible chat completions with function tools, over raw HTTP. Same turn() contract as
+    AnthropicClient: tool results go back as role "tool" messages, the assistant message is appended unchanged."""
+
+    provider = "groq"
+
+    def __init__(self, model: str, api_key: str, tools: list[dict], system: str, task: str, *,
+                 base_url: str = "https://api.groq.com/openai/v1", http: httpx.Client | None = None):
+        self.model = model
+        self._key = api_key
+        self._tools = [{"type": "function", "function": {"name": t["name"], "description": t["description"],
+                                                         "parameters": t["input_schema"]}} for t in tools]
+        self._messages = [{"role": "system", "content": system}, {"role": "user", "content": task}]
+        self._url = base_url.rstrip("/") + "/chat/completions"
+        self._http = http or httpx.Client(timeout=300)
+
+    def __repr__(self):  # never show the key
+        return f"GroqClient(model={self.model!r})"
+
+    def turn(self, results: list[tuple[str, str, bool]]) -> Turn:
+        for i, text, _err in results:
+            self._messages.append({"role": "tool", "tool_call_id": i, "content": text})
+        for _attempt in range(8):
+            r = self._http.post(self._url, headers={"authorization": f"Bearer {self._key}", "content-type": "application/json"},
+                                json={"model": self.model, "messages": self._messages, "tools": self._tools,
+                                      "tool_choice": "auto", "temperature": 0})
+            err = (r.json().get("error") or {}) if "json" in r.headers.get("content-type", "") and r.status_code != 200 else {}
+            # Groq checks a generated tool call against the tool's JSON schema itself; a call that fails it never
+            # reaches the gate. Hand the validation message back so the model can correct its own call.
+            if r.status_code == 400 and err.get("code") == "tool_use_failed":
+                self._messages.append({"role": "user", "content": "Your last tool call was rejected before it was sent: "
+                                       + str(err.get("message", ""))[:600] + ". Fix the arguments and call the tool again."})
+                print(f"[provider] tool call failed schema validation, returned to the model: {str(err.get('message', ''))[:160]}")
+                continue
+            if r.status_code == 429:  # free tier tokens-per-minute limit: wait as asked, then retry the same request
+                wait = min(float(r.headers.get("retry-after") or 20), 60)
+                print(f"[provider] rate limited, waiting {wait:.0f} s")
+                time.sleep(wait)
+                continue
+            break
+        if r.status_code != 200:  # never echo the key
+            raise RuntimeError(f"provider HTTP {r.status_code} {str(err.get('message', ''))[:300]}")
+        msg = r.json()["choices"][0]["message"]
+        self._messages.append({k: v for k, v in msg.items() if k in ("role", "content", "tool_calls")})
+        calls = [ToolCall(c["id"], c["function"]["name"], json.loads(c["function"].get("arguments") or "{}"))
+                 for c in msg.get("tool_calls") or []]
+        return Turn(msg.get("content") or "", calls)
+
+
 def tool_specs(mcp_tools) -> list[dict]:
     """The model's whole tool surface: exactly what the ActionProof server lists, nothing added."""
     return [{"name": t.name, "description": t.description or "", "input_schema": t.input_schema} for t in mcp_tools]
@@ -175,16 +224,19 @@ def main() -> int:
     token = env.get("ACTIONPROOF_MCP_TOKEN")
     provider = env.get("LIVE_AGENT_PROVIDER", "anthropic")
     missing = [n for n, v in (("LIVE_AGENT_API_KEY", key), ("ACTIONPROOF_MCP_TOKEN", token)) if not v]
-    if missing or provider != "anthropic":
-        print(f"config error: {', '.join(missing) or 'LIVE_AGENT_PROVIDER must be anthropic'}", file=sys.stderr)
+    if missing or provider not in ("anthropic", "groq"):
+        print(f"config error: {', '.join(missing) or 'LIVE_AGENT_PROVIDER must be anthropic or groq'}", file=sys.stderr)
         return 2
-    model = env.get("LIVE_AGENT_MODEL", "claude-opus-5-5")
+    model = env.get("LIVE_AGENT_MODEL", "claude-opus-5-5" if provider == "anthropic" else "openai/gpt-oss-120b")
     principal = {"actor": env.get("LIVE_AGENT_ACTOR", "agent-7"),
                  "on_behalf_of": env.get("LIVE_AGENT_ON_BEHALF_OF", "user-123")}
     url = env.get("ACTIONPROOF_MCP_URL", "http://127.0.0.1:8765/mcp")
     trace = TRACES / f"{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}.jsonl"
 
     def make_llm(specs, system, task):
+        if provider == "groq":
+            return GroqClient(model, key, specs, system, task,
+                              base_url=env.get("LIVE_AGENT_BASE_URL", "https://api.groq.com/openai/v1"))
         return AnthropicClient(model, key, specs, system, task,
                                base_url=env.get("LIVE_AGENT_BASE_URL", "https://api.anthropic.com"))
 

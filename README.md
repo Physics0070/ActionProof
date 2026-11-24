@@ -36,7 +36,7 @@ Everything below is from real runs (CI on GitHub runners unless noted). Latest C
 | Docker stack and reviewer console in a real browser | Verified | `e2e` job: 8 Playwright specs (login, replay, CSRF, approve, reject) |
 | Stress | Verified (local) | `tests/stress`, 10,000 operations plus racing threads; every invariant held |
 | Landing page budget | At the edge of a loosened budget | `lighthouse` job; LCP budget is 3.2 s, not Google's 2.5 s ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
-| Live LLM through the gate | **Not verified** | needs a provider key; the offline test uses a scripted stand-in ([docs/LIVE_AGENT.md](docs/LIVE_AGENT.md)) |
+| Live LLM through the gate | Run once (Groq, `gpt-oss-120b`) | the real model read the documents, then made 6 approval calls; all were refused as malformed (`AP-VER-01`, fail closed) and none executed. The honest REVIEW path was not reached live ([docs/LIVE_AGENT.md](docs/LIVE_AGENT.md)) |
 | Remote audit anchor | **Not verified** | tested only against a local stub; no tamper-proof (WORM) claim |
 | Independent attack evaluation | **Not independent** | the attack sets are written by the builders |
 | Real ERP / payment provider | **None** | mocks only |
@@ -249,7 +249,7 @@ Proposed targets (not results): at most 0 held-out successes, false-block rate a
 ## Honest disclosures
 
 - The independent attack generator was blocked, so the second attack set is **handwritten by the same team and is NOT independent**. The "held-out" label means held-out-ish, not independent.
-- The live-LLM example has only run with a scripted stand-in; no real provider has been through the gate.
+- The live-LLM example has run once with a real model (Groq `gpt-oss-120b`): every write it attempted was refused as malformed and nothing executed, so the honest REVIEW path has only been shown with the scripted stand-in.
 - The remote anchor adapter is tested only against a local stub; the local anchor shares the host's trust domain.
 - The TLA+ result is for a small bounded instance; it checks the design, not the Python code.
 - Mocks only: no real ERP, no real payment provider.

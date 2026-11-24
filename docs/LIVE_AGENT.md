@@ -1,9 +1,25 @@
 # Live agent over the MCP boundary (ADR-031, DECK_TRACE H10)
 
-**Status: the live provider path is UNTESTED LIVE.** No provider credentials were available while it was built, so no
-real model has been run through it in this repo. What is tested is the same driver with a scripted stand-in model
-(`tests/e2e/test_live_agent_offline.py`) against the real HTTP MCP server, and the live client's request shape against
-a local mock transport. Do not quote a live run until you have made one and kept its trace.
+**Status: one live run (2026-11-24), Groq provider.** The Anthropic path is still untested live. The scripted
+stand-in test (`tests/e2e/test_live_agent_offline.py`) against the real HTTP MCP server remains the deterministic check.
+
+### First live run (2026-11-24)
+Provider `groq`, model `openai/gpt-oss-120b`, prompt `inv2048-live-v1`, a fresh scoped credential
+(`payments.approve_invoice`, 1 day, revoked after the run), the real HTTP MCP server and gate on demo data.
+What the model did, from the kept trace (`examples/live_agent/traces/20261124T063757Z.jsonl`, git-ignored):
+
+| Turn | Tool | Gate result |
+|---|---|---|
+| 1, 2 | `extract_fields` invoice.pdf, po.json | ok (untrusted document text) |
+| 3-8 | `payments_approve_invoice` (6 attempts) | DENY `AP-VER-01` (G1), "malformed call (fail closed)"; not executed |
+
+Before reaching the gate, two of its calls were rejected by Groq's own schema check (amounts sent as JSON numbers; the
+contract only accepts decimal strings) and were handed back to the model to correct. The six calls that reached the gate
+cited the invoice and PO correctly but omitted the `doc_sha256` that a DIRECT claim requires, and some added fields the
+strict ActionRequest contract does not allow, so every write was refused and nothing executed. The run therefore shows
+the fail-closed boundary with a real model; it does **not** show the honest path (REVIEW `AP-INV-04`) live, because
+this model never produced a well-formed request within 8 turns. The free Groq tier's 8,000 tokens-per-minute limit
+throttled the run (the client waits and retries on 429).
 
 ## What it does
 
@@ -49,9 +65,9 @@ ACTIONPROOF_MCP_TOKEN=<token> LIVE_AGENT_API_KEY=<provider key> \
 | Variable | Default | Meaning |
 |---|---|---|
 | `LIVE_AGENT_API_KEY` (or `ANTHROPIC_API_KEY`) | required | provider key; sent only in the `x-api-key` header |
-| `LIVE_AGENT_PROVIDER` | `anthropic` | the only provider implemented |
-| `LIVE_AGENT_MODEL` | `claude-opus-5-5` | model id, recorded in the trace |
-| `LIVE_AGENT_BASE_URL` | `https://api.anthropic.com` | provider base URL |
+| `LIVE_AGENT_PROVIDER` | `anthropic` | `anthropic` or `groq` (OpenAI-compatible tool calling) |
+| `LIVE_AGENT_MODEL` | `claude-opus-5-5` / `openai/gpt-oss-120b` | model id, recorded in the trace |
+| `LIVE_AGENT_BASE_URL` | `https://api.anthropic.com` / `https://api.groq.com/openai/v1` | provider base URL |
 | `ACTIONPROOF_MCP_URL` | `http://127.0.0.1:8765/mcp` | the ActionProof HTTP MCP endpoint |
 | `ACTIONPROOF_MCP_TOKEN` | required | the agent's scoped bearer credential |
 | `LIVE_AGENT_ACTOR`, `LIVE_AGENT_ON_BEHALF_OF` | `agent-7`, `user-123` | the identity the credential was issued for (prompt and trace only; the server ignores them) |
@@ -71,9 +87,9 @@ mixed into it.
 
 ## Limits
 
-- Live path UNTESTED LIVE (above). The request shape follows the Messages API (`anthropic-version: 2023-06-01`,
+- Anthropic path untested live; Groq path run once (above). The Anthropic request shape follows the Messages API (`anthropic-version: 2023-06-01`,
   `tool_use` / `tool_result` blocks, assistant content echoed back unchanged); a provider-side change may need edits.
-- One provider. Another is a second class with the same `turn(results)`.
+- Two providers (Anthropic, Groq), each a small class with the same `turn(results)`.
 - What a real model chooses is not deterministic; the claim is only that whatever it chooses, an unsafe write does not
   execute. That is what the offline test checks, with a stand-in that makes the unsafe calls on purpose.
 - Mocks only: an honest ALLOW would execute against the mock ERP, never a real payment.
