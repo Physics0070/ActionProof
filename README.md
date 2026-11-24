@@ -17,7 +17,7 @@
 
 <p align="center"><a href="https://drive.google.com/file/d/1iXMvmHMaYWwmgKwzT9PrvsAa3IPmHdWg/view?usp=sharing"><img src="docs/screenshots/video-thumb.png" alt="Watch the 3:40 live demo video" width="720"></a></p>
 
-CodeQuest 2026 submission by team **Bench Warmers**. This is a prototype on mock services: no real credentials, no real payments.
+CodeQuest 2026 submission by team **W11** (Soham Joshi, Sreepad Kulkarni). This is a prototype on mock services: no real credentials, no real payments.
 
 ## What is verified, and what is not
 
