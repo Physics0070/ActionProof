@@ -9,8 +9,12 @@ Measured (2026-11-23):
 - The remaining main-thread cost is React hydration of the whole home page (one chunk, about 1.2 s at 4x slowdown).
 - Done: the 3D scene and the scroll driver now start on the first interaction (pointer, key, touch, scroll) or after 8 s,
   not at load. Tried without effect: `font-display: optional`, delaying the driver by a timer (reverted).
-- Not done: shrinking hydration (split the home page into server components, island the story). Upgrade path to reach
-  LCP <= 2500 and performance >= 0.85.
+- Update (2026-11-24): the blocking time was not hydration but the WebGL capability probe (`getContext("webgl2")`), which
+  ran in a hydration effect and took about 1.4 s under CI's SwiftShader with 4x CPU slowdown. WebGL is now probed on the
+  first engagement, right before the scene mounts, and the 8 s timer is gone (no engagement = the static story). The
+  story beats and closing section are also server components now, so only the hero shell hydrates. CI run 45343070046
+  (commit 6bc60f9): home performance 0.86 / 0.93 / 0.95, TBT 287 / 120 / 86 ms, LCP 2.9-3.4 s; /evaluation 0.94-0.95.
+  Still above Google's 2.5 s LCP line (simulated throttling); the budget stays at 3.2 s.
 - Local Lighthouse against a build with `Cross-Origin-Opener-Policy: same-origin` fails with NO_NAVSTART (a known tracing
   limitation); CI's lhci run is unaffected.
 

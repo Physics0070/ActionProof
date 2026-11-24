@@ -21,7 +21,7 @@ CodeQuest 2026 submission by team **Bench Warmers**. This is a prototype on mock
 
 ## What is verified, and what is not
 
-Everything below is from real runs (CI on GitHub runners unless noted). Latest CI: eight of nine jobs green; the Lighthouse performance score on the landing page sits at the edge of its 0.75 budget (0.69 to 0.74 on recent runs, passing on others).
+Everything below is from real runs (CI on GitHub runners unless noted). Latest CI (commit 6bc60f9): all nine jobs green.
 
 | Area | Status | Evidence |
 |---|---|---|
@@ -35,7 +35,7 @@ Everything below is from real runs (CI on GitHub runners unless noted). Latest C
 | Commit protocol model (TLA+) | Verified, bounded | `TLA+ model check (TLC)` job: 108,483 states, no error (3 receipts, 2 keys, 1 token) |
 | Docker stack and reviewer console in a real browser | Verified | `e2e` job: 8 Playwright specs (login, replay, CSRF, approve, reject) |
 | Stress | Verified (local) | `tests/stress`, 10,000 operations plus racing threads; every invariant held |
-| Landing page budget | At the edge of a loosened budget | `lighthouse` job; LCP budget is 3.2 s, not Google's 2.5 s ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
+| Landing page budget | Verified: performance 0.86-0.95 on the home page, 0.94-0.95 on /evaluation (budget 0.75) | `lighthouse` job; LCP budget is 3.2 s, not Google's 2.5 s ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
 | Live LLM through the gate | Run once (Groq, `gpt-oss-120b`) | the real model read the documents, then made 6 approval calls; all were refused as malformed (`AP-VER-01`, fail closed) and none executed. The honest REVIEW path was not reached live ([docs/LIVE_AGENT.md](docs/LIVE_AGENT.md)) |
 | Remote audit anchor | **Not verified** | tested only against a local stub; no tamper-proof (WORM) claim |
 | Independent attack evaluation | **Not independent** | the attack sets are written by the builders |
