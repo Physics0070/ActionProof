@@ -15,11 +15,13 @@
 
 **▶ [Demo video, 3:56](https://drive.google.com/file/d/1WGbfcB77erVYhtZpjipzjeSNNzMJZMeM/view?usp=sharing)** · **[Live demo](https://actionproof-bw-web.onrender.com)**
 
+<p align="center"><a href="https://drive.google.com/file/d/1WGbfcB77erVYhtZpjipzjeSNNzMJZMeM/view?usp=sharing"><img src="docs/screenshots/video-thumb.png" alt="Watch the 3:56 demo video" width="720"></a></p>
+
 CodeQuest 2026 submission by team **Bench Warmers**. This is a prototype on mock services: no real credentials, no real payments.
 
 ## What is verified, and what is not
 
-Everything below is from real runs (CI on GitHub runners unless noted). Last full CI run: all nine jobs green.
+Everything below is from real runs (CI on GitHub runners unless noted). Latest CI: eight of nine jobs green; the Lighthouse performance score on the landing page sits at the edge of its 0.75 budget (0.69 to 0.74 on recent runs, passing on others).
 
 | Area | Status | Evidence |
 |---|---|---|
@@ -33,7 +35,7 @@ Everything below is from real runs (CI on GitHub runners unless noted). Last ful
 | Commit protocol model (TLA+) | Verified, bounded | `TLA+ model check (TLC)` job: 108,483 states, no error (3 receipts, 2 keys, 1 token) |
 | Docker stack and reviewer console in a real browser | Verified | `e2e` job: 8 Playwright specs (login, replay, CSRF, approve, reject) |
 | Stress | Verified (local) | `tests/stress`, 10,000 operations plus racing threads; every invariant held |
-| Landing page budget | Passes a loosened budget | `lighthouse` job; LCP budget is 3.2 s, not Google's 2.5 s ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
+| Landing page budget | At the edge of a loosened budget | `lighthouse` job; LCP budget is 3.2 s, not Google's 2.5 s ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) |
 | Live LLM through the gate | **Not verified** | needs a provider key; the offline test uses a scripted stand-in ([docs/LIVE_AGENT.md](docs/LIVE_AGENT.md)) |
 | Remote audit anchor | **Not verified** | tested only against a local stub; no tamper-proof (WORM) claim |
 | Independent attack evaluation | **Not independent** | the attack sets are written by the builders |
@@ -71,6 +73,8 @@ ActionProof closes them with two guarantees, each backed by named tests:
 | **Audit log.** Every decision is hash-chained; Verify chain re-computes the chain and its signed checkpoints on the server. | **Evaluation.** 0 of 211 attacks executed, against four baselines (numbers rendered from `eval/results.json`). |
 
 <p align="center"><img src="docs/screenshots/landing-mobile.png" alt="Landing page on a phone" width="260"></p>
+
+<p align="center"><img src="docs/screenshots/demo-attacks.png" alt="demo.sh output: injected PDF, replay, concurrent cap, hijacked refund and self-approval are all denied" width="760"></p>
 
 `demo.sh` plays every beat against the real gate and exits 0 only if each produced its expected outcome: the honest invoice pauses for review and a different person approves it; an injected PDF is denied; a replayed approval is denied; two concurrent $4,900 approvals under a $5,000 cap let exactly one through; a second connector (refunds) hits the same gate; and the audit chain verifies.
 
